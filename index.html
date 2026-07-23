@@ -389,8 +389,8 @@
       <input id="adminPass" type="password" placeholder="كلمة السر">
       <button class="btn" id="adminLoginBtn">دخول</button>
       <div id="adminMsg"></div>
+      <button class="btn secondary" onclick="show('screen-teacher-login')">🧑‍🏫 تسجيل دخول كأستاذ</button>
     </div>
-
     <div id="adminPanel" class="hidden">
       <div class="card" id="loggedInAsCard" style="display:flex;align-items:center;justify-content:space-between;">
         <p style="color:#10203f;font-weight:bold;margin:0;" id="loggedInAsText"></p>
@@ -491,13 +491,39 @@
         <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
         <div class="card">
           <h3>🎫 توليد أكواد تفعيل</h3>
-          <p style="margin-bottom:12px;">كل كود صالح لمدة <b>شهر واحد فقط</b>، ومخصص لمرحلة دراسية واحدة، ويرتبط تلقائياً باسم ورقم أول طالب يستخدمه.</p>
-          <label>المرحلة الدراسية المخصصة لهذه الأكواد</label>
+          <label>المرحلة الدراسية</label>
           <select id="codeGrade"></select>
+          <label>المادة</label>
+          <input id="codeSubject" placeholder="مثال: رياضيات">
+          <label>الأستاذ (اختياري)</label>
+          <select id="codeTeacher"><option value="">بدون تحديد</option></select>
+          <label>مدة الاشتراك</label>
+          <select id="codeDuration">
+            <option value="30">شهر واحد</option>
+            <option value="90" selected>3 أشهر</option>
+            <option value="120">فصل دراسي (4 أشهر)</option>
+            <option value="270">سنة دراسية كاملة (9 أشهر)</option>
+            <option value="365">سنة كاملة (12 شهر)</option>
+          </select>
           <label>عدد الأكواد</label>
           <input id="codeCount" type="number" value="5" min="1" max="50">
           <button class="btn" id="genCodesBtn">توليد أكواد</button>
           <div id="codesOutput"></div>
+        </div>
+
+        <div class="card">
+          <h3>📋 كل الأكواد والمشتركين</h3>
+          <label>ابحث برقم الهاتف</label>
+          <input id="codeSearchPhone" placeholder="07xxxxxxxxx">
+          <button class="btn secondary" id="searchCodesBtn">بحث</button>
+          <button class="btn secondary" id="showAllCodesBtn">عرض الكل</button>
+          <div id="codesListAdmin" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="card">
+          <h3>📊 إحصائيات المشتركين</h3>
+          <button class="btn secondary" id="loadStatsBtn">تحديث الإحصائيات</button>
+          <div id="subscriberStats" style="margin-top:10px;"></div>
         </div>
 
         <div class="card">
@@ -511,7 +537,8 @@
         <div class="card">
           <h3>🧑‍🏫 إضافة مدرّس</h3>
           <input id="tchName" placeholder="اسم المدرّس">
-          <input id="tchSubject" placeholder="المادة (مثال: رياضيات)">
+          <input id="tchPhone" type="tel" placeholder="رقم هاتف المدرّس">
+          <input id="tchPass" placeholder="كلمة السر">
           <button class="btn" id="addTeacherBtn">إضافة مدرّس</button>
         </div>
         <div class="card">
@@ -547,6 +574,30 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- دخول الأستاذ -->
+  <div class="screen hidden" id="screen-teacher-login">
+    <button class="btn secondary" onclick="show('screen-admin')">← رجوع</button>
+    <div class="card">
+      <h3>🧑‍🏫 دخول الأستاذ</h3>
+      <label>رقم الهاتف</label>
+      <input id="teacherPhone" type="tel" placeholder="07xxxxxxxxx">
+      <label>كلمة السر</label>
+      <input id="teacherPass" type="password" placeholder="كلمة السر">
+      <button class="btn" id="teacherLoginBtn">دخول</button>
+      <div id="teacherLoginMsg"></div>
+    </div>
+  </div>
+
+  <!-- لوحة الأستاذ -->
+  <div class="screen hidden" id="screen-teacher-dashboard">
+    <button class="btn secondary" onclick="show('screen-teacher-login')">⏻ خروج</button>
+    <div class="card">
+      <h3 id="teacherWelcomeText"></h3>
+      <p>قائمة الطلاب المشتركين بموادك عبر الأكواد المرتبطة باسمك</p>
+    </div>
+    <div id="teacherSubsList"></div>
   </div>
 
   <div class="card hidden" id="installBanner" style="position:fixed;bottom:70px;left:12px;right:12px;max-width:456px;margin:0 auto;z-index:60;border:1px solid #cda44e;">
@@ -629,6 +680,16 @@ function isActivationValid() {
   return true;
 }
 
+function formatRemainingTime(expiryMs) {
+  const diff = expiryMs - Date.now();
+  if (diff <= 0) return 'منتهي';
+  const totalMinutes = Math.floor(diff / 60000);
+  const days = Math.floor(totalMinutes / (60*24));
+  const hours = Math.floor((totalMinutes % (60*24)) / 60);
+  const minutes = totalMinutes % 60;
+  return `${days} يوم ${hours} ساعة ${minutes} دقيقة`;
+}
+
 function afterLogin() {
   document.getElementById('bottomNav').classList.remove('hidden');
   if (!isActivationValid()) {
@@ -654,8 +715,9 @@ document.getElementById('activateBtn').onclick = async () => {
       return;
     }
     const durationDays = codeData.durationDays || 30;
-    const expiry = Date.now() + durationDays * 24 * 60 * 60 * 1000;
-    await codeDoc.ref.update({ used:true, usedBy: currentStudent.phone, usedByName: currentStudent.name });
+    const now = Date.now();
+    const expiry = now + durationDays * 24 * 60 * 60 * 1000;
+    await codeDoc.ref.update({ used:true, usedBy: currentStudent.phone, usedByName: currentStudent.name, activatedAt: now, expiryAt: expiry });
     await db.collection('students').doc(currentStudent.id).update({ activated:true, activationExpiry: expiry });
     currentStudent.activated = true;
     currentStudent.activationExpiry = expiry;
@@ -689,10 +751,10 @@ async function loadHome() {
 
   const banner = document.getElementById('statusBanner');
   if (isActivationValid()) {
-    const expiryText = currentStudent.activationExpiry
-      ? ` (حتى ${new Date(currentStudent.activationExpiry).toLocaleDateString('ar-EG')})`
+    const remainingText = currentStudent.activationExpiry
+      ? ` — الوقت المتبقي: ${formatRemainingTime(currentStudent.activationExpiry)}`
       : '';
-    banner.innerHTML = `<div class="msg ok">اشتراكك مفعّل ✅${expiryText} — مرحباً ${currentStudent.name}</div>`;
+    banner.innerHTML = `<div class="msg ok">اشتراكك مفعّل ✅${remainingText}<br>مرحباً ${currentStudent.name}</div>`;
   } else if (currentStudent.activated && currentStudent.activationExpiry) {
     banner.innerHTML = `<div class="msg err">انتهت صلاحية اشتراكك — الدروس المجانية فقط متاحة. <span onclick="show('screen-activate')" style="text-decoration:underline;cursor:pointer;">جدّد الآن</span></div>`;
   } else {
@@ -1061,6 +1123,7 @@ function enterAdminPanel() {
   loadBooksAdmin();
   loadOrdersAdmin();
   loadTeachersAdmin();
+  loadCodesAdmin();
   db.collection('settings').doc('library').get().then(doc => {
     if (doc.exists && doc.data().phone) document.getElementById('libraryPhoneInput').value = doc.data().phone;
   });
@@ -1116,27 +1179,35 @@ document.getElementById('addQuestionBtn').onclick = async () => {
 // ---------- إدارة المدرسين ----------
 document.getElementById('addTeacherBtn').onclick = async () => {
   const name = document.getElementById('tchName').value.trim();
-  const subject = document.getElementById('tchSubject').value.trim();
-  if (!name) { alert('اكتب اسم المدرّس'); return; }
-  await db.collection('teachers').add({ name, subject, addedBy: currentStaffName, createdAt: Date.now() });
+  const phone = document.getElementById('tchPhone').value.trim();
+  const password = document.getElementById('tchPass').value;
+  if (!name || !phone || !password) { alert('عبّئ اسم المدرّس ورقم الهاتف وكلمة السر'); return; }
+  const existing = await db.collection('teachers').where('phone','==',phone).limit(1).get();
+  if (!existing.empty) { alert('يوجد مدرّس بنفس رقم الهاتف مسبقاً'); return; }
+  await db.collection('teachers').add({ name, phone, password, addedBy: currentStaffName, createdAt: Date.now() });
   alert(`تمت الإضافة ✅ — بواسطة: ${currentStaffName}`);
-  document.getElementById('tchName').value=''; document.getElementById('tchSubject').value='';
+  document.getElementById('tchName').value=''; document.getElementById('tchPhone').value=''; document.getElementById('tchPass').value='';
   loadTeachersAdmin();
 };
 async function loadTeachersAdmin() {
   const snap = await db.collection('teachers').orderBy('createdAt','desc').get();
   const list = document.getElementById('teachersList');
+  // تعبئة قائمة اختيار الأستاذ بنموذج توليد الأكواد
+  const teacherSelect = document.getElementById('codeTeacher');
+  if (teacherSelect) {
+    teacherSelect.innerHTML = '<option value="">بدون تحديد</option>' + snap.docs.map(d => `<option>${d.data().name}</option>`).join('');
+  }
   if (snap.empty) { list.innerHTML = '<p>لا يوجد مدرسين مضافين بعد.</p>'; return; }
   list.innerHTML = snap.docs.map(d => {
     const t = d.data();
     return `<div class="admin-list-item">
-      <div><b>${t.name}</b>${t.subject ? ' — '+t.subject : ''}<br><span style="color:#888;">أضافه: ${t.addedBy||'—'}</span></div>
+      <div><b>${t.name}</b><br><span style="color:#888;">📞 ${t.phone} &nbsp;|&nbsp; 🔑 ${t.password}</span><br><span style="color:#888;">أضافه: ${t.addedBy||'—'}</span></div>
       <button class="small-btn" onclick="deleteTeacher('${d.id}')">🗑️ حذف</button>
     </div>`;
   }).join('');
 }
 async function deleteTeacher(id) {
-  if (!confirm('حذف هذا المدرّس؟')) return;
+  if (!confirm('حذف هذا المدرّس؟ لن يتمكن من الدخول بعد الحذف.')) return;
   await db.collection('teachers').doc(id).delete();
   loadTeachersAdmin();
 }
@@ -1434,18 +1505,24 @@ function generateCode() {
 document.getElementById('genCodesBtn').onclick = async () => {
   const count = +document.getElementById('codeCount').value || 5;
   const grade = document.getElementById('codeGrade').value;
-  const durationDays = 30; // كل كود صالح لمدة شهر واحد فقط
+  const subject = document.getElementById('codeSubject').value.trim();
+  const teacherSelect = document.getElementById('codeTeacher');
+  const teacherName = teacherSelect.value || null;
+  const durationDays = +document.getElementById('codeDuration').value;
+  const durationLabel = document.getElementById('codeDuration').selectedOptions[0].textContent;
+  if (!subject) { alert('اكتب اسم المادة'); return; }
   const codes = [];
   for (let i=0;i<count;i++) {
     const code = generateCode();
     codes.push(code);
-    await db.collection('codes').add({ code, used:false, grade, durationDays, createdAt: Date.now() });
+    await db.collection('codes').add({ code, used:false, grade, subject, teacherName, durationDays, createdAt: Date.now() });
   }
   document.getElementById('codesOutput').innerHTML = codes.map(c => `
     <div class="code-badge" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-      <span id="code-text-${c}">${c} <span style="opacity:.7;">(${grade} — شهر واحد)</span></span>
+      <span id="code-text-${c}">${c} <span style="opacity:.7;">(${grade} — ${subject}${teacherName?' — '+teacherName:''} — ${durationLabel})</span></span>
       <button class="small-btn copy-code-btn" data-code="${c}">📋 نسخ</button>
     </div>`).join('');
+  loadCodesAdmin();
 };
 
 document.getElementById('codesOutput').addEventListener('click', async (e) => {
@@ -1469,6 +1546,112 @@ document.getElementById('codesOutput').addEventListener('click', async (e) => {
   btn.style.background = '#dcfce7'; btn.style.color = '#15803d';
   btn.disabled = true;
 });
+
+// ---------- قائمة الأكواد وإدارتها ----------
+function renderCodesList(docs) {
+  const list = document.getElementById('codesListAdmin');
+  if (docs.length === 0) { list.innerHTML = '<p>لا توجد نتائج.</p>'; return; }
+  list.innerHTML = docs.map(d => {
+    const c = d.data();
+    const remaining = c.expiryAt ? formatRemainingTime(c.expiryAt) : '—';
+    const style = c.used ? (c.expiryAt && Date.now() > c.expiryAt ? 'background:#fef2f2;border-color:#fecaca;' : 'background:#ecfdf3;border-color:#86efac;') : '';
+    return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;${style}">
+      <div style="margin-bottom:6px;">
+        <b>${c.code}</b><br>
+        <span style="color:#888;">${c.grade||'—'} — ${c.subject||'—'}${c.teacherName ? ' — أ. '+c.teacherName : ''}</span><br>
+        ${c.used
+          ? `👤 ${c.usedByName} — 📞 ${c.usedBy}<br>⏳ الوقت المتبقي: <b>${remaining}</b>`
+          : `<span style="color:#a6842e;">غير مستخدم بعد</span>`}
+      </div>
+      ${c.used ? `<div style="display:flex;gap:6px;">
+        <input id="extendDays-${d.id}" type="number" placeholder="عدد أيام إضافية" style="margin-bottom:0;flex:1;">
+        <button class="small-btn" onclick="extendCode('${d.id}')">✏️ تمديد</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('showAllCodesBtn').onclick = async () => {
+  const snap = await db.collection('codes').orderBy('createdAt','desc').limit(100).get();
+  renderCodesList(snap.docs);
+};
+document.getElementById('searchCodesBtn').onclick = async () => {
+  const phone = document.getElementById('codeSearchPhone').value.trim();
+  if (!phone) { alert('اكتب رقم الهاتف للبحث'); return; }
+  const snap = await db.collection('codes').where('usedBy','==',phone).get();
+  renderCodesList(snap.docs);
+};
+async function loadCodesAdmin() {
+  const snap = await db.collection('codes').orderBy('createdAt','desc').limit(100).get();
+  renderCodesList(snap.docs);
+}
+async function extendCode(codeId) {
+  const extraDays = +document.getElementById(`extendDays-${codeId}`).value;
+  if (!extraDays) { alert('اكتب عدد الأيام الإضافية'); return; }
+  const codeDoc = await db.collection('codes').doc(codeId).get();
+  const c = codeDoc.data();
+  const base = (c.expiryAt && c.expiryAt > Date.now()) ? c.expiryAt : Date.now();
+  const newExpiry = base + extraDays * 24 * 60 * 60 * 1000;
+  await db.collection('codes').doc(codeId).update({ expiryAt: newExpiry });
+  if (c.usedBy) {
+    await db.collection('students').doc(c.usedBy).update({ activated:true, activationExpiry: newExpiry });
+  }
+  alert('تم تمديد الاشتراك ✅');
+  loadCodesAdmin();
+}
+
+// ---------- إحصائيات المشتركين ----------
+document.getElementById('loadStatsBtn').onclick = async () => {
+  const snap = await db.collection('codes').where('used','==',true).get();
+  const total = snap.size;
+  const byGrade = {}, bySubject = {};
+  snap.docs.forEach(d => {
+    const c = d.data();
+    if (c.grade) byGrade[c.grade] = (byGrade[c.grade]||0) + 1;
+    if (c.subject) bySubject[c.subject] = (bySubject[c.subject]||0) + 1;
+  });
+  const gradeRows = Object.entries(byGrade).map(([g,n]) => `<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>${g}</span><b>${n}</b></div>`).join('');
+  const subjectRows = Object.entries(bySubject).map(([s,n]) => `<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>${s}</span><b>${n}</b></div>`).join('');
+  document.getElementById('subscriberStats').innerHTML = `
+    <div class="stat-box" style="margin-bottom:12px;"><div class="num">${total}</div><div class="label">إجمالي المشتركين بالمنصة</div></div>
+    <p style="font-weight:bold;color:#10203f;margin-bottom:6px;">حسب المرحلة:</p>${gradeRows || '<p>لا يوجد</p>'}
+    <p style="font-weight:bold;color:#10203f;margin:10px 0 6px;">حسب المادة:</p>${subjectRows || '<p>لا يوجد</p>'}
+  `;
+};
+
+// ---------- دخول ولوحة الأستاذ ----------
+let currentTeacher = null;
+document.getElementById('teacherLoginBtn').onclick = async () => {
+  const phone = document.getElementById('teacherPhone').value.trim();
+  const pass = document.getElementById('teacherPass').value;
+  if (!phone || !pass) { setMsg('teacherLoginMsg','عبّئ رقم الهاتف وكلمة السر', false); return; }
+  const q = await db.collection('teachers').where('phone','==',phone).limit(1).get();
+  if (q.empty) { setMsg('teacherLoginMsg','رقم الهاتف غير مسجّل', false); return; }
+  const t = q.docs[0].data();
+  if (t.password !== pass) { setMsg('teacherLoginMsg','كلمة السر غير صحيحة', false); return; }
+  currentTeacher = t;
+  document.getElementById('teacherWelcomeText').textContent = `👋 مرحباً أستاذ ${t.name}`;
+  await loadTeacherSubs();
+  show('screen-teacher-dashboard');
+};
+async function loadTeacherSubs() {
+  const snap = await db.collection('codes').where('teacherName','==', currentTeacher.name).where('used','==',true).get();
+  const list = document.getElementById('teacherSubsList');
+  if (snap.empty) { list.innerHTML = '<div class="card"><p>لا يوجد طلاب مشتركين بموادك حالياً.</p></div>'; return; }
+  const bySubject = {};
+  snap.docs.forEach(d => {
+    const c = d.data();
+    const key = `${c.subject} — ${c.grade}`;
+    if (!bySubject[key]) bySubject[key] = [];
+    bySubject[key].push(c);
+  });
+  list.innerHTML = Object.entries(bySubject).map(([key, subs]) => `
+    <div class="card">
+      <h3>${key} <span style="color:#a6842e;">(${subs.length})</span></h3>
+      ${subs.map(c => `<div class="lesson-row"><div class="title">${c.usedByName}<br><span style="color:#8a90a3;font-size:12px;">${c.usedBy}</span></div><div style="font-size:12px;color:#8a90a3;">${c.expiryAt ? formatRemainingTime(c.expiryAt) : ''}</div></div>`).join('')}
+    </div>`).join('');
+}
+
 async function loadRequestsAdmin() {
   const snap = await db.collection('activationRequests').where('status','==','pending').orderBy('createdAt','desc').get();
   const list = document.getElementById('requestsAdminList');
