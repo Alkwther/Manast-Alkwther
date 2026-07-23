@@ -1308,6 +1308,43 @@ function nextSevenAM(ts) {
   return candidate.getTime();
 }
 
+function buildOrderBlock(o) {
+  const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
+  return [
+    '————————————————',
+    `👤 الاسم: ${o.studentName}`,
+    `📞 الهاتف: ${o.phone}${o.altPhone ? ' / '+o.altPhone : ''}`,
+    `📍 العنوان: ${o.province} - ${o.district}`,
+    `📦 الطلب: ${itemsText}`,
+    `💰 المجموع: ${o.totalPrice} د.ع (مواد: ${o.subtotal||o.totalPrice} + توصيل: ${o.deliveryFee||0})`,
+    `🕒 الوقت: ${formatOrderTime(o.createdAt)}`,
+    '————————————————'
+  ].join('\n');
+}
+
+// محاولة نسخ قوية: الحافظة الحديثة ← طريقة بديلة قديمة ← نافذة نسخ يدوية كحل أخير
+async function robustCopy(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch(err) { /* نكمل للطريقة البديلة */ }
+  try {
+    const temp = document.createElement('textarea');
+    temp.value = text;
+    temp.style.position = 'fixed'; temp.style.opacity = '0';
+    document.body.appendChild(temp);
+    temp.focus(); temp.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(temp);
+    if (ok) return true;
+  } catch(err) { /* نكمل للطريقة الأخيرة */ }
+  // حل أخير: نافذة نصية تقدر تنسخ منها يدوياً (اضغط مطولاً ← تحديد الكل ← نسخ)
+  prompt('انسخ النص التالي يدوياً (اضغط مطولاً على النص ثم "تحديد الكل" ثم "نسخ"):', text);
+  return false;
+}
+
 async function loadOrdersAdmin() {
   const snap = await db.collection('orders').orderBy('createdAt','desc').limit(50).get();
   const list = document.getElementById('ordersAdminList');
@@ -1337,6 +1374,7 @@ async function loadOrdersAdmin() {
         الحالة: <b>${ORDER_STATUS_LABELS[o.status]||o.status}</b>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="small-btn" onclick="copySingleOrder('${id}')">📋 نسخ</button>
         <button class="small-btn" onclick="setOrderStatus('${id}','delivering')">🚚 قيد التوصيل</button>
         <button class="small-btn" onclick="setOrderStatus('${id}','completed')">✅ تم التسليم</button>
         <button class="small-btn" onclick="setOrderStatus('${id}','cancelled')">❌ إلغاء</button>
@@ -1345,6 +1383,16 @@ async function loadOrdersAdmin() {
     </div>`;
   }).join('');
 }
+
+async function copySingleOrder(id) {
+  const doc = await db.collection('orders').doc(id).get();
+  if (!doc.exists) return;
+  const o = doc.data();
+  await robustCopy(buildOrderBlock(o));
+  await db.collection('orders').doc(id).update({ status:'processing', processingAt: Date.now() });
+  loadOrdersAdmin();
+}
+
 async function setOrderStatus(id, status) {
   const update = { status };
   if (status === 'processing') update.processingAt = Date.now();
@@ -1360,29 +1408,9 @@ async function deleteOrder(id) {
 document.getElementById('copyAllOrdersBtn').onclick = async () => {
   const snap = await db.collection('orders').where('status','==','pending').orderBy('createdAt','asc').get();
   if (snap.empty) { alert('لا توجد طلبات جديدة بانتظار النسخ.'); return; }
-  const blocks = snap.docs.map(d => {
-    const o = d.data();
-    const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
-    return [
-      '————————————————',
-      `👤 الاسم: ${o.studentName}`,
-      `📞 الهاتف: ${o.phone}${o.altPhone ? ' / '+o.altPhone : ''}`,
-      `📍 العنوان: ${o.province} - ${o.district}`,
-      `📦 الطلب: ${itemsText}`,
-      `💰 المجموع: ${o.totalPrice} د.ع (مواد: ${o.subtotal||o.totalPrice} + توصيل: ${o.deliveryFee||0})`,
-      `🕒 الوقت: ${formatOrderTime(o.createdAt)}`,
-      '————————————————'
-    ].join('\n');
-  });
-  const fullText = blocks.join('\n\n');
-  try {
-    await navigator.clipboard.writeText(fullText);
-  } catch(err) {
-    const temp = document.createElement('textarea');
-    temp.value = fullText; document.body.appendChild(temp); temp.select();
-    document.execCommand('copy'); document.body.removeChild(temp);
-  }
-  // تحديث كل الطلبات المنسوخة إلى "قيد التنفيذ"
+  const fullText = snap.docs.map(d => buildOrderBlock(d.data())).join('\n\n');
+  await robustCopy(fullText);
+  // تحديث كل الطلبات المنسوخة إلى "قيد التنفيذ" — يتم دائماً بغض النظر عن نجاح النسخ التلقائي
   const now = Date.now();
   await Promise.all(snap.docs.map(d => db.collection('orders').doc(d.id).update({ status:'processing', processingAt: now })));
   const btn = document.getElementById('copyAllOrdersBtn');
