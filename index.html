@@ -177,7 +177,7 @@
       <div class="badge">دخول</div>
     </div>
 
-    <div class="subject-tile" onclick="show('screen-login')">
+    <div class="subject-tile" onclick="openStudentLogin()">
       <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🎓</span><div><b>تسجيل / دخول الطالب</b><br><span style="font-size:12px;color:#8a90a3;">سجّل حساب جديد أو ادخل بحسابك</span></div></div>
       <div class="badge">دخول</div>
     </div>
@@ -249,26 +249,6 @@
       <label>المرحلة الدراسية</label>
       <select id="loginGrade">
         <option value="">اختر المرحلة</option>
-        <option>الخامس ابتدائي</option>
-        <option>السادس ابتدائي</option>
-        <option>الأول متوسط</option>
-        <option>الثاني متوسط</option>
-        <option>الثالث متوسط</option>
-        <option>الرابع علمي</option>
-        <option>الرابع أدبي</option>
-        <option>الخامس علمي</option>
-        <option>الخامس أدبي</option>
-        <option>السادس علمي</option>
-        <option>السادس أدبي</option>
-        <option>الرابع الصناعي</option>
-        <option>الخامس الصناعي</option>
-        <option>السادس الصناعي</option>
-        <option>الرابع التجاري</option>
-        <option>الخامس التجاري</option>
-        <option>السادس التجاري</option>
-        <option>الرابع الزراعي</option>
-        <option>الخامس الزراعي</option>
-        <option>السادس الزراعي</option>
       </select>
       <div id="loginMsg"></div>
       <button class="btn" id="loginBtn">دخول / تسجيل</button>
@@ -453,6 +433,11 @@
           <div class="admin-menu-text"><b>الطلاب المسجلين</b><span>قائمة الطلاب وحالة اشتراكاتهم</span></div>
           <div class="admin-menu-arrow">‹</div>
         </div>
+        <div class="admin-menu-item admin-only hidden" data-section="active-grades" data-permission="ownerOnly">
+          <div class="admin-menu-icon">🏫</div>
+          <div class="admin-menu-text"><b>الصفوف المتاحة الآن</b><span>تحديد الصفوف التي تدرّسها المنصة حالياً</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
       </div>
 
       <div class="admin-section" data-section="lessons">
@@ -605,6 +590,16 @@
           <div id="studentsAdminList" style="margin-top:10px;"></div>
         </div>
       </div>
+
+      <div class="admin-section hidden" data-section="active-grades">
+        <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <div class="card">
+          <h3>🏫 الصفوف المتاحة الآن</h3>
+          <p>حدد الصفوف اللي تدرّسها المنصة حالياً — بس هذي الصفوف تظهر للطالب عند التسجيل، وباقي الصفوف تضل تحت تحكمك أنت والموظفين فقط.</p>
+          <div id="activeGradesChecklist" style="margin:12px 0;"></div>
+          <button class="btn" id="saveActiveGradesBtn">حفظ</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -627,9 +622,63 @@
     <button class="btn secondary" onclick="show('screen-teacher-login')">⏻ خروج</button>
     <div class="card">
       <h3 id="teacherWelcomeText"></h3>
-      <p>قائمة الطلاب المشتركين بموادك عبر الأكواد المرتبطة باسمك</p>
+      <p>أضف صفوفك وتابع طلابك وملفاتك من هنا</p>
     </div>
-    <div id="teacherSubsList"></div>
+    <div class="card">
+      <h3>➕ إضافة صف تدرّسه</h3>
+      <label>المرحلة الدراسية</label>
+      <select id="tchClassGrade"></select>
+      <label>المادة</label>
+      <input id="tchClassSubject" placeholder="مثال: رياضيات">
+      <button class="btn" id="addTeacherClassBtn">إضافة الصف</button>
+    </div>
+    <h3 style="margin-bottom:10px;color:#10203f;">📚 صفوفي</h3>
+    <div id="teacherClassesList"></div>
+  </div>
+
+  <!-- تفاصيل صف الأستاذ -->
+  <div class="screen hidden" id="screen-teacher-class">
+    <button class="btn secondary" onclick="show('screen-teacher-dashboard')">← رجوع لصفوفي</button>
+    <div class="card">
+      <h3 id="teacherClassTitle"></h3>
+      <p id="teacherClassStudentCount"></p>
+    </div>
+
+    <div class="card">
+      <h3>📄 إضافة ملف PDF</h3>
+      <input id="tchFileTitle" placeholder="اسم الملف (مثال: ملزمة الفصل الأول)">
+      <input id="tchFileUrl" placeholder="رابط الملف (PDF)">
+      <button class="btn" id="addTeacherFileBtn">إضافة الملف</button>
+    </div>
+    <div id="teacherFilesList"></div>
+
+    <div class="card">
+      <h3>📝 إضافة نشاط / سؤال</h3>
+      <label>نوع النشاط</label>
+      <select id="tchActivityType">
+        <option value="mcq">سؤال وخيارات (يُصحح تلقائياً)</option>
+        <option value="qa">سؤال وجواب نموذجي</option>
+        <option value="question_only">سؤال فقط (بدون إجابة)</option>
+      </select>
+      <textarea id="tchActivityText" rows="2" placeholder="نص السؤال"></textarea>
+      <div id="tchActivityMcqFields">
+        <input id="tchActOpt1" placeholder="خيار 1">
+        <input id="tchActOpt2" placeholder="خيار 2">
+        <input id="tchActOpt3" placeholder="خيار 3">
+        <input id="tchActOpt4" placeholder="خيار 4">
+        <select id="tchActCorrect">
+          <option value="0">الإجابة الصحيحة: خيار 1</option>
+          <option value="1">الإجابة الصحيحة: خيار 2</option>
+          <option value="2">الإجابة الصحيحة: خيار 3</option>
+          <option value="3">الإجابة الصحيحة: خيار 4</option>
+        </select>
+      </div>
+      <div id="tchActivityAnswerField" class="hidden">
+        <textarea id="tchActivityAnswer" rows="2" placeholder="الإجابة النموذجية"></textarea>
+      </div>
+      <button class="btn" id="addTeacherActivityBtn">إضافة النشاط</button>
+    </div>
+    <div id="teacherActivitiesList"></div>
   </div>
 
   <div class="card hidden" id="installBanner" style="position:fixed;bottom:70px;left:12px;right:12px;max-width:456px;margin:0 auto;z-index:60;border:1px solid #cda44e;">
@@ -688,6 +737,13 @@ function setMsg(el, text, ok) {
 // ---------- تسجيل الدخول ----------
 function generateSessionToken() {
   return 'sess-' + Date.now() + '-' + Math.random().toString(36).substring(2, 12);
+}
+
+async function openStudentLogin() {
+  const activeList = await getActiveGradesList();
+  const select = document.getElementById('loginGrade');
+  select.innerHTML = '<option value="">اختر المرحلة</option>' + activeList.map(g => `<option>${g}</option>`).join('');
+  show('screen-login');
 }
 
 document.getElementById('loginBtn').onclick = async () => {
@@ -975,9 +1031,65 @@ async function openSubject(subject) {
     `).join('');
   }
   list.insertAdjacentHTML('beforeend', `<div class="card" style="margin-top:14px;"><button class="btn" onclick="startQuiz()">📝 ابدأ اختبار المادة</button></div>`);
+  await loadStudentTeacherFiles(subject, sub ? sub.teacherName : null);
+  await loadStudentActivities(subject, sub ? sub.teacherName : null);
   show('screen-lessons');
 }
 document.getElementById('backToHome1').onclick = () => show('screen-home');
+
+async function loadStudentTeacherFiles(subject, teacherName) {
+  let q = db.collection('teacherFiles').where('grade','==', currentStudent.grade).where('subject','==', subject);
+  if (teacherName) q = q.where('teacherName','==', teacherName);
+  const snap = await q.get();
+  if (snap.empty) return;
+  const html = `<h3 style="margin:14px 0 8px;color:#10203f;">📄 ملفات الأستاذ</h3>` + snap.docs.map(d => {
+    const f = d.data();
+    return `<div class="lesson-row"><div class="title">${f.title}<br><span style="font-size:12px;color:#8a90a3;">أ. ${f.teacherName||'—'}</span></div><button class="play" onclick="downloadTeacherFile('${d.id}','${f.pdfUrl}')">📥 تحميل</button></div>`;
+  }).join('');
+  document.getElementById('lessonsList').insertAdjacentHTML('beforeend', html);
+}
+async function downloadTeacherFile(fileId, url) {
+  try { await db.collection('teacherFiles').doc(fileId).update({ downloadCount: firebase.firestore.FieldValue.increment(1) }); } catch(e) { console.error(e); }
+  window.open(url, '_blank');
+}
+
+async function loadStudentActivities(subject, teacherName) {
+  let q = db.collection('activities').where('grade','==', currentStudent.grade).where('subject','==', subject);
+  if (teacherName) q = q.where('teacherName','==', teacherName);
+  const snap = await q.get();
+  if (snap.empty) return;
+  const html = `<h3 style="margin:14px 0 8px;color:#10203f;">📝 أنشطة الأستاذ</h3>` + snap.docs.map(d => {
+    const a = d.data();
+    if (a.type === 'mcq') {
+      return `<div class="q-card">
+        <div class="qtext">${a.text}</div>
+        ${a.options.map((o,i) => `<div class="option" id="act-opt-${d.id}-${i}" onclick="answerActivity('${d.id}',${i},${a.correctIndex})">${o}</div>`).join('')}
+        <div id="act-result-${d.id}" style="margin-top:8px;font-weight:bold;"></div>
+      </div>`;
+    } else if (a.type === 'qa') {
+      return `<div class="q-card">
+        <div class="qtext">${a.text}</div>
+        <button class="small-btn" onclick="document.getElementById('act-answer-${d.id}').classList.toggle('hidden')">🔍 إظهار الإجابة النموذجية</button>
+        <p id="act-answer-${d.id}" class="hidden" style="margin-top:8px;color:#5a6072;">${a.modelAnswer || 'ما فيه إجابة نموذجية مكتوبة'}</p>
+      </div>`;
+    } else {
+      return `<div class="q-card"><div class="qtext">${a.text}</div></div>`;
+    }
+  }).join('');
+  document.getElementById('lessonsList').insertAdjacentHTML('beforeend', html);
+}
+function answerActivity(activityId, chosenIndex, correctIndex) {
+  const resultEl = document.getElementById(`act-result-${activityId}`);
+  for (let i=0;i<4;i++) {
+    const el = document.getElementById(`act-opt-${activityId}-${i}`);
+    if (!el) continue;
+    el.onclick = null;
+    if (i === correctIndex) el.classList.add('correct');
+    else if (i === chosenIndex) el.classList.add('wrong');
+  }
+  resultEl.textContent = chosenIndex === correctIndex ? '✅ إجابة صحيحة!' : '❌ إجابة خاطئة';
+  resultEl.style.color = chosenIndex === correctIndex ? '#15803d' : '#dc2626';
+}
 
 let videoBackTarget = 'screen-lessons';
 async function playLesson(lessonId, backTarget) {
@@ -1307,6 +1419,7 @@ function enterAdminPanel() {
   loadOrdersAdmin();
   loadTeachersAdmin();
   loadCodesAdmin();
+  loadActiveGradesAdmin();
   db.collection('settings').doc('library').get().then(doc => {
     if (doc.exists && doc.data().phone) document.getElementById('libraryPhoneInput').value = doc.data().phone;
   });
@@ -1806,6 +1919,7 @@ document.getElementById('loadStatsBtn').onclick = async () => {
 
 // ---------- دخول ولوحة الأستاذ ----------
 let currentTeacher = null;
+let currentTeacherClass = null; // { id, grade, subject }
 document.getElementById('teacherLoginBtn').onclick = async () => {
   const phone = document.getElementById('teacherPhone').value.trim();
   const pass = document.getElementById('teacherPass').value;
@@ -1816,25 +1930,110 @@ document.getElementById('teacherLoginBtn').onclick = async () => {
   if (t.password !== pass) { setMsg('teacherLoginMsg','كلمة السر غير صحيحة', false); return; }
   currentTeacher = t;
   document.getElementById('teacherWelcomeText').textContent = `👋 مرحباً أستاذ ${t.name}`;
-  await loadTeacherSubs();
+  const activeList = await getActiveGradesList();
+  document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
+  await loadTeacherClasses();
   show('screen-teacher-dashboard');
 };
-async function loadTeacherSubs() {
-  const snap = await db.collection('codes').where('teacherName','==', currentTeacher.name).where('used','==',true).get();
-  const list = document.getElementById('teacherSubsList');
-  if (snap.empty) { list.innerHTML = '<div class="card"><p>لا يوجد طلاب مشتركين بموادك حالياً.</p></div>'; return; }
-  const bySubject = {};
-  snap.docs.forEach(d => {
+
+document.getElementById('addTeacherClassBtn').onclick = async () => {
+  const grade = document.getElementById('tchClassGrade').value;
+  const subject = document.getElementById('tchClassSubject').value.trim();
+  if (!subject) { alert('اكتب اسم المادة'); return; }
+  await db.collection('teacherClasses').add({ teacherName: currentTeacher.name, teacherPhone: currentTeacher.phone, grade, subject, createdAt: Date.now() });
+  document.getElementById('tchClassSubject').value = '';
+  loadTeacherClasses();
+};
+
+async function loadTeacherClasses() {
+  const snap = await db.collection('teacherClasses').where('teacherPhone','==', currentTeacher.phone).get();
+  const list = document.getElementById('teacherClassesList');
+  if (snap.empty) { list.innerHTML = '<div class="card"><p>لسا ما أضفت أي صف. أضف صف من الأعلى.</p></div>'; return; }
+  const rows = await Promise.all(snap.docs.map(async d => {
     const c = d.data();
-    const key = `${c.subject} — ${c.grade}`;
-    if (!bySubject[key]) bySubject[key] = [];
-    bySubject[key].push(c);
-  });
-  list.innerHTML = Object.entries(bySubject).map(([key, subs]) => `
-    <div class="card">
-      <h3>${key} <span style="color:#a6842e;">(${subs.length})</span></h3>
-      ${subs.map(c => `<div class="lesson-row"><div class="title">${c.usedByName}<br><span style="color:#8a90a3;font-size:12px;">${c.usedBy}</span></div><div style="font-size:12px;color:#8a90a3;">${c.expiryAt ? formatRemainingTime(c.expiryAt) : ''}</div></div>`).join('')}
+    const subsSnap = await db.collection('codes').where('teacherName','==', currentTeacher.name).where('grade','==', c.grade).where('subject','==', c.subject).where('used','==',true).get();
+    return { id: d.id, ...c, studentCount: subsSnap.size };
+  }));
+  list.innerHTML = rows.map(c => `
+    <div class="subject-tile" onclick="openTeacherClass('${c.id}','${c.grade.replace(/'/g,"\\'")}','${c.subject.replace(/'/g,"\\'")}')">
+      <div>📘 ${c.subject} — ${c.grade}</div>
+      <div class="badge">${c.studentCount} طالب</div>
     </div>`).join('');
+}
+
+async function openTeacherClass(classId, grade, subject) {
+  currentTeacherClass = { id: classId, grade, subject };
+  document.getElementById('teacherClassTitle').textContent = `📘 ${subject} — ${grade}`;
+  const subsSnap = await db.collection('codes').where('teacherName','==', currentTeacher.name).where('grade','==', grade).where('subject','==', subject).where('used','==',true).get();
+  document.getElementById('teacherClassStudentCount').textContent = `👥 عدد الطلاب المشتركين: ${subsSnap.size}`;
+  await loadTeacherFiles();
+  await loadTeacherActivities();
+  show('screen-teacher-class');
+}
+
+document.getElementById('tchActivityType').addEventListener('change', (e) => {
+  const type = e.target.value;
+  document.getElementById('tchActivityMcqFields').classList.toggle('hidden', type !== 'mcq');
+  document.getElementById('tchActivityAnswerField').classList.toggle('hidden', type !== 'qa');
+});
+
+document.getElementById('addTeacherFileBtn').onclick = async () => {
+  const title = document.getElementById('tchFileTitle').value.trim();
+  const pdfUrl = document.getElementById('tchFileUrl').value.trim();
+  if (!title || !pdfUrl) { alert('عبّئ اسم الملف والرابط'); return; }
+  await db.collection('teacherFiles').add({
+    teacherName: currentTeacher.name, grade: currentTeacherClass.grade, subject: currentTeacherClass.subject,
+    title, pdfUrl, downloadCount: 0, createdAt: Date.now()
+  });
+  document.getElementById('tchFileTitle').value=''; document.getElementById('tchFileUrl').value='';
+  loadTeacherFiles();
+};
+async function loadTeacherFiles() {
+  const snap = await db.collection('teacherFiles')
+    .where('teacherName','==', currentTeacher.name)
+    .where('grade','==', currentTeacherClass.grade)
+    .where('subject','==', currentTeacherClass.subject).get();
+  const list = document.getElementById('teacherFilesList');
+  if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد ملفات مضافة لهذا الصف بعد.</p></div>'; return; }
+  list.innerHTML = '<div class="card"><h3>📄 ملفاتك بهذا الصف</h3>' + snap.docs.map(d => {
+    const f = d.data();
+    return `<div class="lesson-row"><div class="title">${f.title}</div><div style="font-size:12px;color:#8a90a3;">📥 ${f.downloadCount||0} تحميل</div></div>`;
+  }).join('') + '</div>';
+}
+
+document.getElementById('addTeacherActivityBtn').onclick = async () => {
+  const type = document.getElementById('tchActivityType').value;
+  const text = document.getElementById('tchActivityText').value.trim();
+  if (!text) { alert('اكتب نص السؤال'); return; }
+  const activity = {
+    teacherName: currentTeacher.name, grade: currentTeacherClass.grade, subject: currentTeacherClass.subject,
+    type, text, createdAt: Date.now()
+  };
+  if (type === 'mcq') {
+    activity.options = [1,2,3,4].map(n => document.getElementById('tchActOpt'+n).value.trim());
+    activity.correctIndex = +document.getElementById('tchActCorrect').value;
+    if (activity.options.some(o=>!o)) { alert('عبّئ كل الخيارات'); return; }
+  } else if (type === 'qa') {
+    activity.modelAnswer = document.getElementById('tchActivityAnswer').value.trim();
+  }
+  await db.collection('activities').add(activity);
+  document.getElementById('tchActivityText').value='';
+  [1,2,3,4].forEach(n => document.getElementById('tchActOpt'+n).value='');
+  document.getElementById('tchActivityAnswer').value='';
+  loadTeacherActivities();
+};
+async function loadTeacherActivities() {
+  const snap = await db.collection('activities')
+    .where('teacherName','==', currentTeacher.name)
+    .where('grade','==', currentTeacherClass.grade)
+    .where('subject','==', currentTeacherClass.subject).get();
+  const list = document.getElementById('teacherActivitiesList');
+  const typeLabel = { mcq:'سؤال وخيارات', qa:'سؤال وجواب', question_only:'سؤال فقط' };
+  if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد أنشطة مضافة لهذا الصف بعد.</p></div>'; return; }
+  list.innerHTML = '<div class="card"><h3>📝 أنشطتك بهذا الصف</h3>' + snap.docs.map(d => {
+    const a = d.data();
+    return `<div class="lesson-row"><div class="title">${a.text}<br><span style="font-size:12px;color:#8a90a3;">${typeLabel[a.type]}</span></div></div>`;
+  }).join('') + '</div>';
 }
 
 async function loadRequestsAdmin() {
@@ -2039,6 +2238,25 @@ document.getElementById('searchStudentsBtn').onclick = async () => {
   const doc = await db.collection('students').doc(phone).get();
   renderStudentsList(doc.exists ? [doc] : []);
 };
+// ---------- الصفوف المتاحة الآن ----------
+async function loadActiveGradesAdmin() {
+  const doc = await db.collection('settings').doc('activeGrades').get();
+  const activeList = doc.exists ? (doc.data().grades || []) : GRADES; // افتراضياً كل الصفوف متاحة لو ما تم التحديد بعد
+  document.getElementById('activeGradesChecklist').innerHTML = GRADES.map(g => `
+    <label style="display:flex;align-items:center;gap:8px;font-weight:normal;">
+      <input type="checkbox" class="activeGradeCheck" value="${g}" style="width:auto;margin:0;" ${activeList.includes(g) ? 'checked' : ''}> ${g}
+    </label>`).join('');
+}
+document.getElementById('saveActiveGradesBtn').onclick = async () => {
+  const grades = Array.from(document.querySelectorAll('.activeGradeCheck:checked')).map(cb => cb.value);
+  await db.collection('settings').doc('activeGrades').set({ grades });
+  alert('تم حفظ الصفوف المتاحة ✅');
+};
+async function getActiveGradesList() {
+  const doc = await db.collection('settings').doc('activeGrades').get();
+  return doc.exists ? (doc.data().grades || GRADES) : GRADES;
+}
+
 async function loadStudentsAdmin() {
   const snap = await db.collection('students').orderBy('createdAt','desc').limit(50).get();
   renderStudentsList(snap.docs);
