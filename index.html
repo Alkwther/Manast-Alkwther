@@ -283,7 +283,9 @@
     </div>
     <div class="card">
       <h3>💳 ليس عندك كود؟</h3>
-      <p>حوّل مبلغ الاشتراك عبر زين كاش أو أي محفظة، ثم أرسل إيصال الدفع مباشرة وسنفعّل اشتراكك بعد المراجعة.</p>
+      <p>اختر المادة (أو المواد) اللي تريد تشترك فيها، وحوّل مبلغ الاشتراك عبر زين كاش أو أي محفظة، ثم أرسل إيصال الدفع مباشرة وسنفعّل اشتراكك بعد المراجعة.</p>
+      <label>المواد المطلوبة</label>
+      <div id="requestSubjectsList" style="margin-bottom:12px;"></div>
       <div id="requestMsg"></div>
       <button class="btn" id="sendPaymentRequestBtn">📩 أرسل طلب تفعيل + الإيصال عبر واتساب</button>
     </div>
@@ -751,22 +753,36 @@ document.getElementById('activateBtn').onclick = async () => {
 document.getElementById('skipActivateBtn').onclick = () => { show('screen-home'); loadHome(); };
 
 document.getElementById('sendPaymentRequestBtn').onclick = async () => {
+  const requestedSubjects = Array.from(document.querySelectorAll('.reqSubjectCheck:checked')).map(cb => cb.value);
+  if (requestedSubjects.length === 0) { setMsg('requestMsg','اختر مادة واحدة على الأقل', false); return; }
   try {
     await db.collection('activationRequests').add({
       studentPhone: currentStudent.phone,
       studentName: currentStudent.name,
       grade: currentStudent.grade,
+      requestedSubjects,
       status: 'pending',
       createdAt: Date.now()
     });
     setMsg('requestMsg','تم تسجيل طلبك، سيتم فتح واتساب لإرسال صورة الإيصال ✅', true);
-    const text = encodeURIComponent(`طلب تفعيل اشتراك - منصة الكوثر\nالاسم: ${currentStudent.name}\nالرقم: ${currentStudent.phone}\nالمرحلة: ${currentStudent.grade}\n(مرفق صورة إيصال الدفع)`);
+    const text = encodeURIComponent(`طلب تفعيل اشتراك - منصة الكوثر\nالاسم: ${currentStudent.name}\nالرقم: ${currentStudent.phone}\nالمرحلة: ${currentStudent.grade}\nالمواد المطلوبة: ${requestedSubjects.join('، ')}\n(مرفق صورة إيصال الدفع)`);
     setTimeout(() => { window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank'); }, 500);
   } catch(e) { setMsg('requestMsg','خطأ بالاتصال', false); console.error(e); }
 };
 
+async function loadRequestSubjectOptions() {
+  const snap = await db.collection('lessons').where('grade','==', currentStudent.grade).get();
+  const subjects = [...new Set(snap.docs.map(d=>d.data().subject))];
+  const container = document.getElementById('requestSubjectsList');
+  if (!container) return;
+  container.innerHTML = subjects.length
+    ? subjects.map(s => `<label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" class="reqSubjectCheck" value="${s}" style="width:auto;margin:0;"> ${s}</label>`).join('')
+    : '<p style="font-size:13px;color:#8a90a3;">لا توجد مواد مضافة لمرحلتك بعد.</p>';
+}
+
 // ---------- الرئيسية ----------
 async function loadHome() {
+  loadRequestSubjectOptions();
   document.getElementById('statQuizzes').textContent = currentStudent.quizzesTaken || 0;
   const avg = currentStudent.quizzesTaken ? Math.round((currentStudent.totalScore / currentStudent.quizzesTaken)) : 0;
   document.getElementById('statAvg').textContent = avg + '%';
@@ -1709,24 +1725,76 @@ async function loadRequestsAdmin() {
   const snap = await db.collection('activationRequests').where('status','==','pending').orderBy('createdAt','desc').get();
   const list = document.getElementById('requestsAdminList');
   if (snap.empty) { list.innerHTML = '<p>لا توجد طلبات معلّقة.</p>'; return; }
+  const teachersSnap = await db.collection('teachers').get();
+  const teacherOptions = '<option value="">بدون تحديد</option>' + teachersSnap.docs.map(t => `<option>${t.data().name}</option>`).join('');
+  const durationOptions = `
+    <option value="30">شهر واحد</option>
+    <option value="90" selected>3 أشهر</option>
+    <option value="120">فصل دراسي</option>
+    <option value="270">سنة دراسية</option>
+    <option value="365">سنة كاملة</option>`;
+
   list.innerHTML = snap.docs.map(d => {
     const r = d.data();
+    const requestedSubjects = r.requestedSubjects || [];
+    const handled = r.handledSubjects || {};
+    const subjectsHtml = requestedSubjects.map((subject, i) => {
+      if (handled[subject]) {
+        return `<div class="lesson-row" style="background:#ecfdf3;border:1px solid #86efac;">
+          <div class="title">✅ ${subject}</div>
+          <div style="font-size:12px;color:#15803d;">تم توليد الكود: ${handled[subject].code}</div>
+        </div>`;
+      }
+      return `<div class="lesson-row" style="flex-direction:column;align-items:stretch;">
+        <div class="title" style="margin-bottom:6px;">📘 ${subject}</div>
+        <select id="reqTeacher-${d.id}-${i}">${teacherOptions}</select>
+        <select id="reqDuration-${d.id}-${i}">${durationOptions}</select>
+        <button class="small-btn" style="margin-top:4px;" onclick="generateCodeForRequest('${d.id}','${r.studentPhone}','${subject.replace(/'/g,"\\'")}',${i})">🎫 توليد كود لهذي المادة</button>
+      </div>`;
+    }).join('');
     return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
-      <div style="margin-bottom:8px;">${r.studentName} — ${r.grade}<br><span style="color:#888;">${r.studentPhone}</span></div>
-      <div style="display:flex;gap:6px;">
-        <button class="small-btn" onclick="approveRequest('${d.id}','${r.studentPhone}')">✅ موافقة (شهر واحد)</button>
+      <div style="margin-bottom:8px;"><b>${r.studentName}</b> — ${r.grade}<br><span style="color:#888;">${r.studentPhone}</span></div>
+      ${subjectsHtml || '<p style="font-size:12px;color:#8a90a3;">هذا الطالب ما حدد مواد بطلبه.</p>'}
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button class="small-btn" onclick="finishRequest('${d.id}')">✅ إنهاء الطلب</button>
         <button class="small-btn" onclick="rejectRequest('${d.id}')">❌ رفض</button>
       </div>
     </div>`;
   }).join('');
 }
-async function approveRequest(reqId, studentPhone) {
-  const durationDays = 30; // كل تفعيل صالح لمدة شهر واحد فقط
-  const expiry = Date.now() + durationDays * 24 * 60 * 60 * 1000;
-  await db.collection('students').doc(studentPhone).update({ activated: true, activationExpiry: expiry });
-  await db.collection('activationRequests').doc(reqId).update({ status: 'approved', durationDays });
+
+async function generateCodeForRequest(reqId, phone, subject, index) {
+  const teacherName = document.getElementById(`reqTeacher-${reqId}-${index}`).value || null;
+  const durationDays = +document.getElementById(`reqDuration-${reqId}-${index}`).value;
+
+  const reqDoc = await db.collection('activationRequests').doc(reqId).get();
+  const r = reqDoc.data();
+  const studentDoc = await db.collection('students').doc(phone).get();
+  const student = studentDoc.data();
+
+  const code = generateCode();
+  const now = Date.now();
+  const expiry = now + durationDays * 24 * 60 * 60 * 1000;
+  await db.collection('codes').add({
+    code, grade: r.grade, subject, teacherName, durationDays,
+    used: true, usedBy: phone, usedByName: r.studentName,
+    activatedAt: now, expiryAt: expiry, createdAt: now
+  });
+  const subscriptions = student.subscriptions || {};
+  subscriptions[subject] = { teacherName, grade: r.grade, activatedAt: now, expiryAt: expiry, code };
+  await db.collection('students').doc(phone).update({ subscriptions, activated: true });
+
+  const handled = r.handledSubjects || {};
+  handled[subject] = { code, teacherName, durationDays };
+  await db.collection('activationRequests').doc(reqId).update({ handledSubjects: handled });
+
+  alert(`تم توليد الكود ✅\n${code}\nمادة: ${subject}${teacherName ? ' — أ. '+teacherName : ''}\nالمدة: ${durationDays} يوم`);
   loadRequestsAdmin();
-  alert('تم تفعيل اشتراك الطالب ✅ — لمدة شهر واحد');
+}
+
+async function finishRequest(reqId) {
+  await db.collection('activationRequests').doc(reqId).update({ status: 'approved' });
+  loadRequestsAdmin();
 }
 async function rejectRequest(reqId) {
   await db.collection('activationRequests').doc(reqId).update({ status: 'rejected' });
@@ -1734,9 +1802,16 @@ async function rejectRequest(reqId) {
 }
 const pendingCodesToAdd = {}; // { phone: [code1, code2, ...] }
 
-function renderStudentsList(docs) {
+async function renderStudentsList(docs) {
   const list = document.getElementById('studentsAdminList');
   if (docs.length === 0) { list.innerHTML = '<p>لا توجد نتائج.</p>'; return; }
+  const pendingSnap = await db.collection('activationRequests').where('status','==','pending').get();
+  const pendingByPhone = {};
+  pendingSnap.docs.forEach(d => {
+    const r = d.data();
+    if (!pendingByPhone[r.studentPhone]) pendingByPhone[r.studentPhone] = [];
+    pendingByPhone[r.studentPhone].push(r);
+  });
   list.innerHTML = docs.map(d => {
     const s = d.data();
     const subs = s.subscriptions || {};
@@ -1747,12 +1822,17 @@ function renderStudentsList(docs) {
           return `${subject}${sub.teacherName ? ' (أ. '+sub.teacherName+')' : ''}: ${expired ? 'منتهي' : formatRemainingTime(sub.expiryAt)}`;
         }).join(' — ')
       : 'لا يوجد اشتراكات';
+    const pendingReqs = pendingByPhone[s.phone] || [];
+    const pendingText = pendingReqs.length
+      ? pendingReqs.map(r => `📩 طلب معلّق — المواد: ${(r.requestedSubjects||[]).join('، ') || 'غير محددة'}`).join('<br>')
+      : '';
     return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
         <div>
           <b>${s.name}</b> — ${s.grade}<br>
           <span style="color:#888;">${s.phone}</span><br>
           <span style="color:#888;font-size:12px;">${subsText}</span>
+          ${pendingText ? `<br><span style="color:#b8903c;font-size:12px;">${pendingText}</span>` : ''}
         </div>
         <button class="small-btn" onclick="toggleEditStudent('${s.phone}')">✏️ تعديل</button>
       </div>
