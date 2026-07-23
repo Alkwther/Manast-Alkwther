@@ -235,11 +235,28 @@
   <!-- شاشة تسجيل الدخول -->
   <div class="screen hidden" id="screen-login">
     <button class="btn secondary" onclick="show('screen-welcome')">← رجوع</button>
-    <div class="card">
-      <h3>مرحباً بك 👋</h3>
-      <p>سجّل بياناتك أول مرة، أو ادخل بنفس رقمك وكلمة سرك إذا عندك حساب من قبل</p>
+    <div class="card" style="text-align:center;">
+      <h3 style="border:none;padding:0;justify-content:center;">مرحباً بك 👋</h3>
     </div>
-    <div class="card">
+
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button class="admin-tab active" id="loginModeTab" style="flex:1;">🔑 تسجيل الدخول</button>
+      <button class="admin-tab" id="registerModeTab" style="flex:1;">📝 تسجيل جديد</button>
+    </div>
+
+    <!-- تسجيل الدخول (طالب مسجل من قبل) -->
+    <div class="card" id="loginModeFields">
+      <p style="margin-bottom:12px;">ادخل بنفس رقم هاتفك وكلمة سرك</p>
+      <label>رقم الهاتف</label>
+      <input id="loginOnlyPhone" placeholder="07xxxxxxxxx" type="tel">
+      <label>كلمة السر</label>
+      <input id="loginOnlyPassword" type="password" inputmode="numeric" maxlength="6" placeholder="مثال: 123456">
+      <div id="loginOnlyMsg"></div>
+      <button class="btn" id="loginOnlyBtn">دخول</button>
+    </div>
+
+    <!-- تسجيل حساب جديد -->
+    <div class="card hidden" id="registerModeFields">
       <label>الاسم الثلاثي</label>
       <input id="loginName" placeholder="مثال: أحمد علي محمد">
       <label>رقم الهاتف (واتساب)</label>
@@ -257,7 +274,7 @@
         <select id="loginTeacher"><option value="">اختر</option></select>
       </div>
       <div id="loginMsg"></div>
-      <button class="btn" id="loginBtn">تسجيل / دخول</button>
+      <button class="btn" id="loginBtn">إرسال</button>
     </div>
   </div>
 
@@ -747,20 +764,56 @@ async function openStudentLogin() {
   const teachersSnap = await db.collection('teachers').get();
   document.getElementById('loginTeacher').innerHTML = '<option value="">اختر</option>' + teachersSnap.docs.map(t => `<option>${t.data().name}</option>`).join('');
   document.getElementById('loginSubject').innerHTML = '<option value="">اختر المرحلة أولاً</option>';
+  switchLoginTab('login');
   show('screen-login');
 }
+
+function switchLoginTab(mode) {
+  document.getElementById('loginModeTab').classList.toggle('active', mode === 'login');
+  document.getElementById('registerModeTab').classList.toggle('active', mode === 'register');
+  document.getElementById('loginModeFields').classList.toggle('hidden', mode !== 'login');
+  document.getElementById('registerModeFields').classList.toggle('hidden', mode !== 'register');
+}
+document.getElementById('loginModeTab').onclick = () => switchLoginTab('login');
+document.getElementById('registerModeTab').onclick = () => switchLoginTab('register');
 
 document.getElementById('loginGrade').addEventListener('change', async (e) => {
   const grade = e.target.value;
   const subjectSelect = document.getElementById('loginSubject');
   if (!grade) { subjectSelect.innerHTML = '<option value="">اختر المرحلة أولاً</option>'; return; }
-  const snap = await db.collection('lessons').where('grade','==', grade).get();
-  const subjects = [...new Set(snap.docs.map(d=>d.data().subject))];
+  let subjects = await getGradeSubjectsList(grade);
+  if (subjects.length === 0) {
+    const snap = await db.collection('lessons').where('grade','==', grade).get();
+    subjects = [...new Set(snap.docs.map(d=>d.data().subject))];
+  }
   subjectSelect.innerHTML = subjects.length
     ? '<option value="">اختر المادة</option>' + subjects.map(s => `<option>${s}</option>`).join('')
     : '<option value="">لا توجد مواد مضافة لهذي المرحلة بعد</option>';
 });
 
+// ---------- تسجيل الدخول (طالب مسجل من قبل) ----------
+document.getElementById('loginOnlyBtn').onclick = async () => {
+  const phone = document.getElementById('loginOnlyPhone').value.trim();
+  const password = document.getElementById('loginOnlyPassword').value;
+  if (!phone || !password) { setMsg('loginOnlyMsg','أدخل رقم الهاتف وكلمة السر', false); return; }
+  try {
+    const ref = db.collection('students').doc(phone);
+    const doc = await ref.get();
+    if (!doc.exists) { setMsg('loginOnlyMsg','ما فيه حساب بهذا الرقم، سجّل حساب جديد من تبويب "تسجيل جديد"', false); return; }
+    const existing = doc.data();
+    if (existing.password && existing.password !== password) {
+      setMsg('loginOnlyMsg','كلمة السر غير صحيحة', false); return;
+    }
+    const sessionToken = generateSessionToken();
+    await ref.update({ activeSession: sessionToken });
+    currentStudent = { id: phone, ...existing, activeSession: sessionToken };
+    localStorage.setItem('kawthar_phone', phone);
+    localStorage.setItem('kawthar_session', sessionToken);
+    afterLogin();
+  } catch(e) { setMsg('loginOnlyMsg','خطأ بالاتصال، تأكد من إعدادات Firebase', false); console.error(e); }
+};
+
+// ---------- تسجيل حساب جديد ----------
 document.getElementById('loginBtn').onclick = async () => {
   const name = document.getElementById('loginName').value.trim();
   const phone = document.getElementById('loginPhone').value.trim();
@@ -768,42 +821,28 @@ document.getElementById('loginBtn').onclick = async () => {
   const grade = document.getElementById('loginGrade').value;
   const subject = document.getElementById('loginSubject').value;
   const teacherName = document.getElementById('loginTeacher').value;
-  if (!phone || !password) { setMsg('loginMsg','أدخل رقم الهاتف وكلمة السر', false); return; }
+  if (!name || !phone || !grade) { setMsg('loginMsg','عبّئ الاسم ورقم الهاتف والصف', false); return; }
+  if (!/^\d{6}$/.test(password)) { setMsg('loginMsg','كلمة السر يجب أن تكون 6 أرقام بالضبط', false); return; }
+  if (!subject || !teacherName) { setMsg('loginMsg','اختر المادة واسم الأستاذ', false); return; }
   try {
     const ref = db.collection('students').doc(phone);
     const doc = await ref.get();
+    if (doc.exists) { setMsg('loginMsg','هذا الرقم مسجّل مسبقاً، ادخل من تبويب "تسجيل الدخول"', false); return; }
     const sessionToken = generateSessionToken();
-    if (doc.exists) {
-      // تسجيل دخول لحساب موجود
-      const existing = doc.data();
-      if (existing.password && existing.password !== password) {
-        setMsg('loginMsg','كلمة السر غير صحيحة', false); return;
-      }
-      await ref.update({ activeSession: sessionToken });
-      currentStudent = { id: phone, ...existing, activeSession: sessionToken };
-      localStorage.setItem('kawthar_phone', phone);
-      localStorage.setItem('kawthar_session', sessionToken);
-      afterLogin();
-    } else {
-      // تسجيل حساب جديد
-      if (!name || !grade) { setMsg('loginMsg','أول مرة تسجل؟ عبّئ الاسم والصف أيضاً', false); return; }
-      if (!/^\d{6}$/.test(password)) { setMsg('loginMsg','كلمة السر يجب أن تكون 6 أرقام بالضبط', false); return; }
-      if (!subject || !teacherName) { setMsg('loginMsg','اختر المادة واسم الأستاذ', false); return; }
-      const data = { name, phone, password, grade, activated:false, quizzesTaken:0, totalScore:0, lessonsWatched:[], activeSession: sessionToken, createdAt: Date.now() };
-      await ref.set(data);
-      currentStudent = { id: phone, ...data };
-      localStorage.setItem('kawthar_phone', phone);
-      localStorage.setItem('kawthar_session', sessionToken);
+    const data = { name, phone, password, grade, activated:false, quizzesTaken:0, totalScore:0, lessonsWatched:[], activeSession: sessionToken, createdAt: Date.now() };
+    await ref.set(data);
+    currentStudent = { id: phone, ...data };
+    localStorage.setItem('kawthar_phone', phone);
+    localStorage.setItem('kawthar_session', sessionToken);
 
-      await db.collection('activationRequests').add({
-        studentPhone: phone, studentName: name, grade,
-        requestedSubjects: [subject], teacherPreference: teacherName,
-        status: 'pending', createdAt: Date.now()
-      });
-      const text = encodeURIComponent(`طلب تسجيل جديد - منصة الكوثر\nاسم الطالب الثلاثي: ${name}\nرقم الهاتف: ${phone}\nالصف: ${grade}\nالمادة: ${subject}\nالأستاذ: ${teacherName}`);
-      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
-      show('screen-registration-done');
-    }
+    await db.collection('activationRequests').add({
+      studentPhone: phone, studentName: name, grade,
+      requestedSubjects: [subject], teacherPreference: teacherName,
+      status: 'pending', createdAt: Date.now()
+    });
+    const text = encodeURIComponent(`طلب تسجيل جديد - منصة الكوثر\nاسم الطالب الثلاثي: ${name}\nرقم الهاتف: ${phone}\nالصف: ${grade}\nالمادة: ${subject}\nالأستاذ: ${teacherName}`);
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
+    show('screen-registration-done');
   } catch(e) { setMsg('loginMsg','خطأ بالاتصال، تأكد من إعدادات Firebase', false); console.error(e); }
 };
 
@@ -2228,13 +2267,36 @@ document.getElementById('searchStudentsBtn').onclick = async () => {
   renderStudentsList(doc.exists ? [doc] : []);
 };
 // ---------- الصفوف المتاحة الآن ----------
+function gradeKey(grade) { return grade.replace(/[^a-zA-Z0-9أ-ي]/g,'_'); }
+
 async function loadActiveGradesAdmin() {
   const doc = await db.collection('settings').doc('activeGrades').get();
   const activeList = doc.exists ? (doc.data().grades || []) : GRADES; // افتراضياً كل الصفوف متاحة لو ما تم التحديد بعد
-  document.getElementById('activeGradesChecklist').innerHTML = GRADES.map(g => `
-    <label style="display:flex;align-items:center;gap:8px;font-weight:normal;">
-      <input type="checkbox" class="activeGradeCheck" value="${g}" style="width:auto;margin:0;" ${activeList.includes(g) ? 'checked' : ''}> ${g}
-    </label>`).join('');
+  const subjectsDoc = await db.collection('settings').doc('gradeSubjects').get();
+  const gradeSubjects = subjectsDoc.exists ? (subjectsDoc.data().bygrade || {}) : {};
+
+  document.getElementById('activeGradesChecklist').innerHTML = GRADES.map(g => {
+    const key = gradeKey(g);
+    const subjects = gradeSubjects[g] || [];
+    return `
+    <div style="background:#fff;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin:0;">
+          <input type="checkbox" class="activeGradeCheck" value="${g}" style="width:auto;margin:0;" ${activeList.includes(g) ? 'checked' : ''}> ${g}
+        </label>
+        <button class="small-btn" onclick="toggleGradeSubjectPanel('${key}')">➕ مادة (${subjects.length})</button>
+      </div>
+      <div id="gradeSubjectPanel-${key}" class="hidden" style="margin-top:10px;padding-top:10px;border-top:1px solid #f0e6cc;">
+        <div id="gradeSubjectChips-${key}" style="margin-bottom:8px;">
+          ${subjects.map((s,i) => `<span style="display:inline-flex;align-items:center;gap:6px;background:#eef1f8;border-radius:16px;padding:4px 10px;margin:2px;font-size:13px;">${s} <span style="cursor:pointer;color:#dc2626;" onclick="removeGradeSubject('${key}','${g.replace(/'/g,"\\'")}',${i})">✖</span></span>`).join('') || '<span style="font-size:12px;color:#8a90a3;">لا توجد مواد مضافة</span>'}
+        </div>
+        <div style="display:flex;gap:6px;">
+          <input id="gradeSubjectInput-${key}" placeholder="اكتب اسم المادة" style="margin-bottom:0;flex:1;">
+          <button class="small-btn" onclick="addGradeSubject('${key}','${g.replace(/'/g,"\\'")}')">إضافة</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
 document.getElementById('saveActiveGradesBtn').onclick = async () => {
   const grades = Array.from(document.querySelectorAll('.activeGradeCheck:checked')).map(cb => cb.value);
@@ -2244,6 +2306,39 @@ document.getElementById('saveActiveGradesBtn').onclick = async () => {
 async function getActiveGradesList() {
   const doc = await db.collection('settings').doc('activeGrades').get();
   return doc.exists ? (doc.data().grades || GRADES) : GRADES;
+}
+
+function toggleGradeSubjectPanel(key) {
+  document.getElementById(`gradeSubjectPanel-${key}`).classList.toggle('hidden');
+}
+async function addGradeSubject(key, grade) {
+  const input = document.getElementById(`gradeSubjectInput-${key}`);
+  const subject = input.value.trim();
+  if (!subject) return;
+  const doc = await db.collection('settings').doc('gradeSubjects').get();
+  const bygrade = doc.exists ? (doc.data().bygrade || {}) : {};
+  const current = bygrade[grade] || [];
+  if (current.length >= 10) { alert('الحد الأقصى 10 مواد لكل صف'); return; }
+  if (current.includes(subject)) { alert('هذي المادة مضافة مسبقاً لهذا الصف'); return; }
+  current.push(subject);
+  bygrade[grade] = current;
+  await db.collection('settings').doc('gradeSubjects').set({ bygrade });
+  input.value = '';
+  loadActiveGradesAdmin();
+}
+async function removeGradeSubject(key, grade, index) {
+  const doc = await db.collection('settings').doc('gradeSubjects').get();
+  const bygrade = doc.exists ? (doc.data().bygrade || {}) : {};
+  const current = bygrade[grade] || [];
+  current.splice(index, 1);
+  bygrade[grade] = current;
+  await db.collection('settings').doc('gradeSubjects').set({ bygrade });
+  loadActiveGradesAdmin();
+}
+async function getGradeSubjectsList(grade) {
+  const doc = await db.collection('settings').doc('gradeSubjects').get();
+  const bygrade = doc.exists ? (doc.data().bygrade || {}) : {};
+  return bygrade[grade] || [];
 }
 
 async function loadStudentsAdmin() {
