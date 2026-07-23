@@ -297,6 +297,8 @@
       <div class="stat-box"><div class="num" id="statAvg">0%</div><div class="label">متوسط الدرجات</div></div>
       <div class="stat-box"><div class="num" id="statLessons">0</div><div class="label">درس مشاهد</div></div>
     </div>
+    <h3 style="margin-bottom:10px;color:#10203f;">📋 اشتراكاتي</h3>
+    <div id="subscriptionsList"></div>
     <h3 style="margin-bottom:10px;color:#10203f;">المواد الدراسية</h3>
     <div id="subjectsList"></div>
   </div>
@@ -570,7 +572,11 @@
         <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
         <div class="card">
           <h3>👨‍🎓 الطلاب المسجلين</h3>
-          <div id="studentsAdminList"></div>
+          <label>ابحث برقم الهاتف</label>
+          <input id="studentSearchPhone" placeholder="07xxxxxxxxx">
+          <button class="btn secondary" id="searchStudentsBtn">بحث</button>
+          <button class="btn secondary" id="showAllStudentsBtn">عرض الكل</button>
+          <div id="studentsAdminList" style="margin-top:10px;"></div>
         </div>
       </div>
     </div>
@@ -674,10 +680,20 @@ document.getElementById('loginBtn').onclick = async () => {
   } catch(e) { setMsg('loginMsg','خطأ بالاتصال، تأكد من إعدادات Firebase', false); console.error(e); }
 };
 
+function getActiveSubscription(subject) {
+  if (!currentStudent || !currentStudent.subscriptions) return null;
+  const sub = currentStudent.subscriptions[subject];
+  if (!sub) return null;
+  if (sub.expiryAt && Date.now() > sub.expiryAt) return null;
+  return sub;
+}
+function hasAnyActiveSubscription() {
+  if (!currentStudent || !currentStudent.subscriptions) return false;
+  return Object.values(currentStudent.subscriptions).some(s => !s.expiryAt || Date.now() <= s.expiryAt);
+}
+// يبقى بنفس الاسم للتوافق مع أجزاء الكود الأخرى؛ الآن يتحقق من وجود أي اشتراك فعّال بمادة واحدة على الأقل
 function isActivationValid() {
-  if (!currentStudent || !currentStudent.activated) return false;
-  if (currentStudent.activationExpiry && Date.now() > currentStudent.activationExpiry) return false;
-  return true;
+  return hasAnyActiveSubscription();
 }
 
 function formatRemainingTime(expiryMs) {
@@ -688,6 +704,9 @@ function formatRemainingTime(expiryMs) {
   const hours = Math.floor((totalMinutes % (60*24)) / 60);
   const minutes = totalMinutes % 60;
   return `${days} يوم ${hours} ساعة ${minutes} دقيقة`;
+}
+function daysRemaining(expiryMs) {
+  return Math.ceil((expiryMs - Date.now()) / (24*60*60*1000));
 }
 
 function afterLogin() {
@@ -714,14 +733,18 @@ document.getElementById('activateBtn').onclick = async () => {
       setMsg('activateMsg', `هذا الكود مخصص لمرحلة "${codeData.grade}" فقط، وأنت مسجل بمرحلة "${currentStudent.grade}"`, false);
       return;
     }
+    const subject = codeData.subject || 'عام';
     const durationDays = codeData.durationDays || 30;
     const now = Date.now();
     const expiry = now + durationDays * 24 * 60 * 60 * 1000;
     await codeDoc.ref.update({ used:true, usedBy: currentStudent.phone, usedByName: currentStudent.name, activatedAt: now, expiryAt: expiry });
-    await db.collection('students').doc(currentStudent.id).update({ activated:true, activationExpiry: expiry });
+    const subscriptions = currentStudent.subscriptions || {};
+    subscriptions[subject] = { teacherName: codeData.teacherName || null, grade: codeData.grade, activatedAt: now, expiryAt: expiry, code: codeData.code };
+    await db.collection('students').doc(currentStudent.id).update({ subscriptions, activated:true, activationExpiry: expiry });
+    currentStudent.subscriptions = subscriptions;
     currentStudent.activated = true;
     currentStudent.activationExpiry = expiry;
-    setMsg('activateMsg','تم التفعيل بنجاح ✅ — هذا الكود صار مرتبط باسمك ورقمك فقط', true);
+    setMsg('activateMsg', `تم تفعيل اشتراك مادة "${subject}" بنجاح ✅ — هذا الكود صار مرتبط باسمك ورقمك فقط`, true);
     setTimeout(()=>{ show('screen-home'); loadHome(); }, 900);
   } catch(e) { setMsg('activateMsg','خطأ بالاتصال', false); console.error(e); }
 };
@@ -750,15 +773,38 @@ async function loadHome() {
   document.getElementById('statLessons').textContent = (currentStudent.lessonsWatched || []).length;
 
   const banner = document.getElementById('statusBanner');
-  if (isActivationValid()) {
-    const remainingText = currentStudent.activationExpiry
-      ? ` — الوقت المتبقي: ${formatRemainingTime(currentStudent.activationExpiry)}`
-      : '';
-    banner.innerHTML = `<div class="msg ok">اشتراكك مفعّل ✅${remainingText}<br>مرحباً ${currentStudent.name}</div>`;
-  } else if (currentStudent.activated && currentStudent.activationExpiry) {
-    banner.innerHTML = `<div class="msg err">انتهت صلاحية اشتراكك — الدروس المجانية فقط متاحة. <span onclick="show('screen-activate')" style="text-decoration:underline;cursor:pointer;">جدّد الآن</span></div>`;
+  const subs = currentStudent.subscriptions || {};
+  const subjectNames = Object.keys(subs);
+  if (subjectNames.length === 0) {
+    banner.innerHTML = `<div class="msg err">ما عندك أي اشتراك فعّال بعد — الدروس المجانية فقط متاحة. <span onclick="show('screen-activate')" style="text-decoration:underline;cursor:pointer;">فعّل بكود الآن</span></div>`;
   } else {
-    banner.innerHTML = `<div class="msg err">اشتراكك غير مفعّل — الدروس المجانية فقط متاحة. <span onclick="show('screen-activate')" style="text-decoration:underline;cursor:pointer;">فعّل الآن</span></div>`;
+    banner.innerHTML = `<div class="msg ok">مرحباً ${currentStudent.name} 👋 — عندك ${subjectNames.length} اشتراك، التفاصيل بالأسفل تحت "اشتراكاتي"</div>`;
+  }
+
+  // بطاقة الاشتراكات حسب المادة
+  const subsCard = document.getElementById('subscriptionsList');
+  if (subjectNames.length === 0) {
+    subsCard.innerHTML = '<div class="card"><p>لسا ما فعّلت أي اشتراك. فعّل بكود من صفحة "التفعيل".</p></div>';
+  } else {
+    subsCard.innerHTML = subjectNames.map(subject => {
+      const sub = subs[subject];
+      const expired = sub.expiryAt && Date.now() > sub.expiryAt;
+      const remainingDays = sub.expiryAt ? daysRemaining(sub.expiryAt) : null;
+      const isWarning = !expired && remainingDays !== null && remainingDays <= 7;
+      return `
+      <div class="subject-tile" onclick="toggleSubDetail('${subject.replace(/'/g,"\\'")}')" style="flex-direction:column;align-items:stretch;">
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+          <div>${expired ? '🔒' : '🔓'} ${subject}</div>
+          <div class="badge" style="${expired ? 'background:#dc2626;' : ''}">${expired ? 'منتهي' : 'فعّال'}</div>
+        </div>
+        <div id="subDetail-${subject.replace(/[^a-zA-Z0-9أ-ي]/g,'_')}" class="hidden" style="margin-top:10px;padding-top:10px;border-top:1px solid #f0e6cc;width:100%;">
+          <p>👨‍🏫 الأستاذ: <b>${sub.teacherName || 'غير محدد'}</b></p>
+          <p style="${isWarning || expired ? 'color:#dc2626;font-weight:bold;' : 'color:#5a6072;'}">
+            ${expired ? '⌛ الاشتراك منتهي' : `⏳ الأيام المتبقية: ${remainingDays} يوم (${formatRemainingTime(sub.expiryAt)})`}
+          </p>
+        </div>
+      </div>`;
+    }).join('');
   }
 
   const snap = await db.collection('lessons').where('grade','==', currentStudent.grade).get();
@@ -768,11 +814,18 @@ async function loadHome() {
     list.innerHTML = '<div class="card"><p>لا توجد مواد مضافة بعد لهذه المرحلة.</p></div>';
     return;
   }
-  list.innerHTML = subjects.map(s => `
+  list.innerHTML = subjects.map(s => {
+    const active = getActiveSubscription(s);
+    return `
     <div class="subject-tile" onclick="openSubject('${s.replace(/'/g,"\\'")}')">
-      <div>📘 ${s}</div>
+      <div>${active ? '🔓' : '🔒'} ${s}</div>
       <div class="badge">عرض</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+function toggleSubDetail(subject) {
+  const id = 'subDetail-' + subject.replace(/[^a-zA-Z0-9أ-ي]/g,'_');
+  document.getElementById(id).classList.toggle('hidden');
 }
 
 let currentSubject = null;
@@ -785,10 +838,10 @@ async function openSubject(subject) {
   else {
     list.innerHTML = snap.docs.map(d => {
       const l = d.data();
-      const locked = !l.free && !isActivationValid();
+      const locked = !l.free && !getActiveSubscription(subject);
       return `<div class="lesson-row">
         <div class="title">${locked?'🔒 ':''}${l.title}</div>
-        <button class="play" onclick="${locked? `alert('الدرس يتطلب تفعيل الاشتراك')`:`playLesson('${d.id}')`}">${locked?'مقفل':'مشاهدة'}</button>
+        <button class="play" onclick="${locked? `alert('هذا الدرس يتطلب تفعيل اشتراك مادة '+'${subject.replace(/'/g,"\\\\'")}')`:`playLesson('${d.id}')`}">${locked?'مقفل':'مشاهدة'}</button>
       </div>`;
     }).join('');
   }
@@ -843,7 +896,7 @@ document.getElementById('settingsBtn').onclick = () => show('screen-admin');
 // ---------- الاختبار ----------
 let quizQuestions = [], quizAnswers = {};
 async function startQuiz() {
-  if (!isActivationValid()) { alert('الاختبارات تتطلب تفعيل الاشتراك'); return; }
+  if (!getActiveSubscription(currentSubject)) { alert(`اختبار مادة ${currentSubject} يتطلب تفعيل اشتراك هذي المادة`); return; }
   const snap = await db.collection('questions').where('grade','==', currentStudent.grade).where('subject','==', currentSubject).get();
   quizQuestions = snap.docs.map(d => ({ id:d.id, ...d.data() }));
   quizAnswers = {};
@@ -1679,23 +1732,120 @@ async function rejectRequest(reqId) {
   await db.collection('activationRequests').doc(reqId).update({ status: 'rejected' });
   loadRequestsAdmin();
 }
-async function loadStudentsAdmin() {
-  const snap = await db.collection('students').orderBy('createdAt','desc').limit(50).get();
+const pendingCodesToAdd = {}; // { phone: [code1, code2, ...] }
+
+function renderStudentsList(docs) {
   const list = document.getElementById('studentsAdminList');
-  if (snap.empty) { list.innerHTML = '<p>لا يوجد طلاب مسجلين بعد.</p>'; return; }
-  list.innerHTML = snap.docs.map(d => {
+  if (docs.length === 0) { list.innerHTML = '<p>لا توجد نتائج.</p>'; return; }
+  list.innerHTML = docs.map(d => {
     const s = d.data();
-    const expired = s.activated && s.activationExpiry && Date.now() > s.activationExpiry;
-    let statusText = '❌ غير مفعّل';
-    if (s.activated && !expired) {
-      statusText = '✅ مفعّل' + (s.activationExpiry ? ` (حتى ${new Date(s.activationExpiry).toLocaleDateString('ar-EG')})` : '');
-    } else if (expired) {
-      statusText = '⌛ انتهت الصلاحية';
-    }
-    return `<div class="admin-list-item">
-      <div>${s.name} — ${s.grade}<br><span style="color:#888;">${s.phone} ${statusText}</span></div>
+    const subs = s.subscriptions || {};
+    const subEntries = Object.entries(subs);
+    const subsText = subEntries.length
+      ? subEntries.map(([subject, sub]) => {
+          const expired = sub.expiryAt && Date.now() > sub.expiryAt;
+          return `${subject}${sub.teacherName ? ' (أ. '+sub.teacherName+')' : ''}: ${expired ? 'منتهي' : formatRemainingTime(sub.expiryAt)}`;
+        }).join(' — ')
+      : 'لا يوجد اشتراكات';
+    return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div>
+          <b>${s.name}</b> — ${s.grade}<br>
+          <span style="color:#888;">${s.phone}</span><br>
+          <span style="color:#888;font-size:12px;">${subsText}</span>
+        </div>
+        <button class="small-btn" onclick="toggleEditStudent('${s.phone}')">✏️ تعديل</button>
+      </div>
+      <div id="editStudentPanel-${s.phone}" class="hidden" style="background:#f6f7fb;border-radius:10px;padding:10px;margin-top:6px;">
+        <p style="font-weight:bold;color:#10203f;margin-bottom:8px;">إضافة أكواد اشتراك لـ ${s.name} (حتى 10 أكواد)</p>
+        <div style="display:flex;gap:6px;">
+          <input id="newCodeInput-${s.phone}" placeholder="اكتب الكود هنا" style="margin-bottom:0;flex:1;">
+          <button class="small-btn" onclick="addPendingCode('${s.phone}')">➕ إضافة</button>
+        </div>
+        <div id="pendingCodesList-${s.phone}" style="margin-top:8px;"></div>
+        <button class="btn" style="margin-top:10px;" onclick="saveStudentCodes('${s.phone}')">💾 حفظ</button>
+      </div>
     </div>`;
   }).join('');
+}
+
+function toggleEditStudent(phone) {
+  const panel = document.getElementById(`editStudentPanel-${phone}`);
+  const opening = panel.classList.contains('hidden');
+  panel.classList.toggle('hidden');
+  if (opening) {
+    pendingCodesToAdd[phone] = [];
+    renderPendingCodes(phone);
+  }
+}
+function renderPendingCodes(phone) {
+  const codes = pendingCodesToAdd[phone] || [];
+  document.getElementById(`pendingCodesList-${phone}`).innerHTML = codes.map((c, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:8px;padding:6px 10px;margin-bottom:4px;">
+      <span>${c}</span><button class="small-btn" onclick="removePendingCode('${phone}',${i})">✖</button>
+    </div>`).join('') || '<p style="font-size:12px;color:#8a90a3;">لسا ما أضفت أي كود</p>';
+}
+function addPendingCode(phone) {
+  const input = document.getElementById(`newCodeInput-${phone}`);
+  const code = input.value.trim().toUpperCase();
+  if (!code) return;
+  if (!pendingCodesToAdd[phone]) pendingCodesToAdd[phone] = [];
+  if (pendingCodesToAdd[phone].length >= 10) { alert('الحد الأقصى 10 أكواد بالمرة الوحدة'); return; }
+  if (pendingCodesToAdd[phone].includes(code)) { alert('هذا الكود مضاف مسبقاً بالقائمة'); return; }
+  pendingCodesToAdd[phone].push(code);
+  input.value = '';
+  renderPendingCodes(phone);
+}
+function removePendingCode(phone, index) {
+  pendingCodesToAdd[phone].splice(index, 1);
+  renderPendingCodes(phone);
+}
+
+async function saveStudentCodes(phone) {
+  const codes = pendingCodesToAdd[phone] || [];
+  if (codes.length === 0) { alert('أضف كود واحد على الأقل'); return; }
+  const studentDoc = await db.collection('students').doc(phone).get();
+  if (!studentDoc.exists) { alert('الطالب غير موجود'); return; }
+  const student = studentDoc.data();
+  const subscriptions = student.subscriptions || {};
+  const results = [];
+
+  for (const code of codes) {
+    const q = await db.collection('codes').where('code','==',code).limit(1).get();
+    if (q.empty) { results.push(`❌ ${code}: كود غير موجود`); continue; }
+    const codeDoc = q.docs[0];
+    const c = codeDoc.data();
+    if (c.used) { results.push(`❌ ${code}: مستخدم مسبقاً`); continue; }
+    if (c.grade && c.grade !== student.grade) { results.push(`❌ ${code}: مخصص لمرحلة "${c.grade}" وليس "${student.grade}"`); continue; }
+    const subject = c.subject || 'عام';
+    const durationDays = c.durationDays || 30;
+    const now = Date.now();
+    const expiry = now + durationDays * 24 * 60 * 60 * 1000;
+    await codeDoc.ref.update({ used:true, usedBy: phone, usedByName: student.name, activatedAt: now, expiryAt: expiry });
+    subscriptions[subject] = { teacherName: c.teacherName || null, grade: c.grade, activatedAt: now, expiryAt: expiry, code: c.code };
+    results.push(`✅ ${code}: تفعيل مادة "${subject}"${c.teacherName ? ' — أ. '+c.teacherName : ''} لمدة ${durationDays} يوم`);
+  }
+
+  await db.collection('students').doc(phone).update({ subscriptions, activated:true });
+  alert(results.join('\n'));
+  pendingCodesToAdd[phone] = [];
+  toggleEditStudent(phone); // إغلاق اللوحة
+  loadStudentsAdmin();
+}
+
+document.getElementById('showAllStudentsBtn').onclick = async () => {
+  const snap = await db.collection('students').orderBy('createdAt','desc').limit(50).get();
+  renderStudentsList(snap.docs);
+};
+document.getElementById('searchStudentsBtn').onclick = async () => {
+  const phone = document.getElementById('studentSearchPhone').value.trim();
+  if (!phone) { alert('اكتب رقم الهاتف للبحث'); return; }
+  const doc = await db.collection('students').doc(phone).get();
+  renderStudentsList(doc.exists ? [doc] : []);
+};
+async function loadStudentsAdmin() {
+  const snap = await db.collection('students').orderBy('createdAt','desc').limit(50).get();
+  renderStudentsList(snap.docs);
 }
 
 // ---------- تثبيت التطبيق (PWA) ----------
