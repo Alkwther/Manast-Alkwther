@@ -240,32 +240,33 @@
       <p>سجّل بياناتك أول مرة، أو ادخل بنفس رقمك وكلمة سرك إذا عندك حساب من قبل</p>
     </div>
     <div class="card">
-      <label>الاسم الكامل</label>
-      <input id="loginName" placeholder="مثال: أحمد علي">
+      <label>الاسم الثلاثي</label>
+      <input id="loginName" placeholder="مثال: أحمد علي محمد">
       <label>رقم الهاتف (واتساب)</label>
       <input id="loginPhone" placeholder="07xxxxxxxxx" type="tel">
-      <label>كلمة السر</label>
-      <input id="loginPassword" type="password" placeholder="اختر كلمة سر لحسابك">
-      <label>المرحلة الدراسية</label>
+      <label>كلمة السر (6 أرقام)</label>
+      <input id="loginPassword" type="password" inputmode="numeric" maxlength="6" placeholder="مثال: 123456">
+      <label>الصف</label>
       <select id="loginGrade">
         <option value="">اختر المرحلة</option>
       </select>
+      <div id="loginRegisterOnlyFields">
+        <label>المادة</label>
+        <select id="loginSubject"><option value="">اختر المرحلة أولاً</option></select>
+        <label>اسم الأستاذ</label>
+        <select id="loginTeacher"><option value="">اختر</option></select>
+      </div>
       <div id="loginMsg"></div>
-      <button class="btn" id="loginBtn">دخول / تسجيل</button>
+      <button class="btn" id="loginBtn">تسجيل / دخول</button>
     </div>
   </div>
 
-  <!-- اختيار المواد والأستاذ عند التسجيل الأول -->
-  <div class="screen hidden" id="screen-first-request">
-    <div class="card">
-      <h3>📚 اختر المواد اللي تريد تشترك فيها</h3>
-      <p>حدد مادة أو أكثر، وراح نرسل طلبك عبر واتساب ليتم تفعيل اشتراكك</p>
-      <div id="firstRequestSubjects" style="margin-bottom:12px;"></div>
-      <label>الأستاذ المفضّل (اختياري)</label>
-      <select id="firstRequestTeacher"><option value="">بدون تحديد</option></select>
-      <div id="firstRequestMsg"></div>
-      <button class="btn" id="firstRequestSendBtn">📩 أرسل طلبي عبر واتساب</button>
-      <button class="btn secondary" id="skipFirstRequestBtn">تخطي الآن، أدخل بدون طلب</button>
+  <!-- تأكيد اكتمال التسجيل -->
+  <div class="screen hidden" id="screen-registration-done">
+    <div class="card" style="text-align:center;">
+      <h3 style="border:none;padding:0;justify-content:center;">✅ تم تسجيل طلبك بنجاح</h3>
+      <p>تم إرسال طلبك عبر واتساب. بعد ما يفعّل الموظف اشتراكك، تقدر تدخل بس برقم هاتفك وكلمة سرك من "تسجيل / دخول الطالب".</p>
+      <button class="btn" onclick="show('screen-welcome')">الرجوع للرئيسية</button>
     </div>
   </div>
 
@@ -743,14 +744,30 @@ async function openStudentLogin() {
   const activeList = await getActiveGradesList();
   const select = document.getElementById('loginGrade');
   select.innerHTML = '<option value="">اختر المرحلة</option>' + activeList.map(g => `<option>${g}</option>`).join('');
+  const teachersSnap = await db.collection('teachers').get();
+  document.getElementById('loginTeacher').innerHTML = '<option value="">اختر</option>' + teachersSnap.docs.map(t => `<option>${t.data().name}</option>`).join('');
+  document.getElementById('loginSubject').innerHTML = '<option value="">اختر المرحلة أولاً</option>';
   show('screen-login');
 }
+
+document.getElementById('loginGrade').addEventListener('change', async (e) => {
+  const grade = e.target.value;
+  const subjectSelect = document.getElementById('loginSubject');
+  if (!grade) { subjectSelect.innerHTML = '<option value="">اختر المرحلة أولاً</option>'; return; }
+  const snap = await db.collection('lessons').where('grade','==', grade).get();
+  const subjects = [...new Set(snap.docs.map(d=>d.data().subject))];
+  subjectSelect.innerHTML = subjects.length
+    ? '<option value="">اختر المادة</option>' + subjects.map(s => `<option>${s}</option>`).join('')
+    : '<option value="">لا توجد مواد مضافة لهذي المرحلة بعد</option>';
+});
 
 document.getElementById('loginBtn').onclick = async () => {
   const name = document.getElementById('loginName').value.trim();
   const phone = document.getElementById('loginPhone').value.trim();
   const password = document.getElementById('loginPassword').value;
   const grade = document.getElementById('loginGrade').value;
+  const subject = document.getElementById('loginSubject').value;
+  const teacherName = document.getElementById('loginTeacher').value;
   if (!phone || !password) { setMsg('loginMsg','أدخل رقم الهاتف وكلمة السر', false); return; }
   try {
     const ref = db.collection('students').doc(phone);
@@ -769,51 +786,26 @@ document.getElementById('loginBtn').onclick = async () => {
       afterLogin();
     } else {
       // تسجيل حساب جديد
-      if (!name || !grade) { setMsg('loginMsg','أول مرة تسجل؟ عبّئ الاسم والمرحلة أيضاً', false); return; }
+      if (!name || !grade) { setMsg('loginMsg','أول مرة تسجل؟ عبّئ الاسم والصف أيضاً', false); return; }
+      if (!/^\d{6}$/.test(password)) { setMsg('loginMsg','كلمة السر يجب أن تكون 6 أرقام بالضبط', false); return; }
+      if (!subject || !teacherName) { setMsg('loginMsg','اختر المادة واسم الأستاذ', false); return; }
       const data = { name, phone, password, grade, activated:false, quizzesTaken:0, totalScore:0, lessonsWatched:[], activeSession: sessionToken, createdAt: Date.now() };
       await ref.set(data);
       currentStudent = { id: phone, ...data };
       localStorage.setItem('kawthar_phone', phone);
       localStorage.setItem('kawthar_session', sessionToken);
-      await populateFirstRequestScreen(grade);
-      show('screen-first-request');
+
+      await db.collection('activationRequests').add({
+        studentPhone: phone, studentName: name, grade,
+        requestedSubjects: [subject], teacherPreference: teacherName,
+        status: 'pending', createdAt: Date.now()
+      });
+      const text = encodeURIComponent(`طلب تسجيل جديد - منصة الكوثر\nاسم الطالب الثلاثي: ${name}\nرقم الهاتف: ${phone}\nالصف: ${grade}\nالمادة: ${subject}\nالأستاذ: ${teacherName}`);
+      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
+      show('screen-registration-done');
     }
   } catch(e) { setMsg('loginMsg','خطأ بالاتصال، تأكد من إعدادات Firebase', false); console.error(e); }
 };
-
-async function populateFirstRequestScreen(grade) {
-  const snap = await db.collection('lessons').where('grade','==', grade).get();
-  const subjects = [...new Set(snap.docs.map(d=>d.data().subject))];
-  document.getElementById('firstRequestSubjects').innerHTML = subjects.length
-    ? subjects.map(s => `<label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" class="firstReqSubjectCheck" value="${s}" style="width:auto;margin:0;"> ${s}</label>`).join('')
-    : '<p style="font-size:13px;color:#8a90a3;">لا توجد مواد مضافة لمرحلتك بعد.</p>';
-  const teachersSnap = await db.collection('teachers').get();
-  document.getElementById('firstRequestTeacher').innerHTML = '<option value="">بدون تحديد</option>' + teachersSnap.docs.map(t => `<option>${t.data().name}</option>`).join('');
-}
-
-document.getElementById('firstRequestSendBtn').onclick = async () => {
-  const requestedSubjects = Array.from(document.querySelectorAll('.firstReqSubjectCheck:checked')).map(cb => cb.value);
-  const teacherPreference = document.getElementById('firstRequestTeacher').value || null;
-  if (requestedSubjects.length === 0) { setMsg('firstRequestMsg','اختر مادة واحدة على الأقل', false); return; }
-  try {
-    await db.collection('activationRequests').add({
-      studentPhone: currentStudent.phone,
-      studentName: currentStudent.name,
-      grade: currentStudent.grade,
-      requestedSubjects,
-      teacherPreference,
-      status: 'pending',
-      createdAt: Date.now()
-    });
-    setMsg('firstRequestMsg','تم تسجيل طلبك ✅ سيتم فتح واتساب الآن', true);
-    const text = encodeURIComponent(`طلب تسجيل جديد - منصة الكوثر\nاسم الطالب الثلاثي: ${currentStudent.name}\nرقم الهاتف: ${currentStudent.phone}\nالمرحلة: ${currentStudent.grade}\nالمواد المطلوبة: ${requestedSubjects.join('، ')}\nالأستاذ المفضّل: ${teacherPreference || 'بدون تحديد'}`);
-    setTimeout(() => {
-      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
-      afterLogin();
-    }, 700);
-  } catch(e) { setMsg('firstRequestMsg','خطأ بالاتصال', false); console.error(e); }
-};
-document.getElementById('skipFirstRequestBtn').onclick = () => { afterLogin(); };
 
 function getActiveSubscription(subject) {
   if (!currentStudent || !currentStudent.subscriptions) return null;
@@ -2043,11 +2035,8 @@ async function loadRequestsAdmin() {
   const teachersSnap = await db.collection('teachers').get();
   const teacherOptions = '<option value="">بدون تحديد</option>' + teachersSnap.docs.map(t => `<option>${t.data().name}</option>`).join('');
   const durationOptions = `
-    <option value="30">شهر واحد</option>
     <option value="90" selected>3 أشهر</option>
-    <option value="120">فصل دراسي</option>
-    <option value="270">سنة دراسية</option>
-    <option value="365">سنة كاملة</option>`;
+    <option value="180">6 أشهر</option>`;
 
   list.innerHTML = snap.docs.map(d => {
     const r = d.data();
