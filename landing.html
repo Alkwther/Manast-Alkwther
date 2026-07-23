@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منصة الكوثر التعليمية — تعليم إلكتروني للعراق</title>
+<link rel="icon" href="icon-192.png">
+<meta name="theme-color" content="#10203f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html { scroll-behavior:smooth; }
+  body { font-family:'Cairo','Segoe UI',sans-serif; color:#1c2333; background:#f6f7fb; -webkit-font-smoothing:antialiased; }
+  img { max-width:100%; display:block; }
+  a { color:inherit; text-decoration:none; }
+  .wrap { max-width:1100px; margin:0 auto; padding:0 20px; }
+
+  /* Header */
+  header {
+    background:linear-gradient(90deg,#080f24 0%,#10203f 55%,#16305a 100%);
+    border-bottom:2px solid #cda44e; position:sticky; top:0; z-index:100;
+  }
+  .nav { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; max-width:1100px; margin:0 auto; }
+  .nav .brand { display:flex; align-items:center; gap:10px; }
+  .nav .brand img { width:38px; height:38px; border-radius:9px; }
+  .nav .brand span { color:#f3e2b8; font-weight:800; font-size:18px; }
+  .nav .cta { background:#cda44e; color:#10203f; padding:10px 20px; border-radius:24px; font-weight:800; font-size:14px; }
+
+  /* Hero */
+  .hero {
+    background:linear-gradient(160deg,#0a1830 0%,#10203f 50%,#0e8fa8 100%);
+    color:#fff; padding:56px 20px 70px; text-align:center; position:relative; overflow:hidden;
+  }
+  .hero::after {
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(circle at 80% 0%, rgba(201,162,39,.18), transparent 55%);
+  }
+  .hero-inner { position:relative; max-width:640px; margin:0 auto; }
+  .hero img.logo { width:96px; height:96px; border-radius:22px; margin:0 auto 22px; box-shadow:0 8px 26px rgba(0,0,0,.35); }
+  .hero h1 { font-size:28px; font-weight:900; line-height:1.5; margin-bottom:14px; }
+  .hero h1 em { color:#f3e2b8; font-style:normal; }
+  .hero p { font-size:15.5px; color:#cfd7ea; line-height:1.8; margin-bottom:28px; }
+  .hero-btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .btn-primary {
+    background:#cda44e; color:#10203f; padding:14px 28px; border-radius:26px; font-weight:800; font-size:15px;
+    box-shadow:0 6px 18px rgba(0,0,0,.25);
+  }
+  .btn-outline {
+    background:transparent; color:#f3e2b8; padding:14px 28px; border-radius:26px; font-weight:700; font-size:15px;
+    border:1.5px solid #f3e2b8;
+  }
+
+  /* Feature strip */
+  .feature-strip {
+    display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:-38px; position:relative; z-index:5;
+  }
+  .feature-chip {
+    background:#fff; border-radius:16px; padding:18px 10px; text-align:center; box-shadow:0 8px 22px rgba(18,39,92,.12);
+    border-bottom:3px solid #cda44e;
+  }
+  .feature-chip .ic { font-size:26px; margin-bottom:8px; }
+  .feature-chip span { font-size:12px; font-weight:700; color:#10203f; line-height:1.4; display:block; }
+
+  section { padding:64px 0; }
+  .section-title { text-align:center; margin-bottom:38px; }
+  .section-title .eyebrow { color:#b8903c; font-weight:800; font-size:13px; letter-spacing:.5px; margin-bottom:8px; display:block; }
+  .section-title h2 { font-size:24px; font-weight:900; color:#10203f; }
+  .section-title p { color:#6b7280; margin-top:10px; font-size:14.5px; }
+
+  /* Why cards */
+  .why-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:18px; }
+  .why-card { background:#fff; border-radius:16px; padding:24px 20px; box-shadow:0 4px 18px rgba(18,39,92,.07); border-inline-start:4px solid #0e8fa8; }
+  .why-card .ic { font-size:28px; margin-bottom:12px; }
+  .why-card h3 { font-size:16px; color:#10203f; margin-bottom:8px; font-weight:800; }
+  .why-card p { font-size:13.5px; color:#6b7280; line-height:1.7; }
+
+  /* Highlight blocks (alternating) */
+  .highlight { display:flex; align-items:center; gap:36px; margin-bottom:56px; flex-wrap:wrap; }
+  .highlight.reverse { flex-direction:row-reverse; }
+  .highlight-media {
+    flex:1 1 280px; min-height:220px; border-radius:20px;
+    background:linear-gradient(135deg,#10203f,#0e8fa8); display:flex; align-items:center; justify-content:center;
+    font-size:64px; color:#f3e2b8; box-shadow:0 10px 28px rgba(18,39,92,.18);
+  }
+  .highlight-text { flex:1 1 280px; }
+  .highlight-text .eyebrow { color:#b8903c; font-weight:800; font-size:13px; margin-bottom:8px; display:block; }
+  .highlight-text h3 { font-size:21px; font-weight:900; color:#10203f; margin-bottom:12px; }
+  .highlight-text p { color:#5a6072; font-size:14.5px; line-height:1.8; margin-bottom:16px; }
+  .highlight-text ul { list-style:none; }
+  .highlight-text li { font-size:14px; color:#374151; padding:6px 0; display:flex; align-items:center; gap:8px; }
+  .highlight-text li::before { content:'✓'; color:#0e8fa8; font-weight:900; }
+
+  /* Testimonials */
+  .testi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .testi-card { background:#fff; border-radius:16px; padding:22px 18px; text-align:center; box-shadow:0 4px 16px rgba(18,39,92,.08); }
+  .testi-card .avatar {
+    width:50px; height:50px; border-radius:50%; background:#eef1f8; color:#10203f; font-weight:900;
+    display:flex; align-items:center; justify-content:center; margin:0 auto 12px; font-size:18px;
+  }
+  .testi-card .grade { font-size:13px; color:#8a90a3; margin-bottom:4px; }
+  .testi-card .avg { font-size:26px; font-weight:900; color:#b8903c; }
+  .testi-card .avg-label { font-size:11.5px; color:#8a90a3; }
+
+  /* Contact */
+  .contact-section { background:linear-gradient(160deg,#0a1830,#10203f); color:#fff; text-align:center; }
+  .contact-section h2 { font-size:22px; font-weight:900; margin-bottom:12px; color:#f3e2b8; }
+  .contact-section p { color:#cfd7ea; margin-bottom:26px; font-size:14.5px; }
+  .contact-btns { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+  .contact-btn {
+    background:#fff; color:#10203f; padding:13px 24px; border-radius:24px; font-weight:800; font-size:14px;
+    display:flex; align-items:center; gap:8px;
+  }
+
+  /* FAQ */
+  .faq-item { background:#fff; border-radius:14px; margin-bottom:10px; box-shadow:0 3px 12px rgba(18,39,92,.06); overflow:hidden; }
+  .faq-q {
+    padding:16px 18px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-weight:700; color:#10203f; font-size:14.5px;
+  }
+  .faq-q .plus { color:#cda44e; font-size:20px; font-weight:900; transition:transform .2s ease; }
+  .faq-item.open .plus { transform:rotate(45deg); }
+  .faq-a { max-height:0; overflow:hidden; transition:max-height .25s ease; padding:0 18px; }
+  .faq-item.open .faq-a { max-height:400px; padding-bottom:16px; }
+  .faq-a p { font-size:13.5px; color:#6b7280; line-height:1.8; }
+
+  /* Download CTA */
+  .download-cta {
+    background:#fff; border-radius:22px; padding:36px 24px; text-align:center; box-shadow:0 6px 22px rgba(18,39,92,.1);
+    border:1px solid #eef1f8;
+  }
+  .download-cta h2 { font-size:20px; font-weight:900; color:#10203f; margin-bottom:10px; }
+  .download-cta p { color:#6b7280; font-size:14px; margin-bottom:22px; }
+
+  footer { background:#080f24; color:#9aa4c2; padding:36px 0 24px; text-align:center; font-size:13px; }
+  footer .foot-links { display:flex; justify-content:center; gap:18px; flex-wrap:wrap; margin-bottom:16px; }
+  footer .foot-links a { color:#cfd7ea; }
+  footer .brand { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:14px; }
+  footer .brand img { width:28px; height:28px; border-radius:7px; }
+  footer .brand span { color:#f3e2b8; font-weight:800; }
+
+  @media (max-width:640px) {
+    .feature-strip { grid-template-columns:repeat(2,1fr); }
+    .why-grid { grid-template-columns:1fr; }
+    .testi-grid { grid-template-columns:1fr; }
+    .highlight, .highlight.reverse { flex-direction:column; }
+    .hero h1 { font-size:23px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <div class="brand"><img src="icon-192.png" alt="شعار منصة الكوثر"><span>منصة الكوثر</span></div>
+    <a class="cta" href="index.html">ابدأ الآن</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-inner">
+    <img class="logo" src="icon-192.png" alt="شعار منصة الكوثر">
+    <h1>رفيقك بالدراسة من <em>الخامس ابتدائي</em> إلى <em>السادس الإعدادي</em></h1>
+    <p>دروس فيديو مبسّطة، بنك أسئلة للتدريب، ومكتبة كتب وملازم توصل لباب بيتك — كل شي بمكان واحد، بأسعار تناسب كل عائلة عراقية.</p>
+    <div class="hero-btns">
+      <a class="btn-primary" href="index.html">سجّل الآن مجاناً</a>
+      <a class="btn-outline" href="#features">شاهد المميزات</a>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="feature-strip" id="features">
+    <div class="feature-chip"><div class="ic">🎬</div><span>دروس فيديو مبسّطة</span></div>
+    <div class="feature-chip"><div class="ic">📝</div><span>بنك أسئلة واختبارات</span></div>
+    <div class="feature-chip"><div class="ic">📚</div><span>مكتبة كتب وملازم</span></div>
+    <div class="feature-chip"><div class="ic">📊</div><span>متابعة تقدمك أول بأول</span></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <section>
+    <div class="section-title">
+      <span class="eyebrow">ليش الكوثر</span>
+      <h2>مصممة لتناسب رحلتك الدراسية</h2>
+      <p>تجربة تعليمية متكاملة تساعدك تفهم، تتدرب، وتتفوق بثقة.</p>
+    </div>
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="ic">🎯</div>
+        <h3>افهم موادك بسهولة</h3>
+        <p>دروس فيديو قصيرة ومركّزة على المفاهيم الأساسية، تشرحها نخبة من المدرسين بأسلوب مبسّط.</p>
+      </div>
+      <div class="why-card">
+        <div class="ic">🏆</div>
+        <h3>تدرّب بثقة قبل الامتحان</h3>
+        <p>بنك أسئلة متجدد مع تصحيح فوري، يساعدك تكتشف نقاط ضعفك وتعالجها قبل الامتحان الحقيقي.</p>
+      </div>
+      <div class="why-card">
+        <div class="ic">🚚</div>
+        <h3>كتبك ومصادرك بلا عناء</h3>
+        <p>اطلب الكتب والملازم اللي تحتاجها مباشرة من التطبيق، ووصلها لباب بيتك بأي محافظة عراقية.</p>
+      </div>
+      <div class="why-card">
+        <div class="ic">💰</div>
+        <h3>سعر يناسب كل عائلة</h3>
+        <p>اشتراكات مرنة بمدد مختلفة (شهر، فصل، سنة كاملة) تختار منها اللي يناسب ميزانيتك.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">
+      <span class="eyebrow">كيف تشتغل المنصة</span>
+      <h2>كل ما تحتاجه للنجاح بمكان واحد</h2>
+    </div>
+
+    <div class="highlight">
+      <div class="highlight-media">🎬</div>
+      <div class="highlight-text">
+        <span class="eyebrow">دروس فيديو</span>
+        <h3>شرح متكامل لكل مادة ومرحلة</h3>
+        <p>دروس مصورة منظمة حسب صفك ومادتك، تقدر تشاهدها في أي وقت وتعيدها قد ما تحتاج لحد ما تفهم الفكرة بالكامل.</p>
+        <ul>
+          <li>دروس حسب المنهج العراقي الرسمي</li>
+          <li>تنظيم واضح: مادة ← درس ← فيديو</li>
+          <li>دروس مجانية تجريبية بدون اشتراك</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="highlight reverse">
+      <div class="highlight-media">📝</div>
+      <div class="highlight-text">
+        <span class="eyebrow">بنك الأسئلة</span>
+        <h3>اختبر فهمك بعد كل درس</h3>
+        <p>اختبارات قصيرة بعد كل مادة مع تصحيح تلقائي فوري، عشان تعرف مستواك الحقيقي وتتحسن باستمرار.</p>
+        <ul>
+          <li>تصحيح فوري مع توضيح الإجابة الصحيحة</li>
+          <li>تتبع درجاتك ونسبة تقدمك بالوقت</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="highlight">
+      <div class="highlight-media">📚</div>
+      <div class="highlight-text">
+        <span class="eyebrow">مكتبة الكوثر</span>
+        <h3>كتب وملازم توصل لباب بيتك</h3>
+        <p>تصفح كتب ومصادر المادة، أضفها لسلتك، واطلبها بضغطة زر — نوصلها لأي محافظة أو قضاء بالعراق.</p>
+        <ul>
+          <li>أسعار واضحة لكل كتاب أو ملزمة</li>
+          <li>تتبع حالة طلبك أول بأول</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">
+      <span class="eyebrow">قصص نجاح</span>
+      <h2>نتائج طلابنا تتحدث</h2>
+    </div>
+    <div class="testi-grid">
+      <div class="testi-card"><div class="avatar">6إ</div><div class="grade">السادس الإعدادي</div><div class="avg">96%</div><div class="avg-label">المعدل النهائي</div></div>
+      <div class="testi-card"><div class="avatar">3م</div><div class="grade">الثالث متوسط</div><div class="avg">91%</div><div class="avg-label">المعدل النهائي</div></div>
+      <div class="testi-card"><div class="avatar">6ب</div><div class="grade">السادس ابتدائي</div><div class="avg">97%</div><div class="avg-label">المعدل النهائي</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="download-cta">
+      <h2>ثبّت تطبيق الكوثر على هاتفك</h2>
+      <p>يشتغل على أندرويد وآيفون مباشرة من المتصفح، بدون تحميل من متجر التطبيقات.</p>
+      <a class="btn-primary" style="display:inline-block;" href="index.html">افتح المنصة الآن</a>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">
+      <span class="eyebrow">أسئلة شائعة</span>
+      <h2>عندك استفسار؟</h2>
+    </div>
+    <div id="faqList">
+      <div class="faq-item">
+        <div class="faq-q"><span>كيف أسجل بمنصة الكوثر؟</span><span class="plus">+</span></div>
+        <div class="faq-a"><p>تدخل على المنصة، تكتب اسمك ورقم هاتفك وتختار مرحلتك الدراسية، وتضغط "دخول/تسجيل" — يصير عندك حساب فوراً بدون تعقيد.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q"><span>كيف أفعّل اشتراكي بكود التفعيل؟</span><span class="plus">+</span></div>
+        <div class="faq-a"><p>من قسم "التفعيل" بالتطبيق، تدخل الكود اللي وصلك وتضغط "تفعيل بالكود" — يتفعل اشتراكك فوراً وتوصل لكل الدروس والاختبارات.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q"><span>شنو أسوي إذا ما عندي كود تفعيل؟</span><span class="plus">+</span></div>
+        <div class="faq-a"><p>تقدر تحوّل مبلغ الاشتراك وترسل إيصال الدفع مباشرة عبر واتساب من نفس صفحة التفعيل، ونفعّل اشتراكك بعد المراجعة.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q"><span>هل أقدر أطلب كتب من المنصة؟</span><span class="plus">+</span></div>
+        <div class="faq-a"><p>أكيد، من قسم "المكتبة" تقدر تتصفح الكتب والملازم المتوفرة، تضيفها لسلتك، وتكمل الطلب ببيانات التوصيل الخاصة فيك.</p></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="contact-section">
+  <div class="wrap">
+    <h2>ودّك تسأل قبل لا تسجل؟</h2>
+    <p>فريقنا جاهز يجاوبك على كل استفساراتك</p>
+    <div class="contact-btns">
+      <a class="contact-btn" href="https://wa.me/9647xxxxxxxxx" target="_blank">💬 تواصل عبر واتساب</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="brand"><img src="icon-192.png" alt="شعار منصة الكوثر"><span>منصة الكوثر</span></div>
+    <div class="foot-links">
+      <a href="index.html">الدخول للمنصة</a>
+      <a href="#faqList">الأسئلة الشائعة</a>
+      <a href="https://wa.me/9647xxxxxxxxx" target="_blank">تواصل معنا</a>
+    </div>
+    <p>© منصة الكوثر التعليمية — جميع الحقوق محفوظة</p>
+  </div>
+</footer>
+
+<script>
+document.querySelectorAll('.faq-q').forEach(q => {
+  q.addEventListener('click', () => {
+    const item = q.closest('.faq-item');
+    const wasOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(el => el.classList.remove('open'));
+    if (!wasOpen) item.classList.add('open');
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منصة الكوثر التعليمية</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#10203f">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="الكوثر">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin:0; padding:0; }
+  body {
+    font-family: 'Cairo', 'Tajawal', 'Segoe UI', sans-serif;
+    background: linear-gradient(160deg,#0a1830 0%,#10203f 45%, #0e8fa8 100%);
+    min-height: 100vh;
+    color: #222;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { max-width: 480px; margin: 0 auto; min-height: 100vh; background: #f6f7fb; box-shadow: 0 0 40px rgba(0,0,0,.35); position:relative; }
+
+  .topbar {
+    background: linear-gradient(90deg,#080f24 0%,#10203f 55%,#16305a 100%); color: #f0dfa8; padding: 14px 18px;
+    display:flex; align-items:center; justify-content:space-between;
+    position: sticky; top:0; z-index: 50;
+    border-bottom: 2px solid #cda44e;
+    box-shadow: 0 3px 14px rgba(0,0,0,.18);
+  }
+  .topbar .brand { display:flex; align-items:center; gap:10px; }
+  .topbar .brand img { width:34px; height:34px; border-radius:9px; box-shadow:0 2px 6px rgba(0,0,0,.35); }
+  .topbar h1 { font-size: 17px; color:#f3e2b8; letter-spacing:.2px; font-weight:700; }
+  .topbar .icon-btn { background:none; border:none; color:#f0dfae; font-size:19px; cursor:pointer; opacity:.9; transition:opacity .15s; }
+  .topbar .icon-btn:active { opacity:.6; }
+
+  .screen { padding: 18px; animation: fadeIn .3s ease; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+  .hidden { display:none !important; }
+
+  .card {
+    background:#fff; border-radius:16px; padding:18px; margin-bottom:14px;
+    box-shadow: 0 4px 18px rgba(18,39,92,.08);
+    border:1px solid rgba(18,39,92,.05);
+    transition: box-shadow .2s ease;
+  }
+  .card h3 {
+    color:#10203f; margin-bottom:10px; font-size:16px; font-weight:700;
+    padding-bottom:8px; border-bottom:1px solid #f0e6cc; display:flex; align-items:center; gap:6px;
+  }
+  .card p { color:#5a6072; font-size:14px; line-height:1.7; }
+
+  input, select, textarea {
+    width:100%; padding:12px 14px; border:1.5px solid #e2e5ec; border-radius:11px;
+    font-size:15px; margin-bottom:12px; background:#fbfbfd; font-family:inherit;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline:none; border-color:#cda44e; background:#fff;
+  }
+  label { display:block; font-size:13px; color:#6b7280; margin-bottom:6px; font-weight:600; }
+
+  button.btn {
+    width:100%; padding:13px; border:none; border-radius:11px;
+    background: linear-gradient(135deg,#16305a 0%,#0a1830 100%); color:#f3e6bd; font-size:15px; font-weight:700;
+    cursor:pointer; margin-bottom:10px; border:1px solid #cda44e;
+    box-shadow: 0 3px 10px rgba(18,39,92,.22);
+    transition: transform .1s ease, box-shadow .15s ease;
+    letter-spacing:.2px;
+  }
+  button.btn.secondary { background:#eef1f8; color:#10203f; border:1px solid #d6dcec; box-shadow:none; }
+  button.btn.danger { background:#dc2626; border:1px solid #dc2626; color:#fff; }
+  button.btn:active { transform:scale(.98); opacity:.92; }
+
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  .subject-tile {
+    background:#fff; border-radius:14px; padding:16px 18px; text-align:center;
+    box-shadow:0 3px 12px rgba(18,39,92,.08); cursor:pointer; margin-bottom:10px;
+    display:flex; align-items:center; justify-content:space-between;
+    border-inline-start:4px solid #cda44e; transition: transform .12s ease;
+  }
+  .subject-tile:active { transform:scale(.98); }
+  .subject-tile .badge { background:#10203f; color:#f0dfae; border-radius:20px; padding:3px 12px; font-size:12px; font-weight:600; }
+
+  .lesson-row {
+    display:flex; align-items:center; justify-content:space-between;
+    background:#fff; padding:14px 16px; border-radius:14px; margin-bottom:8px;
+    box-shadow:0 3px 10px rgba(18,39,92,.06);
+  }
+  .lesson-row .title { font-size:14px; font-weight:700; color:#1c2333; }
+  .lesson-row .play { background:#10203f; color:#f0dfae; border:none; border-radius:9px; padding:8px 16px; font-size:13px; font-weight:600; }
+
+  .video-wrap { position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:14px; margin-bottom:14px; background:#000; box-shadow:0 4px 16px rgba(0,0,0,.25);}
+  .video-wrap iframe { position:absolute; top:0; left:0; width:100%; height:100%; border:0; }
+
+  .q-card { background:#fff; border-radius:14px; padding:16px; margin-bottom:12px; box-shadow:0 3px 12px rgba(18,39,92,.07); }
+  .q-card .qtext { font-weight:700; margin-bottom:10px; color:#1c2333; }
+  .option {
+    display:block; padding:11px 14px; border:1.5px solid #e5e8ef; border-radius:10px; margin-bottom:8px; cursor:pointer;
+    transition: border-color .12s ease, background .12s ease;
+  }
+  .option.selected { border-color:#10203f; background:#eef1f8; }
+  .option.correct { border-color:#16a34a; background:#ecfdf3; }
+  .option.wrong { border-color:#dc2626; background:#fef2f2; }
+
+  .stat-row { display:flex; justify-content:space-between; gap:10px; margin-bottom:14px; }
+  .stat-box { flex:1; background:#fff; border-radius:14px; padding:16px 10px; text-align:center; box-shadow:0 3px 12px rgba(18,39,92,.07); border-bottom:3px solid #cda44e; }
+  .stat-box .num { font-size:23px; font-weight:800; color:#10203f; }
+  .stat-box .label { font-size:11.5px; color:#7a8095; margin-top:4px; font-weight:600; }
+
+  .bottom-nav {
+    position:sticky; bottom:0; background:#fff; display:flex;
+    border-top:1px solid #eee; z-index:50;
+    box-shadow: 0 -3px 14px rgba(0,0,0,.06);
+  }
+  .bottom-nav button {
+    flex:1; background:none; border:none; padding:10px 4px; font-size:11.5px; color:#8a90a3; cursor:pointer; font-weight:600;
+    transition: color .15s ease;
+  }
+  .bottom-nav button.active { color:#b8903c; font-weight:800; }
+  .bottom-nav .ic { font-size:18px; display:block; margin-bottom:2px; }
+
+  .admin-menu { margin-bottom:14px; }
+  .admin-menu-item {
+    background:#fff; border-radius:14px; padding:14px 16px; margin-bottom:10px;
+    box-shadow:0 3px 12px rgba(18,39,92,.08); cursor:pointer;
+    display:flex; align-items:center; gap:12px;
+    border-inline-start:4px solid #cda44e; transition: transform .12s ease;
+  }
+  .admin-menu-item:active { transform:scale(.98); }
+  .admin-menu-icon {
+    width:42px; height:42px; border-radius:11px; background:#10203f; color:#f0dfae;
+    display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;
+  }
+  .admin-menu-text { flex:1; display:flex; flex-direction:column; gap:2px; }
+  .admin-menu-text b { color:#10203f; font-size:15px; }
+  .admin-menu-text span { color:#8a90a3; font-size:12px; }
+  .admin-menu-arrow { color:#cda44e; font-size:22px; font-weight:700; }
+  .admin-back-btn { margin-bottom:14px; }
+
+  .msg { padding:10px 14px; border-radius:10px; margin-bottom:12px; font-size:14px; }
+  .msg.ok { background:#ecfdf3; color:#15803d; }
+  .msg.err { background:#fef2f2; color:#b91c1c; }
+
+  .loader { text-align:center; padding:40px; color:#888; }
+  .code-badge { background:#faf1dc; color:#8a6a1f; padding:10px 14px; border-radius:10px; font-size:13px; margin-bottom:12px; border:1px solid #e6cf95; }
+  .admin-list-item { display:flex; justify-content:space-between; align-items:center; background:#fff; padding:10px 12px; border-radius:10px; margin-bottom:8px; font-size:13px; }
+  .small-btn { background:#eee; border:none; border-radius:6px; padding:5px 10px; font-size:12px; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <div class="brand"><img src="icon-192.png" alt="شعار منصة الكوثر"><h1>منصة الكوثر</h1></div>
+    <button class="icon-btn" id="logoutBtn" title="خروج">⏻</button>
+  </div>
+
+  <!-- شاشة تسجيل الدخول -->
+  <div class="screen" id="screen-login">
+    <div class="card">
+      <h3>مرحباً بك 👋</h3>
+      <p>سجّل بياناتك للدخول إلى منصة الكوثر التعليمية</p>
+    </div>
+    <div class="card">
+      <label>الاسم الكامل</label>
+      <input id="loginName" placeholder="مثال: أحمد علي">
+      <label>رقم الهاتف (واتساب)</label>
+      <input id="loginPhone" placeholder="07xxxxxxxxx" type="tel">
+      <label>المرحلة الدراسية</label>
+      <select id="loginGrade">
+        <option value="">اختر المرحلة</option>
+        <option>الخامس ابتدائي</option>
+        <option>السادس ابتدائي</option>
+        <option>الأول متوسط</option>
+        <option>الثاني متوسط</option>
+        <option>الثالث متوسط</option>
+        <option>الرابع علمي</option>
+        <option>الرابع أدبي</option>
+        <option>الخامس علمي</option>
+        <option>الخامس أدبي</option>
+        <option>السادس علمي</option>
+        <option>السادس أدبي</option>
+        <option>الرابع الصناعي</option>
+        <option>الخامس الصناعي</option>
+        <option>السادس الصناعي</option>
+        <option>الرابع التجاري</option>
+        <option>الخامس التجاري</option>
+        <option>السادس التجاري</option>
+        <option>الرابع الزراعي</option>
+        <option>الخامس الزراعي</option>
+        <option>السادس الزراعي</option>
+      </select>
+      <div id="loginMsg"></div>
+      <button class="btn" id="loginBtn">دخول / تسجيل</button>
+    </div>
+  </div>
+
+  <!-- شاشة تفعيل الاشتراك -->
+  <div class="screen hidden" id="screen-activate">
+    <div class="card">
+      <h3>🔑 تفعيل الاشتراك</h3>
+      <p>أدخل كود التفعيل المكوّن من الأرقام والحروف للوصول إلى كل الدروس والاختبارات.</p>
+    </div>
+    <div class="card">
+      <label>كود التفعيل</label>
+      <input id="activateCode" placeholder="مثال: KW-1234-AB">
+      <div id="activateMsg"></div>
+      <button class="btn" id="activateBtn">تفعيل بالكود</button>
+      <button class="btn secondary" id="skipActivateBtn">تصفح بدون تفعيل (دروس مجانية فقط)</button>
+    </div>
+    <div class="card">
+      <h3>💳 ليس عندك كود؟</h3>
+      <p>حوّل مبلغ الاشتراك عبر زين كاش أو أي محفظة، ثم أرسل إيصال الدفع مباشرة وسنفعّل اشتراكك بعد المراجعة.</p>
+      <div id="requestMsg"></div>
+      <button class="btn" id="sendPaymentRequestBtn">📩 أرسل طلب تفعيل + الإيصال عبر واتساب</button>
+    </div>
+  </div>
+
+  <!-- الرئيسية: المواد -->
+  <div class="screen hidden" id="screen-home">
+    <div id="statusBanner"></div>
+    <div class="stat-row">
+      <div class="stat-box"><div class="num" id="statQuizzes">0</div><div class="label">اختبار محلول</div></div>
+      <div class="stat-box"><div class="num" id="statAvg">0%</div><div class="label">متوسط الدرجات</div></div>
+      <div class="stat-box"><div class="num" id="statLessons">0</div><div class="label">درس مشاهد</div></div>
+    </div>
+    <h3 style="margin-bottom:10px;color:#10203f;">المواد الدراسية</h3>
+    <div id="subjectsList"></div>
+  </div>
+
+  <!-- دروس المادة -->
+  <div class="screen hidden" id="screen-lessons">
+    <button class="btn secondary" id="backToHome1">← رجوع للمواد</button>
+    <h3 style="margin:10px 0;color:#10203f;" id="lessonsSubjectTitle"></h3>
+    <div id="lessonsList"></div>
+  </div>
+
+  <!-- مشغل الفيديو -->
+  <div class="screen hidden" id="screen-video">
+    <button class="btn secondary" id="backToLessons">← رجوع للدروس</button>
+    <div class="video-wrap" id="videoWrap"></div>
+    <div class="card"><h3 id="videoTitle"></h3></div>
+  </div>
+
+  <!-- الاختبار -->
+  <div class="screen hidden" id="screen-quiz">
+    <button class="btn secondary" id="backToLessons2">← رجوع</button>
+    <h3 style="margin:10px 0;color:#10203f;" id="quizSubjectTitle"></h3>
+    <div id="quizArea"></div>
+    <button class="btn hidden" id="submitQuizBtn">تسليم الإجابات</button>
+    <div id="quizResult"></div>
+  </div>
+
+  <!-- مكتبة الكتب والملازم -->
+  <div class="screen hidden" id="screen-library">
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;">📚 مكتبة الكتب والملازم</h3>
+      <button class="small-btn" onclick="showMyOrders()">📦 طلباتي</button>
+    </div>
+    <div id="libraryList"></div>
+  </div>
+
+  <!-- السلة وإتمام الطلب -->
+  <div class="screen hidden" id="screen-checkout">
+    <button class="btn secondary" id="backToLibrary">← رجوع للمكتبة</button>
+    <div class="card">
+      <h3>🛒 سلتك</h3>
+      <div id="cartItemsList"></div>
+      <div style="display:flex;justify-content:space-between;font-weight:bold;color:#10203f;margin-top:8px;">
+        <span>المجموع الكلي:</span><span id="cartTotal">0</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>📍 بيانات التوصيل</h3>
+      <label>المحافظة</label>
+      <select id="ckProvince">
+        <option value="">اختر المحافظة</option>
+        <option>بغداد</option><option>البصرة</option><option>نينوى</option><option>أربيل</option>
+        <option>النجف</option><option>كربلاء</option><option>بابل</option><option>الأنبار</option>
+        <option>ذي قار</option><option>ديالى</option><option>كركوك</option><option>واسط</option>
+        <option>ميسان</option><option>المثنى</option><option>القادسية</option><option>صلاح الدين</option>
+        <option>دهوك</option><option>السليمانية</option>
+      </select>
+      <label>القضاء / الناحية</label>
+      <input id="ckDistrict" placeholder="مثال: المدائن / الناحية الفلانية">
+      <label>رقم الهاتف</label>
+      <input id="ckPhone" type="tel" placeholder="07xxxxxxxxx">
+      <label>رقم هاتف آخر (إن وجد)</label>
+      <input id="ckAltPhone" type="tel" placeholder="اختياري">
+      <div id="checkoutMsg"></div>
+      <button class="btn" id="confirmOrderBtn">✅ تأكيد الشراء</button>
+    </div>
+  </div>
+
+  <!-- طلباتي -->
+  <div class="screen hidden" id="screen-my-orders">
+    <button class="btn secondary" id="backToLibrary2">← رجوع للمكتبة</button>
+    <div id="myOrdersList"></div>
+  </div>
+
+  <!-- لوحة تحكم المشرف -->
+  <div class="screen hidden" id="screen-admin">
+    <div class="card">
+      <h3>🔐 دخول المشرف / الموظف</h3>
+      <label>اسم الموظف (اترك فارغاً لدخول المشرف الرئيسي)</label>
+      <input id="adminUser" placeholder="اسم الموظف (إن وجد)">
+      <label>كلمة السر</label>
+      <input id="adminPass" type="password" placeholder="كلمة السر">
+      <button class="btn" id="adminLoginBtn">دخول</button>
+      <div id="adminMsg"></div>
+    </div>
+
+    <div id="adminPanel" class="hidden">
+      <div class="card" id="loggedInAsCard" style="display:flex;align-items:center;justify-content:space-between;">
+        <p style="color:#10203f;font-weight:bold;margin:0;" id="loggedInAsText"></p>
+      </div>
+
+      <div class="admin-menu admin-only hidden" id="adminMenu">
+        <div class="admin-menu-item" data-section="lessons" data-permission="content">
+          <div class="admin-menu-icon">📖</div>
+          <div class="admin-menu-text"><b>الدروس والأسئلة</b><span>إضافة دروس فيديو وأسئلة الاختبارات</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
+        <div class="admin-menu-item" data-section="library" data-permission="library">
+          <div class="admin-menu-icon">📚</div>
+          <div class="admin-menu-text"><b>المكتبة</b><span>الكتب والملازم، الأسعار، طلبات الشراء</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
+        <div class="admin-menu-item" data-section="subscriptions" data-permission="codes">
+          <div class="admin-menu-icon">🎫</div>
+          <div class="admin-menu-text"><b>الاشتراكات</b><span>أكواد التفعيل وطلبات التفعيل المعلّقة</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
+        <div class="admin-menu-item" data-section="teachers" data-permission="teachers">
+          <div class="admin-menu-icon">🧑‍🏫</div>
+          <div class="admin-menu-text"><b>المدرسين</b><span>إضافة وإدارة قائمة المدرسين</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
+        <div class="admin-menu-item" data-section="team" data-permission="employees">
+          <div class="admin-menu-icon">👥</div>
+          <div class="admin-menu-text"><b>الموظفين</b><span>إضافة موظفين وتحديد صلاحياتهم</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
+        <div class="admin-menu-item admin-only hidden" data-section="students" data-permission="ownerOnly">
+          <div class="admin-menu-icon">🎓</div>
+          <div class="admin-menu-text"><b>الطلاب المسجلين</b><span>قائمة الطلاب وحالة اشتراكاتهم</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
+      </div>
+
+      <div class="admin-section" data-section="lessons">
+        <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <div class="card">
+          <h3>➕ إضافة درس</h3>
+          <select id="adGrade"></select>
+          <input id="adSubject" placeholder="اسم المادة (مثال: رياضيات)">
+          <input id="adLessonTitle" placeholder="عنوان الدرس">
+          <input id="adLessonUrl" placeholder="رابط يوتيوب (embed أو عادي)">
+          <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="adFree" style="width:auto;margin:0;"> درس مجاني (بدون تفعيل)</label>
+          <button class="btn" id="addLessonBtn">إضافة الدرس</button>
+        </div>
+
+        <div class="card">
+          <h3>➕ إضافة سؤال</h3>
+          <select id="aqGrade"></select>
+          <input id="aqSubject" placeholder="اسم المادة">
+          <textarea id="aqText" rows="2" placeholder="نص السؤال"></textarea>
+          <input id="aqOpt1" placeholder="خيار 1">
+          <input id="aqOpt2" placeholder="خيار 2">
+          <input id="aqOpt3" placeholder="خيار 3">
+          <input id="aqOpt4" placeholder="خيار 4">
+          <select id="aqCorrect">
+            <option value="0">الإجابة الصحيحة: خيار 1</option>
+            <option value="1">الإجابة الصحيحة: خيار 2</option>
+            <option value="2">الإجابة الصحيحة: خيار 3</option>
+            <option value="3">الإجابة الصحيحة: خيار 4</option>
+          </select>
+          <button class="btn" id="addQuestionBtn">إضافة السؤال</button>
+        </div>
+      </div>
+
+      <div class="admin-section hidden" data-section="library">
+        <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <div class="card">
+          <h3>📚 إضافة كتاب / ملزمة</h3>
+          <input id="bkTitle" placeholder="اسم الكتاب أو الملزمة">
+          <input id="bkPrice" type="number" placeholder="السعر (دينار)">
+          <label>صورة الغلاف (اختياري)</label>
+          <input id="bkImage" type="file" accept="image/*">
+          <div id="bkImagePreview" style="margin-bottom:10px;"></div>
+          <button class="btn" id="addBookBtn">إضافة للمكتبة</button>
+        </div>
+
+        <div class="card">
+          <h3>📖 كتب المكتبة الحالية</h3>
+          <div id="booksAdminList"></div>
+        </div>
+
+        <div class="card">
+          <h3>📦 طلبات المكتبة</h3>
+          <label>رقم هاتف المكتبة (يظهر للطالب للتواصل)</label>
+          <input id="libraryPhoneInput" placeholder="07xxxxxxxxx">
+          <button class="btn secondary" id="saveLibraryPhoneBtn">حفظ الرقم</button>
+          <div id="ordersAdminList" style="margin-top:10px;"></div>
+        </div>
+      </div>
+
+      <div class="admin-section hidden" data-section="subscriptions">
+        <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <div class="card">
+          <h3>🎫 توليد أكواد تفعيل</h3>
+          <p style="margin-bottom:12px;">كل كود صالح لمدة <b>شهر واحد فقط</b>، ومخصص لمرحلة دراسية واحدة، ويرتبط تلقائياً باسم ورقم أول طالب يستخدمه.</p>
+          <label>المرحلة الدراسية المخصصة لهذه الأكواد</label>
+          <select id="codeGrade"></select>
+          <label>عدد الأكواد</label>
+          <input id="codeCount" type="number" value="5" min="1" max="50">
+          <button class="btn" id="genCodesBtn">توليد أكواد</button>
+          <div id="codesOutput"></div>
+        </div>
+
+        <div class="card">
+          <h3>📩 طلبات التفعيل المعلّقة</h3>
+          <div id="requestsAdminList"></div>
+        </div>
+      </div>
+
+      <div class="admin-section hidden" data-section="teachers">
+        <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <div class="card">
+          <h3>🧑‍🏫 إضافة مدرّس</h3>
+          <input id="tchName" placeholder="اسم المدرّس">
+          <input id="tchSubject" placeholder="المادة (مثال: رياضيات)">
+          <button class="btn" id="addTeacherBtn">إضافة مدرّس</button>
+        </div>
+        <div class="card">
+          <h3>📋 قائمة المدرسين</h3>
+          <div id="teachersList"></div>
+        </div>
+      </div>
+
+      <div class="admin-section hidden" data-section="team">
+        <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <div class="card">
+          <h3>👥 إضافة موظف</h3>
+          <input id="empName" placeholder="اسم الموظف">
+          <input id="empPass" placeholder="كلمة السر">
+          <label style="margin-top:6px;">صلاحيات الموظف</label>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" id="permLibrary" style="width:auto;margin:0;"> إدارة المكتبة</label>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" id="permCodes" style="width:auto;margin:0;"> إدارة كودات الدخول</label>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" id="permPrimary" style="width:auto;margin:0;"> إدارة المرحلة الابتدائية</label>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" id="permIntermediate" style="width:auto;margin:0;"> إدارة المرحلة المتوسطة</label>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" id="permSecondary" style="width:auto;margin:0;"> إدارة المرحلة الإعدادية</label>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" id="permTeachers" style="width:auto;margin:0;"> إدارة المدرسين</label>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin-bottom:12px;"><input type="checkbox" id="permEmployees" style="width:auto;margin:0;"> إدارة الموظفين</label>
+          <button class="btn" id="addEmployeeBtn">إضافة موظف</button>
+          <div id="employeesList" style="margin-top:10px;"></div>
+        </div>
+      </div>
+
+      <div class="admin-section hidden" data-section="students">
+        <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <div class="card">
+          <h3>👨‍🎓 الطلاب المسجلين</h3>
+          <div id="studentsAdminList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card hidden" id="installBanner" style="position:fixed;bottom:70px;left:12px;right:12px;max-width:456px;margin:0 auto;z-index:60;border:1px solid #cda44e;">
+    <p id="installText" style="margin-bottom:10px;font-weight:bold;color:#10203f;"></p>
+    <button class="btn" id="installActionBtn" style="margin-bottom:6px;">تثبيت التطبيق</button>
+    <button class="btn secondary" id="dismissInstallBtn" style="margin-bottom:0;">إغلاق</button>
+  </div>
+
+  <div class="bottom-nav hidden" id="bottomNav">
+    <button class="nav-btn active" data-target="screen-home"><span class="ic">🏠</span>الرئيسية</button>
+    <button class="nav-btn" data-target="screen-library"><span class="ic">📚</span>المكتبة</button>
+    <button class="nav-btn" data-target="screen-activate"><span class="ic">🔑</span>التفعيل</button>
+    <button class="nav-btn" data-target="screen-admin"><span class="ic">⚙️</span>المشرف</button>
+  </div>
+
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+/* ============================================================
+   إعدادات Firebase — لازم تستبدلها بإعدادات مشروعك الخاص
+   أنشئ مشروع جديد من https://console.firebase.google.com
+   وفعّل Firestore Database (وضع الإنتاج) والصق الإعدادات هنا
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBJ-YT2-WmgvHm8MQ-tUgFoUFkhTyY9Ur8",
+  authDomain: "mnsat-alkwther.firebaseapp.com",
+  projectId: "mnsat-alkwther",
+  storageBucket: "mnsat-alkwther.firebasestorage.app",
+  messagingSenderId: "276288995799",
+  appId: "1:276288995799:web:262f8a466f6c6409814b92"
+};
+
+const ADMIN_PASSWORD = "kawthar2026"; // غيّرها لاحقاً
+const WHATSAPP_NUMBER = "9647xxxxxxxxx"; // ضع رقم واتساب منصة الكوثر هنا (بالصيغة الدولية بدون + أو صفر بالبداية)
+
+let db, currentStudent = null;
+const GRADES = ["الخامس ابتدائي","السادس ابتدائي","الأول متوسط","الثاني متوسط","الثالث متوسط","الرابع علمي","الرابع أدبي","الخامس علمي","الخامس أدبي","السادس علمي","السادس أدبي","الرابع الصناعي","الخامس الصناعي","السادس الصناعي","الرابع التجاري","الخامس التجاري","السادس التجاري","الرابع الزراعي","الخامس الزراعي","السادس الزراعي"];
+
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+} catch(e) { console.error("Firebase init error", e); }
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+function setMsg(el, text, ok) {
+  document.getElementById(el).innerHTML = `<div class="msg ${ok?'ok':'err'}">${text}</div>`;
+}
+
+// ---------- تسجيل الدخول ----------
+document.getElementById('loginBtn').onclick = async () => {
+  const name = document.getElementById('loginName').value.trim();
+  const phone = document.getElementById('loginPhone').value.trim();
+  const grade = document.getElementById('loginGrade').value;
+  if (!name || !phone || !grade) { setMsg('loginMsg','الرجاء تعبئة كل الحقول', false); return; }
+  try {
+    const ref = db.collection('students').doc(phone);
+    const doc = await ref.get();
+    if (doc.exists) {
+      currentStudent = { id: phone, ...doc.data() };
+    } else {
+      const data = { name, phone, grade, activated:false, quizzesTaken:0, totalScore:0, lessonsWatched:[], createdAt: Date.now() };
+      await ref.set(data);
+      currentStudent = { id: phone, ...data };
+    }
+    localStorage.setItem('kawthar_phone', phone);
+    afterLogin();
+  } catch(e) { setMsg('loginMsg','خطأ بالاتصال، تأكد من إعدادات Firebase', false); console.error(e); }
+};
+
+function isActivationValid() {
+  if (!currentStudent || !currentStudent.activated) return false;
+  if (currentStudent.activationExpiry && Date.now() > currentStudent.activationExpiry) return false;
+  return true;
+}
+
+function afterLogin() {
+  document.getElementById('bottomNav').classList.remove('hidden');
+  if (!isActivationValid()) {
+    show('screen-activate');
+  } else {
+    show('screen-home');
+    loadHome();
+  }
+}
+
+// ---------- تفعيل الاشتراك ----------
+document.getElementById('activateBtn').onclick = async () => {
+  const code = document.getElementById('activateCode').value.trim().toUpperCase();
+  if (!code) return;
+  try {
+    const q = await db.collection('codes').where('code','==',code).limit(1).get();
+    if (q.empty) { setMsg('activateMsg','الكود غير صحيح', false); return; }
+    const codeDoc = q.docs[0];
+    const codeData = codeDoc.data();
+    if (codeData.used) { setMsg('activateMsg','هذا الكود مستخدم مسبقاً من طالب آخر ولا يمكن استخدامه مرة ثانية', false); return; }
+    if (codeData.grade && codeData.grade !== currentStudent.grade) {
+      setMsg('activateMsg', `هذا الكود مخصص لمرحلة "${codeData.grade}" فقط، وأنت مسجل بمرحلة "${currentStudent.grade}"`, false);
+      return;
+    }
+    const durationDays = codeData.durationDays || 30;
+    const expiry = Date.now() + durationDays * 24 * 60 * 60 * 1000;
+    await codeDoc.ref.update({ used:true, usedBy: currentStudent.phone, usedByName: currentStudent.name });
+    await db.collection('students').doc(currentStudent.id).update({ activated:true, activationExpiry: expiry });
+    currentStudent.activated = true;
+    currentStudent.activationExpiry = expiry;
+    setMsg('activateMsg','تم التفعيل بنجاح ✅ — هذا الكود صار مرتبط باسمك ورقمك فقط', true);
+    setTimeout(()=>{ show('screen-home'); loadHome(); }, 900);
+  } catch(e) { setMsg('activateMsg','خطأ بالاتصال', false); console.error(e); }
+};
+document.getElementById('skipActivateBtn').onclick = () => { show('screen-home'); loadHome(); };
+
+document.getElementById('sendPaymentRequestBtn').onclick = async () => {
+  try {
+    await db.collection('activationRequests').add({
+      studentPhone: currentStudent.phone,
+      studentName: currentStudent.name,
+      grade: currentStudent.grade,
+      status: 'pending',
+      createdAt: Date.now()
+    });
+    setMsg('requestMsg','تم تسجيل طلبك، سيتم فتح واتساب لإرسال صورة الإيصال ✅', true);
+    const text = encodeURIComponent(`طلب تفعيل اشتراك - منصة الكوثر\nالاسم: ${currentStudent.name}\nالرقم: ${currentStudent.phone}\nالمرحلة: ${currentStudent.grade}\n(مرفق صورة إيصال الدفع)`);
+    setTimeout(() => { window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank'); }, 500);
+  } catch(e) { setMsg('requestMsg','خطأ بالاتصال', false); console.error(e); }
+};
+
+// ---------- الرئيسية ----------
+async function loadHome() {
+  document.getElementById('statQuizzes').textContent = currentStudent.quizzesTaken || 0;
+  const avg = currentStudent.quizzesTaken ? Math.round((currentStudent.totalScore / currentStudent.quizzesTaken)) : 0;
+  document.getElementById('statAvg').textContent = avg + '%';
+  document.getElementById('statLessons').textContent = (currentStudent.lessonsWatched || []).length;
+
+  const banner = document.getElementById('statusBanner');
+  if (isActivationValid()) {
+    const expiryText = currentStudent.activationExpiry
+      ? ` (حتى ${new Date(currentStudent.activationExpiry).toLocaleDateString('ar-EG')})`
+      : '';
+    banner.innerHTML = `<div class="msg ok">اشتراكك مفعّل ✅${expiryText} — مرحباً ${currentStudent.name}</div>`;
+  } else if (currentStudent.activated && currentStudent.activationExpiry) {
+    banner.innerHTML = `<div class="msg err">انتهت صلاحية اشتراكك — الدروس المجانية فقط متاحة. <span onclick="show('screen-activate')" style="text-decoration:underline;cursor:pointer;">جدّد الآن</span></div>`;
+  } else {
+    banner.innerHTML = `<div class="msg err">اشتراكك غير مفعّل — الدروس المجانية فقط متاحة. <span onclick="show('screen-activate')" style="text-decoration:underline;cursor:pointer;">فعّل الآن</span></div>`;
+  }
+
+  const snap = await db.collection('lessons').where('grade','==', currentStudent.grade).get();
+  const subjects = [...new Set(snap.docs.map(d=>d.data().subject))];
+  const list = document.getElementById('subjectsList');
+  if (subjects.length === 0) {
+    list.innerHTML = '<div class="card"><p>لا توجد مواد مضافة بعد لهذه المرحلة.</p></div>';
+    return;
+  }
+  list.innerHTML = subjects.map(s => `
+    <div class="subject-tile" onclick="openSubject('${s.replace(/'/g,"\\'")}')">
+      <div>📘 ${s}</div>
+      <div class="badge">عرض</div>
+    </div>`).join('');
+}
+
+let currentSubject = null;
+async function openSubject(subject) {
+  currentSubject = subject;
+  document.getElementById('lessonsSubjectTitle').textContent = subject;
+  const snap = await db.collection('lessons').where('grade','==', currentStudent.grade).where('subject','==', subject).get();
+  const list = document.getElementById('lessonsList');
+  if (snap.empty) { list.innerHTML = '<p>لا توجد دروس بعد.</p>'; }
+  else {
+    list.innerHTML = snap.docs.map(d => {
+      const l = d.data();
+      const locked = !l.free && !isActivationValid();
+      return `<div class="lesson-row">
+        <div class="title">${locked?'🔒 ':''}${l.title}</div>
+        <button class="play" onclick="${locked? `alert('الدرس يتطلب تفعيل الاشتراك')`:`playLesson('${d.id}')`}">${locked?'مقفل':'مشاهدة'}</button>
+      </div>`;
+    }).join('');
+  }
+  list.insertAdjacentHTML('beforeend', `<div class="card" style="margin-top:14px;"><button class="btn" onclick="startQuiz()">📝 ابدأ اختبار المادة</button></div>`);
+  show('screen-lessons');
+}
+document.getElementById('backToHome1').onclick = () => show('screen-home');
+
+async function playLesson(lessonId) {
+  const doc = await db.collection('lessons').doc(lessonId).get();
+  const l = doc.data();
+  document.getElementById('videoTitle').textContent = l.title;
+  let url = l.videoUrl;
+  const ytMatch = url.match(/(?:youtu\.be\/|v=|embed\/)([a-zA-Z0-9_-]{6,})/);
+  if (ytMatch) url = `https://www.youtube.com/embed/${ytMatch[1]}`;
+  document.getElementById('videoWrap').innerHTML = `<iframe src="${url}" allowfullscreen></iframe>`;
+  show('screen-video');
+  if (!(currentStudent.lessonsWatched||[]).includes(lessonId)) {
+    currentStudent.lessonsWatched = [...(currentStudent.lessonsWatched||[]), lessonId];
+    db.collection('students').doc(currentStudent.id).update({ lessonsWatched: currentStudent.lessonsWatched });
+  }
+}
+document.getElementById('backToLessons').onclick = () => show('screen-lessons');
+document.getElementById('backToLessons2').onclick = () => show('screen-lessons');
+
+// ---------- الاختبار ----------
+let quizQuestions = [], quizAnswers = {};
+async function startQuiz() {
+  if (!isActivationValid()) { alert('الاختبارات تتطلب تفعيل الاشتراك'); return; }
+  const snap = await db.collection('questions').where('grade','==', currentStudent.grade).where('subject','==', currentSubject).get();
+  quizQuestions = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+  quizAnswers = {};
+  document.getElementById('quizSubjectTitle').textContent = 'اختبار: ' + currentSubject;
+  document.getElementById('quizResult').innerHTML = '';
+  const area = document.getElementById('quizArea');
+  if (quizQuestions.length === 0) { area.innerHTML = '<p>لا توجد أسئلة لهذه المادة بعد.</p>'; document.getElementById('submitQuizBtn').classList.add('hidden'); }
+  else {
+    area.innerHTML = quizQuestions.map((q,i) => `
+      <div class="q-card">
+        <div class="qtext">${i+1}. ${q.text}</div>
+        ${q.options.map((o,oi) => `<div class="option" data-q="${q.id}" data-oi="${oi}" onclick="selectOpt('${q.id}',${oi})">${o}</div>`).join('')}
+      </div>`).join('');
+    document.getElementById('submitQuizBtn').classList.remove('hidden');
+  }
+  show('screen-quiz');
+}
+function selectOpt(qid, oi) {
+  quizAnswers[qid] = oi;
+  document.querySelectorAll(`.option[data-q="${qid}"]`).forEach(el => el.classList.remove('selected'));
+  document.querySelector(`.option[data-q="${qid}"][data-oi="${oi}"]`).classList.add('selected');
+}
+document.getElementById('submitQuizBtn').onclick = async () => {
+  let correct = 0;
+  quizQuestions.forEach(q => {
+    document.querySelectorAll(`.option[data-q="${q.id}"]`).forEach(el => {
+      const oi = +el.dataset.oi;
+      if (oi === q.correctIndex) el.classList.add('correct');
+      else if (quizAnswers[q.id] === oi) el.classList.add('wrong');
+    });
+    if (quizAnswers[q.id] === q.correctIndex) correct++;
+  });
+  const score = Math.round((correct / quizQuestions.length) * 100);
+  document.getElementById('quizResult').innerHTML = `<div class="card"><h3>نتيجتك: ${correct} من ${quizQuestions.length} (${score}%)</h3></div>`;
+  document.getElementById('submitQuizBtn').classList.add('hidden');
+  currentStudent.quizzesTaken = (currentStudent.quizzesTaken||0) + 1;
+  currentStudent.totalScore = (currentStudent.totalScore||0) + score;
+  await db.collection('students').doc(currentStudent.id).update({
+    quizzesTaken: currentStudent.quizzesTaken, totalScore: currentStudent.totalScore
+  });
+};
+
+// ---------- المكتبة (كتب وملازم) ----------
+let cart = {}; // { bookId: {title, price, qty} }
+let libraryPhone = "07xxxxxxxxx";
+
+function cartKey() { return 'kawthar_cart_' + (currentStudent ? currentStudent.phone : 'guest'); }
+function loadCartFromStorage() {
+  try { cart = JSON.parse(localStorage.getItem(cartKey())) || {}; } catch(e) { cart = {}; }
+}
+function saveCartToStorage() { localStorage.setItem(cartKey(), JSON.stringify(cart)); }
+
+async function loadLibrary() {
+  loadCartFromStorage();
+  try {
+    const settingsDoc = await db.collection('settings').doc('library').get();
+    if (settingsDoc.exists && settingsDoc.data().phone) libraryPhone = settingsDoc.data().phone;
+  } catch(e) { console.error(e); }
+
+  const snap = await db.collection('books').orderBy('createdAt','desc').get();
+  const list = document.getElementById('libraryList');
+  if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد كتب أو ملازم مضافة بعد.</p></div>'; return; }
+  list.innerHTML = snap.docs.map(d => {
+    const b = d.data();
+    const thumb = b.image
+      ? `<img src="${b.image}" style="width:52px;height:52px;object-fit:cover;border-radius:9px;margin-inline-end:12px;flex-shrink:0;">`
+      : `<div style="width:52px;height:52px;border-radius:9px;background:#eef1f8;display:flex;align-items:center;justify-content:center;font-size:22px;margin-inline-end:12px;flex-shrink:0;">📘</div>`;
+    return `<div class="lesson-row">
+      <div style="display:flex;align-items:center;">${thumb}<div class="title">${b.title}<br><span style="color:#b8903c;font-weight:bold;">${b.price} د.ع</span></div></div>
+      <button class="play" onclick="addToCart('${d.id}','${b.title.replace(/'/g,"\\'")}',${b.price})">أضف للسلة</button>
+    </div>`;
+  }).join('');
+  renderCartBar();
+}
+
+function addToCart(id, title, price) {
+  if (!cart[id]) cart[id] = { title, price, qty: 0 };
+  cart[id].qty += 1;
+  saveCartToStorage();
+  renderCartBar();
+}
+
+function renderCartBar() {
+  const existing = document.getElementById('cartBar');
+  if (existing) existing.remove();
+  const ids = Object.keys(cart);
+  if (ids.length === 0) return;
+  const total = ids.reduce((sum,id) => sum + cart[id].price * cart[id].qty, 0);
+  const count = ids.reduce((sum,id) => sum + cart[id].qty, 0);
+  const bar = document.createElement('div');
+  bar.id = 'cartBar';
+  bar.className = 'card';
+  bar.style = 'position:fixed;bottom:70px;left:12px;right:12px;max-width:456px;margin:0 auto;z-index:55;border:1px solid #cda44e;display:flex;justify-content:space-between;align-items:center;';
+  bar.innerHTML = `<div>🛒 ${count} قطعة — <b style="color:#b8903c;">${total} د.ع</b></div><button class="btn" style="width:auto;padding:10px 16px;margin:0;" onclick="openCheckout()">شراء الكل</button>`;
+  document.getElementById('screen-library').appendChild(bar);
+}
+
+function openCheckout() {
+  renderCartItems();
+  show('screen-checkout');
+}
+function renderCartItems() {
+  const ids = Object.keys(cart);
+  const list = document.getElementById('cartItemsList');
+  let total = 0;
+  list.innerHTML = ids.map(id => {
+    const it = cart[id];
+    total += it.price * it.qty;
+    return `<div class="lesson-row"><div class="title">${it.title} × ${it.qty}</div><div>${it.price * it.qty} د.ع</div></div>`;
+  }).join('');
+  document.getElementById('cartTotal').textContent = total + ' د.ع';
+}
+document.getElementById('backToLibrary').onclick = () => show('screen-library');
+document.getElementById('backToLibrary2').onclick = () => show('screen-library');
+
+document.getElementById('confirmOrderBtn').onclick = async () => {
+  const province = document.getElementById('ckProvince').value;
+  const district = document.getElementById('ckDistrict').value.trim();
+  const phone = document.getElementById('ckPhone').value.trim();
+  const altPhone = document.getElementById('ckAltPhone').value.trim();
+  if (!province || !district || !phone) { setMsg('checkoutMsg','الرجاء تعبئة المحافظة والقضاء/الناحية ورقم الهاتف', false); return; }
+  const ids = Object.keys(cart);
+  if (ids.length === 0) { setMsg('checkoutMsg','سلتك فارغة', false); return; }
+  const items = ids.map(id => ({ title: cart[id].title, price: cart[id].price, qty: cart[id].qty }));
+  const totalPrice = items.reduce((s,it)=>s+it.price*it.qty,0);
+  try {
+    await db.collection('orders').add({
+      studentPhone: currentStudent.phone, studentName: currentStudent.name,
+      items, totalPrice, province, district, phone, altPhone,
+      status: 'pending', createdAt: Date.now()
+    });
+    cart = {}; saveCartToStorage();
+    setMsg('checkoutMsg','تم إرسال طلبك بنجاح ✅', true);
+    setTimeout(() => showMyOrders(), 700);
+  } catch(e) { setMsg('checkoutMsg','خطأ بالاتصال', false); console.error(e); }
+};
+
+async function showMyOrders() {
+  const snap = await db.collection('orders').where('studentPhone','==', currentStudent.phone).orderBy('createdAt','desc').get();
+  const list = document.getElementById('myOrdersList');
+  const statusLabel = { pending:'⏳ قيد المراجعة', delivering:'🚚 قيد التوصيل', completed:'✅ تم التسليم', cancelled:'❌ ملغى' };
+  if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد طلبات بعد.</p></div>'; }
+  else {
+    list.innerHTML = snap.docs.map(d => {
+      const o = d.data();
+      const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
+      return `<div class="card">
+        <h3>${statusLabel[o.status] || o.status}</h3>
+        <p>${itemsText}</p>
+        <p><b>المجموع: ${o.totalPrice} د.ع</b></p>
+        <p style="color:#888;">${o.province} - ${o.district}</p>
+        ${o.status !== 'completed' && o.status !== 'cancelled' ? `<p>📞 للتعديل أو الإلغاء تواصل مع المكتبة: <b>${libraryPhone}</b></p>` : ''}
+      </div>`;
+    }).join('');
+  }
+  show('screen-my-orders');
+}
+
+// ---------- تسجيل الخروج ----------
+document.getElementById('logoutBtn').onclick = () => {
+  localStorage.removeItem('kawthar_phone');
+  currentStudent = null;
+  currentStaffName = null;
+  currentStaffRole = null;
+  currentStaffPermissions = {};
+  document.getElementById('adminPanel').classList.add('hidden');
+  document.getElementById('adminUser').value = '';
+  document.getElementById('adminPass').value = '';
+  document.getElementById('bottomNav').classList.add('hidden');
+  show('screen-login');
+};
+
+// ---------- التنقل السفلي ----------
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const target = btn.dataset.target;
+    if (target === 'screen-home') { show('screen-home'); loadHome(); }
+    else if (target === 'screen-library') { show('screen-library'); loadLibrary(); }
+    else show(target);
+  };
+});
+
+// ---------- لوحة المشرف / الموظف ----------
+let currentStaffName = null; // اسم من قام بتسجيل الدخول (المشرف أو اسم الموظف)
+let currentStaffRole = null; // 'admin' أو 'employee'
+let currentStaffPermissions = {}; // صلاحيات الموظف الحالي
+
+const PRIMARY_GRADES = ["الخامس ابتدائي","السادس ابتدائي"];
+const INTERMEDIATE_GRADES = ["الأول متوسط","الثاني متوسط","الثالث متوسط"];
+const SECONDARY_GRADES = ["الرابع علمي","الرابع أدبي","الخامس علمي","الخامس أدبي","السادس علمي","السادس أدبي","الرابع الصناعي","الخامس الصناعي","السادس الصناعي","الرابع التجاري","الخامس التجاري","السادس التجاري","الرابع الزراعي","الخامس الزراعي","السادس الزراعي"];
+
+document.getElementById('adminLoginBtn').onclick = async () => {
+  const nameInput = document.getElementById('adminUser').value.trim();
+  const pass = document.getElementById('adminPass').value;
+
+  if (!nameInput) {
+    // دخول المشرف الرئيسي
+    if (pass === ADMIN_PASSWORD) {
+      currentStaffName = 'المشرف';
+      currentStaffRole = 'admin';
+      currentStaffPermissions = {};
+      enterAdminPanel();
+    } else setMsg('adminMsg','كلمة السر غير صحيحة', false);
+    return;
+  }
+
+  // دخول موظف (بالاسم وكلمة السر فقط)
+  try {
+    const q = await db.collection('staff').where('name','==',nameInput).limit(1).get();
+    if (q.empty) { setMsg('adminMsg','اسم الموظف غير موجود', false); return; }
+    const staffDoc = q.docs[0];
+    const staff = staffDoc.data();
+    if (staff.password !== pass) { setMsg('adminMsg','كلمة السر غير صحيحة', false); return; }
+    currentStaffName = staff.name;
+    currentStaffRole = 'employee';
+    currentStaffPermissions = staff.permissions || {};
+    enterAdminPanel();
+  } catch(e) { setMsg('adminMsg','خطأ بالاتصال', false); console.error(e); }
+};
+
+function enterAdminPanel() {
+  document.getElementById('adminPanel').classList.remove('hidden');
+  document.getElementById('loggedInAsText').textContent =
+    currentStaffRole === 'admin' ? '👋 مسجّل دخول كـ: المشرف الرئيسي' : `👋 مسجّل دخول كـ: ${currentStaffName} (موظف)`;
+  document.getElementById('adminMenu').classList.remove('hidden');
+
+  if (currentStaffRole === 'admin') {
+    document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+    populateGradeSelects(GRADES);
+  } else {
+    // إظهار عناصر القائمة المسموحة فقط حسب صلاحيات الموظف
+    document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+    const perms = currentStaffPermissions;
+    const canSeeLessons = perms.primary || perms.intermediate || perms.secondary;
+    document.querySelectorAll('.admin-menu-item').forEach(item => {
+      const key = item.dataset.permission;
+      let allowed = false;
+      if (key === 'content') allowed = canSeeLessons;
+      else if (key === 'ownerOnly') allowed = false;
+      else allowed = !!perms[key];
+      item.classList.toggle('hidden', !allowed);
+    });
+    // تحديد المراحل المسموحة للموظف بقوائم الدروس والأسئلة
+    let allowedGrades = [];
+    if (perms.primary) allowedGrades = allowedGrades.concat(PRIMARY_GRADES);
+    if (perms.intermediate) allowedGrades = allowedGrades.concat(INTERMEDIATE_GRADES);
+    if (perms.secondary) allowedGrades = allowedGrades.concat(SECONDARY_GRADES);
+    populateGradeSelects(allowedGrades);
+  }
+
+  showAdminMenu();
+  loadStudentsAdmin();
+  loadRequestsAdmin();
+  loadEmployeesAdmin();
+  loadBooksAdmin();
+  loadOrdersAdmin();
+  loadTeachersAdmin();
+  db.collection('settings').doc('library').get().then(doc => {
+    if (doc.exists && doc.data().phone) document.getElementById('libraryPhoneInput').value = doc.data().phone;
+  });
+}
+
+function showAdminMenu() {
+  document.getElementById('adminMenu').classList.remove('hidden');
+  document.querySelectorAll('.admin-section').forEach(s => s.classList.add('hidden'));
+}
+function openAdminSection(section) {
+  document.getElementById('adminMenu').classList.add('hidden');
+  document.querySelectorAll('.admin-section').forEach(s => s.classList.toggle('hidden', s.dataset.section !== section));
+}
+
+document.querySelectorAll('.admin-menu-item').forEach(item => {
+  item.onclick = () => openAdminSection(item.dataset.section);
+});
+document.querySelectorAll('.admin-back-btn').forEach(btn => {
+  btn.onclick = () => showAdminMenu();
+});
+
+function populateGradeSelects(gradesList) {
+  const restrictedOpts = (gradesList && gradesList.length ? gradesList : GRADES).map(g=>`<option>${g}</option>`).join('');
+  const fullOpts = GRADES.map(g=>`<option>${g}</option>`).join('');
+  document.getElementById('adGrade').innerHTML = restrictedOpts;
+  document.getElementById('aqGrade').innerHTML = restrictedOpts;
+  document.getElementById('codeGrade').innerHTML = fullOpts;
+}
+document.getElementById('addLessonBtn').onclick = async () => {
+  const grade = document.getElementById('adGrade').value;
+  const subject = document.getElementById('adSubject').value.trim();
+  const title = document.getElementById('adLessonTitle').value.trim();
+  const videoUrl = document.getElementById('adLessonUrl').value.trim();
+  const free = document.getElementById('adFree').checked;
+  if (!subject || !title || !videoUrl) { alert('عبّئ كل الحقول'); return; }
+  await db.collection('lessons').add({ grade, subject, title, videoUrl, free, addedBy: currentStaffName, createdAt: Date.now() });
+  alert(`تمت إضافة الدرس ✅ — بواسطة: ${currentStaffName}`);
+  document.getElementById('adLessonTitle').value=''; document.getElementById('adLessonUrl').value='';
+};
+document.getElementById('addQuestionBtn').onclick = async () => {
+  const grade = document.getElementById('aqGrade').value;
+  const subject = document.getElementById('aqSubject').value.trim();
+  const text = document.getElementById('aqText').value.trim();
+  const options = [1,2,3,4].map(n => document.getElementById('aqOpt'+n).value.trim());
+  const correctIndex = +document.getElementById('aqCorrect').value;
+  if (!subject || !text || options.some(o=>!o)) { alert('عبّئ كل الحقول'); return; }
+  await db.collection('questions').add({ grade, subject, text, options, correctIndex, addedBy: currentStaffName, createdAt: Date.now() });
+  alert(`تمت إضافة السؤال ✅ — بواسطة: ${currentStaffName}`);
+  document.getElementById('aqText').value='';
+  [1,2,3,4].forEach(n => document.getElementById('aqOpt'+n).value='');
+};
+
+// ---------- إدارة المدرسين ----------
+document.getElementById('addTeacherBtn').onclick = async () => {
+  const name = document.getElementById('tchName').value.trim();
+  const subject = document.getElementById('tchSubject').value.trim();
+  if (!name) { alert('اكتب اسم المدرّس'); return; }
+  await db.collection('teachers').add({ name, subject, addedBy: currentStaffName, createdAt: Date.now() });
+  alert(`تمت الإضافة ✅ — بواسطة: ${currentStaffName}`);
+  document.getElementById('tchName').value=''; document.getElementById('tchSubject').value='';
+  loadTeachersAdmin();
+};
+async function loadTeachersAdmin() {
+  const snap = await db.collection('teachers').orderBy('createdAt','desc').get();
+  const list = document.getElementById('teachersList');
+  if (snap.empty) { list.innerHTML = '<p>لا يوجد مدرسين مضافين بعد.</p>'; return; }
+  list.innerHTML = snap.docs.map(d => {
+    const t = d.data();
+    return `<div class="admin-list-item">
+      <div><b>${t.name}</b>${t.subject ? ' — '+t.subject : ''}<br><span style="color:#888;">أضافه: ${t.addedBy||'—'}</span></div>
+      <button class="small-btn" onclick="deleteTeacher('${d.id}')">🗑️ حذف</button>
+    </div>`;
+  }).join('');
+}
+async function deleteTeacher(id) {
+  if (!confirm('حذف هذا المدرّس؟')) return;
+  await db.collection('teachers').doc(id).delete();
+  loadTeachersAdmin();
+}
+
+// ---------- إدارة الموظفين ----------
+const PERMISSION_LABELS = {
+  library: '📚 المكتبة', codes: '🎫 الأكواد', primary: '🏫 الابتدائية',
+  intermediate: '🏫 المتوسطة', secondary: '🏫 الإعدادية', teachers: '🧑‍🏫 المدرسين', employees: '👥 الموظفين'
+};
+document.getElementById('addEmployeeBtn').onclick = async () => {
+  const name = document.getElementById('empName').value.trim();
+  const password = document.getElementById('empPass').value;
+  if (!name || !password) { alert('عبّئ اسم الموظف وكلمة السر'); return; }
+  const existing = await db.collection('staff').where('name','==',name).limit(1).get();
+  if (!existing.empty) { alert('يوجد موظف بنفس هذا الاسم مسبقاً، اختر اسماً مختلفاً (أو أضف لقب مميز)'); return; }
+  const permissions = {
+    library: document.getElementById('permLibrary').checked,
+    codes: document.getElementById('permCodes').checked,
+    primary: document.getElementById('permPrimary').checked,
+    intermediate: document.getElementById('permIntermediate').checked,
+    secondary: document.getElementById('permSecondary').checked,
+    teachers: document.getElementById('permTeachers').checked,
+    employees: document.getElementById('permEmployees').checked
+  };
+  await db.collection('staff').add({ name, password, permissions, createdAt: Date.now() });
+  alert('تمت إضافة الموظف ✅');
+  document.getElementById('empName').value=''; document.getElementById('empPass').value='';
+  ['permLibrary','permCodes','permPrimary','permIntermediate','permSecondary','permTeachers','permEmployees']
+    .forEach(id => document.getElementById(id).checked = false);
+  loadEmployeesAdmin();
+};
+async function loadEmployeesAdmin() {
+  const snap = await db.collection('staff').orderBy('createdAt','desc').get();
+  const list = document.getElementById('employeesList');
+  if (snap.empty) { list.innerHTML = '<p>لا يوجد موظفين مضافين.</p>'; return; }
+  list.innerHTML = snap.docs.map(d => {
+    const s = d.data();
+    const perms = s.permissions || {};
+    const permTags = Object.keys(PERMISSION_LABELS).filter(k => perms[k]).map(k => PERMISSION_LABELS[k]);
+    return `<div class="admin-list-item">
+      <div>
+        <b>${s.name}</b><br>
+        <span style="color:#888;">🔑 ${s.password}</span><br>
+        <span style="color:#888;">${permTags.length ? permTags.join(' · ') : 'بدون صلاحيات محددة'}</span>
+      </div>
+      <button class="small-btn" onclick="deleteEmployee('${d.id}')">🗑️ حذف</button>
+    </div>`;
+  }).join('');
+}
+async function deleteEmployee(id) {
+  if (!confirm('حذف هذا الموظف؟ لن يتمكن من الدخول بعد الحذف.')) return;
+  await db.collection('staff').doc(id).delete();
+  loadEmployeesAdmin();
+}
+
+// ---------- إدارة المكتبة (كتب وملازم) ----------
+function resizeImageToBase64(file, maxSize) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > h && w > maxSize) { h = Math.round(h * maxSize / w); w = maxSize; }
+        else if (h > maxSize) { w = Math.round(w * maxSize / h); h = maxSize; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+document.getElementById('bkImage').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  const preview = document.getElementById('bkImagePreview');
+  if (!file) { preview.innerHTML = ''; return; }
+  const dataUrl = await resizeImageToBase64(file, 300);
+  preview.innerHTML = `<img src="${dataUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:10px;border:1px solid #e2e5ec;">`;
+  preview.dataset.image = dataUrl;
+});
+
+document.getElementById('addBookBtn').onclick = async () => {
+  const title = document.getElementById('bkTitle').value.trim();
+  const price = +document.getElementById('bkPrice').value;
+  const image = document.getElementById('bkImagePreview').dataset.image || null;
+  if (!title || !price) { alert('عبّئ اسم الكتاب والسعر'); return; }
+  await db.collection('books').add({ title, price, image, addedBy: currentStaffName, createdAt: Date.now() });
+  alert(`تمت الإضافة ✅ — بواسطة: ${currentStaffName}`);
+  document.getElementById('bkTitle').value=''; document.getElementById('bkPrice').value='';
+  document.getElementById('bkImage').value=''; document.getElementById('bkImagePreview').innerHTML=''; delete document.getElementById('bkImagePreview').dataset.image;
+  loadBooksAdmin();
+};
+async function loadBooksAdmin() {
+  const snap = await db.collection('books').orderBy('createdAt','desc').get();
+  const list = document.getElementById('booksAdminList');
+  if (snap.empty) { list.innerHTML = '<p>لا توجد كتب مضافة بعد.</p>'; return; }
+  list.innerHTML = snap.docs.map(d => {
+    const b = d.data();
+    const thumb = b.image ? `<img src="${b.image}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;margin-inline-end:10px;">` : '';
+    return `<div class="admin-list-item">
+      <div style="display:flex;align-items:center;">${thumb}<div>${b.title} — <span style="color:#b8903c;">${b.price} د.ع</span><br><span style="color:#888;">أضافه: ${b.addedBy||'—'}</span></div></div>
+      <button class="small-btn" onclick="deleteBook('${d.id}')">🗑️ حذف</button>
+    </div>`;
+  }).join('');
+}
+async function deleteBook(id) {
+  if (!confirm('حذف هذا الكتاب من المكتبة؟')) return;
+  await db.collection('books').doc(id).delete();
+  loadBooksAdmin();
+}
+
+document.getElementById('saveLibraryPhoneBtn').onclick = async () => {
+  const phone = document.getElementById('libraryPhoneInput').value.trim();
+  if (!phone) { alert('أدخل رقم الهاتف'); return; }
+  await db.collection('settings').doc('library').set({ phone });
+  alert('تم حفظ رقم المكتبة ✅');
+};
+
+async function loadOrdersAdmin() {
+  const snap = await db.collection('orders').orderBy('createdAt','desc').limit(50).get();
+  const list = document.getElementById('ordersAdminList');
+  const statusLabel = { pending:'⏳ قيد المراجعة', delivering:'🚚 قيد التوصيل', completed:'✅ تم التسليم', cancelled:'❌ ملغى' };
+  if (snap.empty) { list.innerHTML = '<p>لا توجد طلبات بعد.</p>'; return; }
+  list.innerHTML = snap.docs.map(d => {
+    const o = d.data();
+    const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
+    return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
+      <div style="margin-bottom:6px;">
+        <b>${o.studentName}</b> — ${o.phone}${o.altPhone ? ' / '+o.altPhone : ''}<br>
+        <span style="color:#888;">${o.province} - ${o.district}</span><br>
+        ${itemsText} — <b style="color:#b8903c;">${o.totalPrice} د.ع</b><br>
+        الحالة: <b>${statusLabel[o.status]||o.status}</b>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="small-btn" onclick="setOrderStatus('${d.id}','delivering')">🚚 قيد التوصيل</button>
+        <button class="small-btn" onclick="setOrderStatus('${d.id}','completed')">✅ تم التسليم</button>
+        <button class="small-btn" onclick="setOrderStatus('${d.id}','cancelled')">❌ إلغاء</button>
+        <button class="small-btn" onclick="deleteOrder('${d.id}')">🗑️ حذف الطلب</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function setOrderStatus(id, status) {
+  await db.collection('orders').doc(id).update({ status });
+  loadOrdersAdmin();
+}
+async function deleteOrder(id) {
+  if (!confirm('حذف هذا الطلب بالكامل؟')) return;
+  await db.collection('orders').doc(id).delete();
+  loadOrdersAdmin();
+}
+
+function generateCode() {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const digits = '0123456789';
+  let letterPart = '';
+  for (let i=0;i<12;i++) letterPart += letters[Math.floor(Math.random()*letters.length)];
+  let digitPart = '';
+  for (let i=0;i<4;i++) digitPart += digits[Math.floor(Math.random()*digits.length)];
+  return letterPart + digitPart;
+}
+
+document.getElementById('genCodesBtn').onclick = async () => {
+  const count = +document.getElementById('codeCount').value || 5;
+  const grade = document.getElementById('codeGrade').value;
+  const durationDays = 30; // كل كود صالح لمدة شهر واحد فقط
+  const codes = [];
+  for (let i=0;i<count;i++) {
+    const code = generateCode();
+    codes.push(code);
+    await db.collection('codes').add({ code, used:false, grade, durationDays, createdAt: Date.now() });
+  }
+  document.getElementById('codesOutput').innerHTML = codes.map(c => `
+    <div class="code-badge" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <span id="code-text-${c}">${c} <span style="opacity:.7;">(${grade} — شهر واحد)</span></span>
+      <button class="small-btn copy-code-btn" data-code="${c}">📋 نسخ</button>
+    </div>`).join('');
+};
+
+document.getElementById('codesOutput').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy-code-btn');
+  if (!btn) return;
+  const code = btn.dataset.code;
+  try {
+    await navigator.clipboard.writeText(code);
+  } catch(err) {
+    // بديل احتياطي لو الحافظة غير متاحة بالمتصفح
+    const temp = document.createElement('textarea');
+    temp.value = code; document.body.appendChild(temp); temp.select();
+    document.execCommand('copy'); document.body.removeChild(temp);
+  }
+  // يبقى أخضر بشكل دائم (حتى يتم توليد دفعة أكواد جديدة) ليعرف الموظف أن هذا الكود تم نسخه مسبقاً
+  const wrapper = btn.closest('.code-badge');
+  wrapper.style.background = '#ecfdf3';
+  wrapper.style.borderColor = '#86efac';
+  wrapper.style.color = '#15803d';
+  btn.textContent = '✅ تم النسخ';
+  btn.style.background = '#dcfce7'; btn.style.color = '#15803d';
+  btn.disabled = true;
+});
+async function loadRequestsAdmin() {
+  const snap = await db.collection('activationRequests').where('status','==','pending').orderBy('createdAt','desc').get();
+  const list = document.getElementById('requestsAdminList');
+  if (snap.empty) { list.innerHTML = '<p>لا توجد طلبات معلّقة.</p>'; return; }
+  list.innerHTML = snap.docs.map(d => {
+    const r = d.data();
+    return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
+      <div style="margin-bottom:8px;">${r.studentName} — ${r.grade}<br><span style="color:#888;">${r.studentPhone}</span></div>
+      <div style="display:flex;gap:6px;">
+        <button class="small-btn" onclick="approveRequest('${d.id}','${r.studentPhone}')">✅ موافقة (شهر واحد)</button>
+        <button class="small-btn" onclick="rejectRequest('${d.id}')">❌ رفض</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function approveRequest(reqId, studentPhone) {
+  const durationDays = 30; // كل تفعيل صالح لمدة شهر واحد فقط
+  const expiry = Date.now() + durationDays * 24 * 60 * 60 * 1000;
+  await db.collection('students').doc(studentPhone).update({ activated: true, activationExpiry: expiry });
+  await db.collection('activationRequests').doc(reqId).update({ status: 'approved', durationDays });
+  loadRequestsAdmin();
+  alert('تم تفعيل اشتراك الطالب ✅ — لمدة شهر واحد');
+}
+async function rejectRequest(reqId) {
+  await db.collection('activationRequests').doc(reqId).update({ status: 'rejected' });
+  loadRequestsAdmin();
+}
+async function loadStudentsAdmin() {
+  const snap = await db.collection('students').orderBy('createdAt','desc').limit(50).get();
+  const list = document.getElementById('studentsAdminList');
+  if (snap.empty) { list.innerHTML = '<p>لا يوجد طلاب مسجلين بعد.</p>'; return; }
+  list.innerHTML = snap.docs.map(d => {
+    const s = d.data();
+    const expired = s.activated && s.activationExpiry && Date.now() > s.activationExpiry;
+    let statusText = '❌ غير مفعّل';
+    if (s.activated && !expired) {
+      statusText = '✅ مفعّل' + (s.activationExpiry ? ` (حتى ${new Date(s.activationExpiry).toLocaleDateString('ar-EG')})` : '');
+    } else if (expired) {
+      statusText = '⌛ انتهت الصلاحية';
+    }
+    return `<div class="admin-list-item">
+      <div>${s.name} — ${s.grade}<br><span style="color:#888;">${s.phone} ${statusText}</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ---------- تثبيت التطبيق (PWA) ----------
+let deferredInstallPrompt = null;
+const isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (!isStandalone && !localStorage.getItem('kawthar_install_dismissed')) {
+    document.getElementById('installText').textContent = 'ثبّت منصة الكوثر على شاشتك الرئيسية للوصول السريع 📲';
+    document.getElementById('installBanner').classList.remove('hidden');
+  }
+});
+
+if (isIOS && !isStandalone && !localStorage.getItem('kawthar_install_dismissed')) {
+  document.getElementById('installText').textContent = 'لتثبيت التطبيق: اضغط زر المشاركة ⬆️ ثم "إضافة إلى الشاشة الرئيسية"';
+  document.getElementById('installActionBtn').classList.add('hidden');
+  document.getElementById('installBanner').classList.remove('hidden');
+}
+
+document.getElementById('installActionBtn').onclick = async () => {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+  }
+  document.getElementById('installBanner').classList.add('hidden');
+};
+document.getElementById('dismissInstallBtn').onclick = () => {
+  localStorage.setItem('kawthar_install_dismissed', '1');
+  document.getElementById('installBanner').classList.add('hidden');
+};
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(e => console.log('SW registration failed', e));
+  });
+  // إعادة تحميل الصفحة تلقائياً عند توفر نسخة محدثة من المنصة
+  let refreshedOnce = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshedOnce) return;
+    refreshedOnce = true;
+    window.location.reload();
+  });
+}
+
+// ---------- استرجاع الجلسة ----------
+(async function init() {
+  const savedPhone = localStorage.getItem('kawthar_phone');
+  if (savedPhone && db) {
+    try {
+      const doc = await db.collection('students').doc(savedPhone).get();
+      if (doc.exists) { currentStudent = { id: savedPhone, ...doc.data() }; afterLogin(); return; }
+    } catch(e) { console.error(e); }
+  }
+  show('screen-login');
+})();
+</script>
+</body>
+</html>
