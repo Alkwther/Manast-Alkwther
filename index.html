@@ -172,9 +172,14 @@
       <p>اختر شنو تريد تسوي الآن</p>
     </div>
 
-    <div class="subject-tile" onclick="startFreeLessons()">
-      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📖</span><div><b>الدروس المجانية</b><br><span style="font-size:12px;color:#8a90a3;">تصفح دروس تجريبية بدون تسجيل كامل</span></div></div>
-      <div class="badge">تصفح</div>
+    <div class="subject-tile" onclick="show('screen-teacher-login')">
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🧑‍🏫</span><div><b>الدخول كأستاذ</b><br><span style="font-size:12px;color:#8a90a3;">دخول خاص بالمدرسين لمتابعة طلابهم</span></div></div>
+      <div class="badge">دخول</div>
+    </div>
+
+    <div class="subject-tile" onclick="show('screen-login')">
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🎓</span><div><b>تسجيل / دخول الطالب</b><br><span style="font-size:12px;color:#8a90a3;">سجّل حساب جديد أو ادخل بحسابك</span></div></div>
+      <div class="badge">دخول</div>
     </div>
 
     <div class="subject-tile" onclick="show('screen-library'); loadLibrary();">
@@ -182,9 +187,9 @@
       <div class="badge">تصفح</div>
     </div>
 
-    <div class="subject-tile" onclick="show('screen-login')">
-      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🔑</span><div><b>الدخول بكودك الخاص</b><br><span style="font-size:12px;color:#8a90a3;">سجّل بياناتك وفعّل اشتراكك بالكامل</span></div></div>
-      <div class="badge">دخول</div>
+    <div class="subject-tile" onclick="startFreeLessons()">
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📖</span><div><b>الدروس المجانية</b><br><span style="font-size:12px;color:#8a90a3;">تصفح دروس تجريبية بدون تسجيل كامل</span></div></div>
+      <div class="badge">تصفح</div>
     </div>
   </div>
 
@@ -232,13 +237,15 @@
     <button class="btn secondary" onclick="show('screen-welcome')">← رجوع</button>
     <div class="card">
       <h3>مرحباً بك 👋</h3>
-      <p>سجّل بياناتك للدخول إلى منصة الكوثر التعليمية</p>
+      <p>سجّل بياناتك أول مرة، أو ادخل بنفس رقمك وكلمة سرك إذا عندك حساب من قبل</p>
     </div>
     <div class="card">
       <label>الاسم الكامل</label>
       <input id="loginName" placeholder="مثال: أحمد علي">
       <label>رقم الهاتف (واتساب)</label>
       <input id="loginPhone" placeholder="07xxxxxxxxx" type="tel">
+      <label>كلمة السر</label>
+      <input id="loginPassword" type="password" placeholder="اختر كلمة سر لحسابك">
       <label>المرحلة الدراسية</label>
       <select id="loginGrade">
         <option value="">اختر المرحلة</option>
@@ -265,6 +272,20 @@
       </select>
       <div id="loginMsg"></div>
       <button class="btn" id="loginBtn">دخول / تسجيل</button>
+    </div>
+  </div>
+
+  <!-- اختيار المواد والأستاذ عند التسجيل الأول -->
+  <div class="screen hidden" id="screen-first-request">
+    <div class="card">
+      <h3>📚 اختر المواد اللي تريد تشترك فيها</h3>
+      <p>حدد مادة أو أكثر، وراح نرسل طلبك عبر واتساب ليتم تفعيل اشتراكك</p>
+      <div id="firstRequestSubjects" style="margin-bottom:12px;"></div>
+      <label>الأستاذ المفضّل (اختياري)</label>
+      <select id="firstRequestTeacher"><option value="">بدون تحديد</option></select>
+      <div id="firstRequestMsg"></div>
+      <button class="btn" id="firstRequestSendBtn">📩 أرسل طلبي عبر واتساب</button>
+      <button class="btn secondary" id="skipFirstRequestBtn">تخطي الآن، أدخل بدون طلب</button>
     </div>
   </div>
 
@@ -308,7 +329,7 @@
   <!-- دروس المادة -->
   <div class="screen hidden" id="screen-lessons">
     <button class="btn secondary" id="backToHome1">← رجوع للمواد</button>
-    <h3 style="margin:10px 0;color:#10203f;" id="lessonsSubjectTitle"></h3>
+    <div id="lessonsSubjectHeader"></div>
     <div id="lessonsList"></div>
   </div>
 
@@ -330,6 +351,7 @@
 
   <!-- مكتبة الكتب والملازم -->
   <div class="screen hidden" id="screen-library">
+    <button class="btn secondary" onclick="show('screen-welcome')">← رجوع</button>
     <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
       <h3 style="margin:0;">📚 مكتبة الكتب والملازم</h3>
       <button class="small-btn" onclick="showMyOrders()">📦 طلباتي</button>
@@ -439,8 +461,10 @@
           <h3>➕ إضافة درس</h3>
           <select id="adGrade"></select>
           <input id="adSubject" placeholder="اسم المادة (مثال: رياضيات)">
-          <input id="adLessonTitle" placeholder="عنوان الدرس">
+          <input id="adChapter" placeholder="الفصل / الوحدة (مثال: الفصل الأول)">
+          <input id="adLessonTitle" placeholder="عنوان الدرس (مثال: القطع المخروطية)">
           <input id="adLessonUrl" placeholder="رابط يوتيوب (embed أو عادي)">
+          <input id="adPdfUrl" placeholder="رابط ملف PDF (اختياري)">
           <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="adFree" style="width:auto;margin:0;"> درس مجاني (بدون تفعيل)</label>
           <button class="btn" id="addLessonBtn">إضافة الدرس</button>
         </div>
@@ -586,7 +610,7 @@
 
   <!-- دخول الأستاذ -->
   <div class="screen hidden" id="screen-teacher-login">
-    <button class="btn secondary" onclick="show('screen-admin')">← رجوع</button>
+    <button class="btn secondary" onclick="show('screen-welcome')">← رجوع</button>
     <div class="card">
       <h3>🧑‍🏫 دخول الأستاذ</h3>
       <label>رقم الهاتف</label>
@@ -642,7 +666,7 @@ const firebaseConfig = {
 };
 
 const ADMIN_PASSWORD = "kawthar2026"; // غيّرها لاحقاً
-const WHATSAPP_NUMBER = "9647xxxxxxxxx"; // ضع رقم واتساب منصة الكوثر هنا (بالصيغة الدولية بدون + أو صفر بالبداية)
+const WHATSAPP_NUMBER = "9647809677257"; // رقم واتساب منصة الكوثر (بالصيغة الدولية بدون + أو صفر بالبداية)
 const DELIVERY_FEE = 5000; // أجور التوصيل الثابتة بالدينار العراقي، تُضاف تلقائياً لكل طلب مكتبة
 
 let db, currentStudent = null;
@@ -662,25 +686,78 @@ function setMsg(el, text, ok) {
 }
 
 // ---------- تسجيل الدخول ----------
+function generateSessionToken() {
+  return 'sess-' + Date.now() + '-' + Math.random().toString(36).substring(2, 12);
+}
+
 document.getElementById('loginBtn').onclick = async () => {
   const name = document.getElementById('loginName').value.trim();
   const phone = document.getElementById('loginPhone').value.trim();
+  const password = document.getElementById('loginPassword').value;
   const grade = document.getElementById('loginGrade').value;
-  if (!name || !phone || !grade) { setMsg('loginMsg','الرجاء تعبئة كل الحقول', false); return; }
+  if (!phone || !password) { setMsg('loginMsg','أدخل رقم الهاتف وكلمة السر', false); return; }
   try {
     const ref = db.collection('students').doc(phone);
     const doc = await ref.get();
+    const sessionToken = generateSessionToken();
     if (doc.exists) {
-      currentStudent = { id: phone, ...doc.data() };
+      // تسجيل دخول لحساب موجود
+      const existing = doc.data();
+      if (existing.password && existing.password !== password) {
+        setMsg('loginMsg','كلمة السر غير صحيحة', false); return;
+      }
+      await ref.update({ activeSession: sessionToken });
+      currentStudent = { id: phone, ...existing, activeSession: sessionToken };
+      localStorage.setItem('kawthar_phone', phone);
+      localStorage.setItem('kawthar_session', sessionToken);
+      afterLogin();
     } else {
-      const data = { name, phone, grade, activated:false, quizzesTaken:0, totalScore:0, lessonsWatched:[], createdAt: Date.now() };
+      // تسجيل حساب جديد
+      if (!name || !grade) { setMsg('loginMsg','أول مرة تسجل؟ عبّئ الاسم والمرحلة أيضاً', false); return; }
+      const data = { name, phone, password, grade, activated:false, quizzesTaken:0, totalScore:0, lessonsWatched:[], activeSession: sessionToken, createdAt: Date.now() };
       await ref.set(data);
       currentStudent = { id: phone, ...data };
+      localStorage.setItem('kawthar_phone', phone);
+      localStorage.setItem('kawthar_session', sessionToken);
+      await populateFirstRequestScreen(grade);
+      show('screen-first-request');
     }
-    localStorage.setItem('kawthar_phone', phone);
-    afterLogin();
   } catch(e) { setMsg('loginMsg','خطأ بالاتصال، تأكد من إعدادات Firebase', false); console.error(e); }
 };
+
+async function populateFirstRequestScreen(grade) {
+  const snap = await db.collection('lessons').where('grade','==', grade).get();
+  const subjects = [...new Set(snap.docs.map(d=>d.data().subject))];
+  document.getElementById('firstRequestSubjects').innerHTML = subjects.length
+    ? subjects.map(s => `<label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" class="firstReqSubjectCheck" value="${s}" style="width:auto;margin:0;"> ${s}</label>`).join('')
+    : '<p style="font-size:13px;color:#8a90a3;">لا توجد مواد مضافة لمرحلتك بعد.</p>';
+  const teachersSnap = await db.collection('teachers').get();
+  document.getElementById('firstRequestTeacher').innerHTML = '<option value="">بدون تحديد</option>' + teachersSnap.docs.map(t => `<option>${t.data().name}</option>`).join('');
+}
+
+document.getElementById('firstRequestSendBtn').onclick = async () => {
+  const requestedSubjects = Array.from(document.querySelectorAll('.firstReqSubjectCheck:checked')).map(cb => cb.value);
+  const teacherPreference = document.getElementById('firstRequestTeacher').value || null;
+  if (requestedSubjects.length === 0) { setMsg('firstRequestMsg','اختر مادة واحدة على الأقل', false); return; }
+  try {
+    await db.collection('activationRequests').add({
+      studentPhone: currentStudent.phone,
+      studentName: currentStudent.name,
+      grade: currentStudent.grade,
+      requestedSubjects,
+      teacherPreference,
+      status: 'pending',
+      createdAt: Date.now()
+    });
+    setMsg('firstRequestMsg','تم تسجيل طلبك ✅ سيتم فتح واتساب الآن', true);
+    const text = encodeURIComponent(`طلب تسجيل جديد - منصة الكوثر\nاسم الطالب الثلاثي: ${currentStudent.name}\nرقم الهاتف: ${currentStudent.phone}\nالمرحلة: ${currentStudent.grade}\nالمواد المطلوبة: ${requestedSubjects.join('، ')}\nالأستاذ المفضّل: ${teacherPreference || 'بدون تحديد'}`);
+    setTimeout(() => {
+      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
+      afterLogin();
+    }, 700);
+  } catch(e) { setMsg('firstRequestMsg','خطأ بالاتصال', false); console.error(e); }
+};
+document.getElementById('skipFirstRequestBtn').onclick = () => { afterLogin(); };
 
 function getActiveSubscription(subject) {
   if (!currentStudent || !currentStudent.subscriptions) return null;
@@ -847,19 +924,55 @@ function toggleSubDetail(subject) {
 let currentSubject = null;
 async function openSubject(subject) {
   currentSubject = subject;
-  document.getElementById('lessonsSubjectTitle').textContent = subject;
+  const sub = getActiveSubscription(subject);
+  const rawSub = (currentStudent.subscriptions || {})[subject];
+  const expired = rawSub && !sub;
+
+  const header = document.getElementById('lessonsSubjectHeader');
+  let statusHtml;
+  if (sub) {
+    const remainingDays = daysRemaining(sub.expiryAt);
+    const isWarning = remainingDays <= 7;
+    statusHtml = `
+      <div class="card" style="border-inline-start:4px solid ${isWarning ? '#dc2626' : '#16a34a'};">
+        <h3 style="border:none;padding:0;">📘 ${subject}</h3>
+        <p>👨‍🏫 الأستاذ: <b>${sub.teacherName || 'غير محدد'}</b></p>
+        <p style="${isWarning ? 'color:#dc2626;font-weight:bold;' : 'color:#15803d;font-weight:bold;'}">⏳ الأيام المتبقية: ${remainingDays} يوم</p>
+      </div>`;
+  } else {
+    statusHtml = `
+      <div class="card" style="border-inline-start:4px solid #dc2626;">
+        <h3 style="border:none;padding:0;">📘 ${subject}</h3>
+        <p style="color:#dc2626;font-weight:bold;">${expired ? '⌛ انتهى اشتراكك بهذي المادة' : '🔒 ما عندك اشتراك بهذي المادة بعد'}</p>
+        <button class="btn" onclick="show('screen-activate')">➕ ${expired ? 'جدّد الاشتراك' : 'اشترك بهذي المادة'}</button>
+      </div>`;
+  }
+  header.innerHTML = statusHtml;
+
   const snap = await db.collection('lessons').where('grade','==', currentStudent.grade).where('subject','==', subject).get();
   const list = document.getElementById('lessonsList');
-  if (snap.empty) { list.innerHTML = '<p>لا توجد دروس بعد.</p>'; }
+  if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد دروس بعد.</p></div>'; }
   else {
-    list.innerHTML = snap.docs.map(d => {
+    const byChapter = {};
+    snap.docs.forEach(d => {
       const l = d.data();
-      const locked = !l.free && !getActiveSubscription(subject);
-      return `<div class="lesson-row">
-        <div class="title">${locked?'🔒 ':''}${l.title}</div>
-        <button class="play" onclick="${locked? `alert('هذا الدرس يتطلب تفعيل اشتراك مادة '+'${subject.replace(/'/g,"\\\\'")}')`:`playLesson('${d.id}')`}">${locked?'مقفل':'مشاهدة'}</button>
-      </div>`;
-    }).join('');
+      const chapter = l.chapter || 'عام';
+      if (!byChapter[chapter]) byChapter[chapter] = [];
+      byChapter[chapter].push({ id: d.id, ...l });
+    });
+    list.innerHTML = Object.entries(byChapter).map(([chapter, lessons]) => `
+      <h3 style="margin:14px 0 8px;color:#10203f;">📂 ${chapter}</h3>
+      ${lessons.map(l => {
+        const locked = !l.free && !sub;
+        return `<div class="lesson-row">
+          <div class="title">${locked?'🔒 ':'🎬 '}${l.title}</div>
+          <div style="display:flex;gap:6px;">
+            ${l.pdfUrl ? `<a href="${l.pdfUrl}" target="_blank" class="small-btn" style="display:inline-block;text-decoration:none;">📄 PDF</a>` : ''}
+            <button class="play" onclick="${locked? `alert('هذا الدرس يتطلب تفعيل اشتراك مادة ${subject.replace(/'/g,"\\'")}')`:`playLesson('${l.id}')`}">${locked?'مقفل':'مشاهدة'}</button>
+          </div>
+        </div>`;
+      }).join('')}
+    `).join('');
   }
   list.insertAdjacentHTML('beforeend', `<div class="card" style="margin-top:14px;"><button class="btn" onclick="startQuiz()">📝 ابدأ اختبار المادة</button></div>`);
   show('screen-lessons');
@@ -1094,6 +1207,7 @@ async function showMyOrders(phoneOverride) {
 // ---------- تسجيل الخروج ----------
 document.getElementById('logoutBtn').onclick = () => {
   localStorage.removeItem('kawthar_phone');
+  localStorage.removeItem('kawthar_session');
   currentStudent = null;
   currentStaffName = null;
   currentStaffRole = null;
@@ -1224,13 +1338,15 @@ function populateGradeSelects(gradesList) {
 document.getElementById('addLessonBtn').onclick = async () => {
   const grade = document.getElementById('adGrade').value;
   const subject = document.getElementById('adSubject').value.trim();
+  const chapter = document.getElementById('adChapter').value.trim() || 'عام';
   const title = document.getElementById('adLessonTitle').value.trim();
   const videoUrl = document.getElementById('adLessonUrl').value.trim();
+  const pdfUrl = document.getElementById('adPdfUrl').value.trim() || null;
   const free = document.getElementById('adFree').checked;
   if (!subject || !title || !videoUrl) { alert('عبّئ كل الحقول'); return; }
-  await db.collection('lessons').add({ grade, subject, title, videoUrl, free, addedBy: currentStaffName, createdAt: Date.now() });
+  await db.collection('lessons').add({ grade, subject, chapter, title, videoUrl, pdfUrl, free, addedBy: currentStaffName, createdAt: Date.now() });
   alert(`تمت إضافة الدرس ✅ — بواسطة: ${currentStaffName}`);
-  document.getElementById('adLessonTitle').value=''; document.getElementById('adLessonUrl').value='';
+  document.getElementById('adLessonTitle').value=''; document.getElementById('adLessonUrl').value=''; document.getElementById('adPdfUrl').value='';
 };
 document.getElementById('addQuestionBtn').onclick = async () => {
   const grade = document.getElementById('aqGrade').value;
@@ -1975,12 +2091,44 @@ if ('serviceWorker' in navigator) {
 }
 
 // ---------- استرجاع الجلسة ----------
+function forceLogoutOtherSession() {
+  localStorage.removeItem('kawthar_phone');
+  localStorage.removeItem('kawthar_session');
+  currentStudent = null;
+  document.getElementById('bottomNav').classList.add('hidden');
+  show('screen-welcome');
+  alert('تم تسجيل الدخول لهذا الحساب من جهاز آخر، فتم تسجيل خروجك من هذا الجهاز تلقائياً. سجّل دخولك مرة ثانية إذا كان هذا جهازك.');
+}
+
+async function checkSessionValidity() {
+  if (!currentStudent) return;
+  const savedSession = localStorage.getItem('kawthar_session');
+  if (!savedSession) return;
+  try {
+    const doc = await db.collection('students').doc(currentStudent.phone).get();
+    if (doc.exists && doc.data().activeSession && doc.data().activeSession !== savedSession) {
+      forceLogoutOtherSession();
+    }
+  } catch(e) { console.error(e); }
+}
+setInterval(checkSessionValidity, 30000); // تحقق كل 30 ثانية من عدم تسجيل دخول من جهاز آخر بنفس الحساب
+
 (async function init() {
   const savedPhone = localStorage.getItem('kawthar_phone');
+  const savedSession = localStorage.getItem('kawthar_session');
   if (savedPhone && db) {
     try {
       const doc = await db.collection('students').doc(savedPhone).get();
-      if (doc.exists) { currentStudent = { id: savedPhone, ...doc.data() }; afterLogin(); return; }
+      if (doc.exists) {
+        const data = doc.data();
+        if (data.activeSession && savedSession && data.activeSession !== savedSession) {
+          forceLogoutOtherSession();
+          return;
+        }
+        currentStudent = { id: savedPhone, ...data };
+        afterLogin();
+        return;
+      }
     } catch(e) { console.error(e); }
   }
   show('screen-welcome');

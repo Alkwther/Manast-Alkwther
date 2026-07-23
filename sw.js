@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kawthar-platform-v25';
+const CACHE_NAME = 'kawthar-platform-v27';
 const APP_SHELL = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
