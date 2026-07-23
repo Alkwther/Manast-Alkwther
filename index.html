@@ -158,11 +158,78 @@
 
   <div class="topbar">
     <div class="brand"><img src="icon-192.png" alt="شعار منصة الكوثر"><h1>منصة الكوثر</h1></div>
-    <button class="icon-btn" id="logoutBtn" title="خروج">⏻</button>
+    <div style="display:flex;gap:14px;align-items:center;">
+      <button class="icon-btn" id="settingsBtn" title="دخول المشرف / الموظف">⚙️</button>
+      <button class="icon-btn" id="logoutBtn" title="خروج">⏻</button>
+    </div>
+  </div>
+
+  <!-- الشاشة الترحيبية الأولى -->
+  <div class="screen" id="screen-welcome">
+    <div class="card" style="text-align:center;">
+      <img src="icon-192.png" alt="شعار منصة الكوثر" style="width:64px;height:64px;border-radius:16px;margin:0 auto 14px;box-shadow:0 4px 14px rgba(16,32,63,.25);">
+      <h3 style="border:none;padding:0;justify-content:center;">مرحباً بك 👋</h3>
+      <p>اختر شنو تريد تسوي الآن</p>
+    </div>
+
+    <div class="subject-tile" onclick="startFreeLessons()">
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📖</span><div><b>الدروس المجانية</b><br><span style="font-size:12px;color:#8a90a3;">تصفح دروس تجريبية بدون تسجيل كامل</span></div></div>
+      <div class="badge">تصفح</div>
+    </div>
+
+    <div class="subject-tile" onclick="show('screen-library'); loadLibrary();">
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📚</span><div><b>المكتبة</b><br><span style="font-size:12px;color:#8a90a3;">تصفح واطلب الكتب والملازم</span></div></div>
+      <div class="badge">تصفح</div>
+    </div>
+
+    <div class="subject-tile" onclick="show('screen-login')">
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🔑</span><div><b>الدخول بكودك الخاص</b><br><span style="font-size:12px;color:#8a90a3;">سجّل بياناتك وفعّل اشتراكك بالكامل</span></div></div>
+      <div class="badge">دخول</div>
+    </div>
+  </div>
+
+  <!-- اختيار المرحلة للدروس المجانية -->
+  <div class="screen hidden" id="screen-free-grade">
+    <button class="btn secondary" onclick="show('screen-welcome')">← رجوع</button>
+    <div class="card">
+      <h3>📖 الدروس المجانية</h3>
+      <p>اختر مرحلتك الدراسية لعرض الدروس المجانية المتاحة</p>
+      <select id="freeGradeSelect">
+        <option value="">اختر المرحلة</option>
+        <option>الخامس ابتدائي</option>
+        <option>السادس ابتدائي</option>
+        <option>الأول متوسط</option>
+        <option>الثاني متوسط</option>
+        <option>الثالث متوسط</option>
+        <option>الرابع علمي</option>
+        <option>الرابع أدبي</option>
+        <option>الخامس علمي</option>
+        <option>الخامس أدبي</option>
+        <option>السادس علمي</option>
+        <option>السادس أدبي</option>
+        <option>الرابع الصناعي</option>
+        <option>الخامس الصناعي</option>
+        <option>السادس الصناعي</option>
+        <option>الرابع التجاري</option>
+        <option>الخامس التجاري</option>
+        <option>السادس التجاري</option>
+        <option>الرابع الزراعي</option>
+        <option>الخامس الزراعي</option>
+        <option>السادس الزراعي</option>
+      </select>
+      <button class="btn" id="showFreeLessonsBtn">عرض الدروس</button>
+    </div>
+  </div>
+
+  <!-- قائمة الدروس المجانية -->
+  <div class="screen hidden" id="screen-free-lessons">
+    <button class="btn secondary" onclick="show('screen-free-grade')">← رجوع</button>
+    <div id="freeLessonsList"></div>
   </div>
 
   <!-- شاشة تسجيل الدخول -->
-  <div class="screen" id="screen-login">
+  <div class="screen hidden" id="screen-login">
+    <button class="btn secondary" onclick="show('screen-welcome')">← رجوع</button>
     <div class="card">
       <h3>مرحباً بك 👋</h3>
       <p>سجّل بياناتك للدخول إلى منصة الكوثر التعليمية</p>
@@ -278,6 +345,8 @@
     </div>
     <div class="card">
       <h3>📍 بيانات التوصيل</h3>
+      <label>الاسم الكامل</label>
+      <input id="ckName" placeholder="مثال: أحمد علي">
       <label>المحافظة</label>
       <select id="ckProvince">
         <option value="">اختر المحافظة</option>
@@ -658,7 +727,9 @@ async function openSubject(subject) {
 }
 document.getElementById('backToHome1').onclick = () => show('screen-home');
 
-async function playLesson(lessonId) {
+let videoBackTarget = 'screen-lessons';
+async function playLesson(lessonId, backTarget) {
+  videoBackTarget = backTarget || 'screen-lessons';
   const doc = await db.collection('lessons').doc(lessonId).get();
   const l = doc.data();
   document.getElementById('videoTitle').textContent = l.title;
@@ -667,13 +738,37 @@ async function playLesson(lessonId) {
   if (ytMatch) url = `https://www.youtube.com/embed/${ytMatch[1]}`;
   document.getElementById('videoWrap').innerHTML = `<iframe src="${url}" allowfullscreen></iframe>`;
   show('screen-video');
-  if (!(currentStudent.lessonsWatched||[]).includes(lessonId)) {
+  if (currentStudent && !(currentStudent.lessonsWatched||[]).includes(lessonId)) {
     currentStudent.lessonsWatched = [...(currentStudent.lessonsWatched||[]), lessonId];
     db.collection('students').doc(currentStudent.id).update({ lessonsWatched: currentStudent.lessonsWatched });
   }
 }
-document.getElementById('backToLessons').onclick = () => show('screen-lessons');
+document.getElementById('backToLessons').onclick = () => show(videoBackTarget);
 document.getElementById('backToLessons2').onclick = () => show('screen-lessons');
+
+// ---------- الدروس المجانية (بدون تسجيل) ----------
+function startFreeLessons() { show('screen-free-grade'); }
+document.getElementById('showFreeLessonsBtn').onclick = async () => {
+  const grade = document.getElementById('freeGradeSelect').value;
+  if (!grade) { alert('اختر المرحلة أولاً'); return; }
+  const snap = await db.collection('lessons').where('grade','==',grade).where('free','==',true).get();
+  const list = document.getElementById('freeLessonsList');
+  if (snap.empty) {
+    list.innerHTML = '<div class="card"><p>لا توجد دروس مجانية متاحة لهذه المرحلة حالياً.</p></div>';
+  } else {
+    list.innerHTML = snap.docs.map(d => {
+      const l = d.data();
+      return `<div class="lesson-row">
+        <div class="title">${l.title}<br><span style="color:#8a90a3;font-size:12px;">${l.subject}</span></div>
+        <button class="play" onclick="playLesson('${d.id}','screen-free-lessons')">مشاهدة</button>
+      </div>`;
+    }).join('');
+  }
+  show('screen-free-lessons');
+};
+
+document.getElementById('settingsBtn').onclick = () => show('screen-admin');
+
 
 // ---------- الاختبار ----------
 let quizQuestions = [], quizAnswers = {};
@@ -778,6 +873,7 @@ function renderCartBar() {
 
 function openCheckout() {
   renderCartItems();
+  document.getElementById('ckName').value = currentStudent ? currentStudent.name : '';
   show('screen-checkout');
 }
 function renderCartItems() {
@@ -795,29 +891,37 @@ document.getElementById('backToLibrary').onclick = () => show('screen-library');
 document.getElementById('backToLibrary2').onclick = () => show('screen-library');
 
 document.getElementById('confirmOrderBtn').onclick = async () => {
+  const name = document.getElementById('ckName').value.trim();
   const province = document.getElementById('ckProvince').value;
   const district = document.getElementById('ckDistrict').value.trim();
   const phone = document.getElementById('ckPhone').value.trim();
   const altPhone = document.getElementById('ckAltPhone').value.trim();
-  if (!province || !district || !phone) { setMsg('checkoutMsg','الرجاء تعبئة المحافظة والقضاء/الناحية ورقم الهاتف', false); return; }
+  if (!name || !province || !district || !phone) { setMsg('checkoutMsg','الرجاء تعبئة الاسم والمحافظة والقضاء/الناحية ورقم الهاتف', false); return; }
   const ids = Object.keys(cart);
   if (ids.length === 0) { setMsg('checkoutMsg','سلتك فارغة', false); return; }
   const items = ids.map(id => ({ title: cart[id].title, price: cart[id].price, qty: cart[id].qty }));
   const totalPrice = items.reduce((s,it)=>s+it.price*it.qty,0);
   try {
     await db.collection('orders').add({
-      studentPhone: currentStudent.phone, studentName: currentStudent.name,
+      studentPhone: currentStudent ? currentStudent.phone : phone,
+      studentName: name,
       items, totalPrice, province, district, phone, altPhone,
       status: 'pending', createdAt: Date.now()
     });
     cart = {}; saveCartToStorage();
     setMsg('checkoutMsg','تم إرسال طلبك بنجاح ✅', true);
-    setTimeout(() => showMyOrders(), 700);
+    setTimeout(() => showMyOrders(phone), 700);
   } catch(e) { setMsg('checkoutMsg','خطأ بالاتصال', false); console.error(e); }
 };
 
-async function showMyOrders() {
-  const snap = await db.collection('orders').where('studentPhone','==', currentStudent.phone).orderBy('createdAt','desc').get();
+async function showMyOrders(phoneOverride) {
+  let phone = phoneOverride || (currentStudent ? currentStudent.phone : null);
+  if (!phone) {
+    phone = prompt('أدخل رقم الهاتف اللي استخدمته بالطلب:');
+    if (!phone) return;
+    phone = phone.trim();
+  }
+  const snap = await db.collection('orders').where('studentPhone','==', phone).orderBy('createdAt','desc').get();
   const list = document.getElementById('myOrdersList');
   const statusLabel = { pending:'⏳ قيد المراجعة', delivering:'🚚 قيد التوصيل', completed:'✅ تم التسليم', cancelled:'❌ ملغى' };
   if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد طلبات بعد.</p></div>'; }
@@ -848,7 +952,7 @@ document.getElementById('logoutBtn').onclick = () => {
   document.getElementById('adminUser').value = '';
   document.getElementById('adminPass').value = '';
   document.getElementById('bottomNav').classList.add('hidden');
-  show('screen-login');
+  show('screen-welcome');
 };
 
 // ---------- التنقل السفلي ----------
@@ -1321,7 +1425,7 @@ if ('serviceWorker' in navigator) {
       if (doc.exists) { currentStudent = { id: savedPhone, ...doc.data() }; afterLogin(); return; }
     } catch(e) { console.error(e); }
   }
-  show('screen-login');
+  show('screen-welcome');
 })();
 </script>
 </body>
