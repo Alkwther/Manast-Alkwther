@@ -339,8 +339,14 @@
     <div class="card">
       <h3>🛒 سلتك</h3>
       <div id="cartItemsList"></div>
-      <div style="display:flex;justify-content:space-between;font-weight:bold;color:#10203f;margin-top:8px;">
-        <span>المجموع الكلي:</span><span id="cartTotal">0</span>
+      <div style="display:flex;justify-content:space-between;font-size:14px;color:#5a6072;margin-top:8px;">
+        <span>مجموع المواد:</span><span id="cartSubtotal">0</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:14px;color:#5a6072;margin-top:4px;">
+        <span>أجور التوصيل:</span><span id="cartDeliveryFee">0</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-weight:bold;color:#10203f;margin-top:8px;padding-top:8px;border-top:1px solid #f0e6cc;">
+        <span>المجموع مع التوصيل:</span><span id="cartTotal">0</span>
       </div>
     </div>
     <div class="card">
@@ -476,6 +482,7 @@
           <label>رقم هاتف المكتبة (يظهر للطالب للتواصل)</label>
           <input id="libraryPhoneInput" placeholder="07xxxxxxxxx">
           <button class="btn secondary" id="saveLibraryPhoneBtn">حفظ الرقم</button>
+          <button class="btn" id="copyAllOrdersBtn" style="margin-top:10px;">📋 نسخ كل الطلبات الجديدة</button>
           <div id="ordersAdminList" style="margin-top:10px;"></div>
         </div>
       </div>
@@ -577,6 +584,7 @@ const firebaseConfig = {
 
 const ADMIN_PASSWORD = "kawthar2026"; // غيّرها لاحقاً
 const WHATSAPP_NUMBER = "9647xxxxxxxxx"; // ضع رقم واتساب منصة الكوثر هنا (بالصيغة الدولية بدون + أو صفر بالبداية)
+const DELIVERY_FEE = 5000; // أجور التوصيل الثابتة بالدينار العراقي، تُضاف تلقائياً لكل طلب مكتبة
 
 let db, currentStudent = null;
 const GRADES = ["الخامس ابتدائي","السادس ابتدائي","الأول متوسط","الثاني متوسط","الثالث متوسط","الرابع علمي","الرابع أدبي","الخامس علمي","الخامس أدبي","السادس علمي","السادس أدبي","الرابع الصناعي","الخامس الصناعي","السادس الصناعي","الرابع التجاري","الخامس التجاري","السادس التجاري","الرابع الزراعي","الخامس الزراعي","السادس الزراعي"];
@@ -867,7 +875,7 @@ function renderCartBar() {
   bar.id = 'cartBar';
   bar.className = 'card';
   bar.style = 'position:fixed;bottom:70px;left:12px;right:12px;max-width:456px;margin:0 auto;z-index:55;border:1px solid #cda44e;display:flex;justify-content:space-between;align-items:center;';
-  bar.innerHTML = `<div>🛒 ${count} قطعة — <b style="color:#b8903c;">${total} د.ع</b></div><button class="btn" style="width:auto;padding:10px 16px;margin:0;" onclick="openCheckout()">شراء الكل</button>`;
+  bar.innerHTML = `<div>🛒 ${count} قطعة — <b style="color:#b8903c;">${total} د.ع</b> <span style="font-size:11px;color:#8a90a3;">(+توصيل)</span></div><button class="btn" style="width:auto;padding:10px 16px;margin:0;" onclick="openCheckout()">شراء الكل</button>`;
   document.getElementById('screen-library').appendChild(bar);
 }
 
@@ -879,13 +887,15 @@ function openCheckout() {
 function renderCartItems() {
   const ids = Object.keys(cart);
   const list = document.getElementById('cartItemsList');
-  let total = 0;
+  let subtotal = 0;
   list.innerHTML = ids.map(id => {
     const it = cart[id];
-    total += it.price * it.qty;
+    subtotal += it.price * it.qty;
     return `<div class="lesson-row"><div class="title">${it.title} × ${it.qty}</div><div>${it.price * it.qty} د.ع</div></div>`;
   }).join('');
-  document.getElementById('cartTotal').textContent = total + ' د.ع';
+  document.getElementById('cartSubtotal').textContent = subtotal + ' د.ع';
+  document.getElementById('cartDeliveryFee').textContent = DELIVERY_FEE + ' د.ع';
+  document.getElementById('cartTotal').textContent = (subtotal + DELIVERY_FEE) + ' د.ع';
 }
 document.getElementById('backToLibrary').onclick = () => show('screen-library');
 document.getElementById('backToLibrary2').onclick = () => show('screen-library');
@@ -900,12 +910,13 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
   const ids = Object.keys(cart);
   if (ids.length === 0) { setMsg('checkoutMsg','سلتك فارغة', false); return; }
   const items = ids.map(id => ({ title: cart[id].title, price: cart[id].price, qty: cart[id].qty }));
-  const totalPrice = items.reduce((s,it)=>s+it.price*it.qty,0);
+  const subtotal = items.reduce((s,it)=>s+it.price*it.qty,0);
+  const totalPrice = subtotal + DELIVERY_FEE;
   try {
     await db.collection('orders').add({
       studentPhone: currentStudent ? currentStudent.phone : phone,
       studentName: name,
-      items, totalPrice, province, district, phone, altPhone,
+      items, subtotal, deliveryFee: DELIVERY_FEE, totalPrice, province, district, phone, altPhone,
       status: 'pending', createdAt: Date.now()
     });
     cart = {}; saveCartToStorage();
@@ -923,15 +934,23 @@ async function showMyOrders(phoneOverride) {
   }
   const snap = await db.collection('orders').where('studentPhone','==', phone).orderBy('createdAt','desc').get();
   const list = document.getElementById('myOrdersList');
-  const statusLabel = { pending:'⏳ قيد المراجعة', delivering:'🚚 قيد التوصيل', completed:'✅ تم التسليم', cancelled:'❌ ملغى' };
   if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد طلبات بعد.</p></div>'; }
   else {
-    list.innerHTML = snap.docs.map(d => {
+    const rows = [];
+    for (const d of snap.docs) {
       const o = d.data();
+      if (o.status === 'processing' && Date.now() >= nextSevenAM(o.processingAt || o.createdAt)) {
+        await db.collection('orders').doc(d.id).update({ status: 'delivering' });
+        o.status = 'delivering';
+      }
+      rows.push(o);
+    }
+    list.innerHTML = rows.map(o => {
       const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
       return `<div class="card">
-        <h3>${statusLabel[o.status] || o.status}</h3>
+        <h3>${ORDER_STATUS_LABELS[o.status] || o.status}</h3>
         <p>${itemsText}</p>
+        <p style="color:#8a90a3;">مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع</p>
         <p><b>المجموع: ${o.totalPrice} د.ع</b></p>
         <p style="color:#888;">${o.province} - ${o.district}</p>
         ${o.status !== 'completed' && o.status !== 'cancelled' ? `<p>📞 للتعديل أو الإلغاء تواصل مع المكتبة: <b>${libraryPhone}</b></p>` : ''}
@@ -1157,15 +1176,44 @@ async function loadEmployeesAdmin() {
     const s = d.data();
     const perms = s.permissions || {};
     const permTags = Object.keys(PERMISSION_LABELS).filter(k => perms[k]).map(k => PERMISSION_LABELS[k]);
-    return `<div class="admin-list-item">
-      <div>
-        <b>${s.name}</b><br>
-        <span style="color:#888;">🔑 ${s.password}</span><br>
-        <span style="color:#888;">${permTags.length ? permTags.join(' · ') : 'بدون صلاحيات محددة'}</span>
+    const checkboxesHtml = Object.keys(PERMISSION_LABELS).map(k => `
+      <label style="display:flex;align-items:center;gap:8px;font-weight:normal;">
+        <input type="checkbox" id="editPerm-${k}-${d.id}" style="width:auto;margin:0;" ${perms[k] ? 'checked' : ''}> ${PERMISSION_LABELS[k]}
+      </label>`).join('');
+    return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div>
+          <b>${s.name}</b><br>
+          <span style="color:#888;">🔑 ${s.password}</span><br>
+          <span style="color:#888;">${permTags.length ? permTags.join(' · ') : 'بدون صلاحيات محددة'}</span>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="small-btn" onclick="toggleEditEmployee('${d.id}')">✏️ تعديل</button>
+          <button class="small-btn" onclick="deleteEmployee('${d.id}')">🗑️ حذف</button>
+        </div>
       </div>
-      <button class="small-btn" onclick="deleteEmployee('${d.id}')">🗑️ حذف</button>
+      <div id="editPanel-${d.id}" class="hidden" style="background:#f6f7fb;border-radius:10px;padding:10px;margin-top:6px;">
+        <p style="font-weight:bold;color:#10203f;margin-bottom:8px;">تعديل صلاحيات ${s.name}</p>
+        ${checkboxesHtml}
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          <button class="small-btn" style="background:#10203f;color:#f0dfae;" onclick="saveEmployeePermissions('${d.id}')">✅ موافقة</button>
+          <button class="small-btn" onclick="toggleEditEmployee('${d.id}')">إلغاء</button>
+        </div>
+      </div>
     </div>`;
   }).join('');
+}
+function toggleEditEmployee(id) {
+  document.getElementById(`editPanel-${id}`).classList.toggle('hidden');
+}
+async function saveEmployeePermissions(id) {
+  const permissions = {};
+  Object.keys(PERMISSION_LABELS).forEach(k => {
+    permissions[k] = document.getElementById(`editPerm-${k}-${id}`).checked;
+  });
+  await db.collection('staff').doc(id).update({ permissions });
+  alert('تم تحديث صلاحيات الموظف ✅');
+  loadEmployeesAdmin();
 }
 async function deleteEmployee(id) {
   if (!confirm('حذف هذا الموظف؟ لن يتمكن من الدخول بعد الحذف.')) return;
@@ -1242,32 +1290,65 @@ document.getElementById('saveLibraryPhoneBtn').onclick = async () => {
   alert('تم حفظ رقم المكتبة ✅');
 };
 
+const ORDER_STATUS_LABELS = { pending:'⏳ قيد المراجعة', processing:'🛠️ قيد التنفيذ', delivering:'🚚 قيد التوصيل', completed:'✅ تم التسليم', cancelled:'❌ ملغى' };
+const ORDER_STATUS_STYLE = {
+  pending: 'background:#fff;border-color:rgba(16,32,63,.05);',
+  processing: 'background:#ecfdf3;border-color:#86efac;',
+  delivering: 'background:#ecfdf3;border-color:#86efac;',
+  completed: 'background:#eef1f8;border-color:#c7d0e6;',
+  cancelled: 'background:#fef2f2;border-color:#fecaca;'
+};
+function formatOrderTime(ts) {
+  return new Date(ts).toLocaleString('ar-EG', { dateStyle:'medium', timeStyle:'short' });
+}
+function nextSevenAM(ts) {
+  const d = new Date(ts);
+  const candidate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 7, 0, 0, 0);
+  if (candidate.getTime() <= ts) candidate.setDate(candidate.getDate() + 1);
+  return candidate.getTime();
+}
+
 async function loadOrdersAdmin() {
   const snap = await db.collection('orders').orderBy('createdAt','desc').limit(50).get();
   const list = document.getElementById('ordersAdminList');
-  const statusLabel = { pending:'⏳ قيد المراجعة', delivering:'🚚 قيد التوصيل', completed:'✅ تم التسليم', cancelled:'❌ ملغى' };
   if (snap.empty) { list.innerHTML = '<p>لا توجد طلبات بعد.</p>'; return; }
-  list.innerHTML = snap.docs.map(d => {
+
+  // ترقية تلقائية: أي طلب "قيد التنفيذ" منذ الساعة 7 صباحاً التالية يصبح "قيد التوصيل"
+  const rows = [];
+  for (const d of snap.docs) {
     const o = d.data();
+    if (o.status === 'processing' && Date.now() >= nextSevenAM(o.processingAt || o.createdAt)) {
+      await db.collection('orders').doc(d.id).update({ status: 'delivering' });
+      o.status = 'delivering';
+    }
+    rows.push({ id: d.id, o });
+  }
+
+  list.innerHTML = rows.map(({id, o}) => {
     const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
-    return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
+    const style = ORDER_STATUS_STYLE[o.status] || '';
+    return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;border-width:1.5px;${style}">
       <div style="margin-bottom:6px;">
+        <span style="color:#8a90a3;font-size:12px;">🕒 ${formatOrderTime(o.createdAt)}</span><br>
         <b>${o.studentName}</b> — ${o.phone}${o.altPhone ? ' / '+o.altPhone : ''}<br>
         <span style="color:#888;">${o.province} - ${o.district}</span><br>
-        ${itemsText} — <b style="color:#b8903c;">${o.totalPrice} د.ع</b><br>
-        الحالة: <b>${statusLabel[o.status]||o.status}</b>
+        ${itemsText}<br>
+        مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع = <b style="color:#b8903c;">${o.totalPrice} د.ع</b><br>
+        الحالة: <b>${ORDER_STATUS_LABELS[o.status]||o.status}</b>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="small-btn" onclick="setOrderStatus('${d.id}','delivering')">🚚 قيد التوصيل</button>
-        <button class="small-btn" onclick="setOrderStatus('${d.id}','completed')">✅ تم التسليم</button>
-        <button class="small-btn" onclick="setOrderStatus('${d.id}','cancelled')">❌ إلغاء</button>
-        <button class="small-btn" onclick="deleteOrder('${d.id}')">🗑️ حذف الطلب</button>
+        <button class="small-btn" onclick="setOrderStatus('${id}','delivering')">🚚 قيد التوصيل</button>
+        <button class="small-btn" onclick="setOrderStatus('${id}','completed')">✅ تم التسليم</button>
+        <button class="small-btn" onclick="setOrderStatus('${id}','cancelled')">❌ إلغاء</button>
+        <button class="small-btn" onclick="deleteOrder('${id}')">🗑️ حذف الطلب</button>
       </div>
     </div>`;
   }).join('');
 }
 async function setOrderStatus(id, status) {
-  await db.collection('orders').doc(id).update({ status });
+  const update = { status };
+  if (status === 'processing') update.processingAt = Date.now();
+  await db.collection('orders').doc(id).update(update);
   loadOrdersAdmin();
 }
 async function deleteOrder(id) {
@@ -1275,6 +1356,42 @@ async function deleteOrder(id) {
   await db.collection('orders').doc(id).delete();
   loadOrdersAdmin();
 }
+
+document.getElementById('copyAllOrdersBtn').onclick = async () => {
+  const snap = await db.collection('orders').where('status','==','pending').orderBy('createdAt','asc').get();
+  if (snap.empty) { alert('لا توجد طلبات جديدة بانتظار النسخ.'); return; }
+  const blocks = snap.docs.map(d => {
+    const o = d.data();
+    const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
+    return [
+      '————————————————',
+      `👤 الاسم: ${o.studentName}`,
+      `📞 الهاتف: ${o.phone}${o.altPhone ? ' / '+o.altPhone : ''}`,
+      `📍 العنوان: ${o.province} - ${o.district}`,
+      `📦 الطلب: ${itemsText}`,
+      `💰 المجموع: ${o.totalPrice} د.ع (مواد: ${o.subtotal||o.totalPrice} + توصيل: ${o.deliveryFee||0})`,
+      `🕒 الوقت: ${formatOrderTime(o.createdAt)}`,
+      '————————————————'
+    ].join('\n');
+  });
+  const fullText = blocks.join('\n\n');
+  try {
+    await navigator.clipboard.writeText(fullText);
+  } catch(err) {
+    const temp = document.createElement('textarea');
+    temp.value = fullText; document.body.appendChild(temp); temp.select();
+    document.execCommand('copy'); document.body.removeChild(temp);
+  }
+  // تحديث كل الطلبات المنسوخة إلى "قيد التنفيذ"
+  const now = Date.now();
+  await Promise.all(snap.docs.map(d => db.collection('orders').doc(d.id).update({ status:'processing', processingAt: now })));
+  const btn = document.getElementById('copyAllOrdersBtn');
+  const original = btn.textContent;
+  btn.textContent = '✅ تم النسخ — الطلبات الآن قيد التنفيذ';
+  setTimeout(() => { btn.textContent = original; }, 2500);
+  loadOrdersAdmin();
+};
+
 
 function generateCode() {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
