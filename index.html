@@ -547,17 +547,22 @@
             <option value="365">سنة كاملة (12 شهر)</option>
           </select>
           <label>عدد الأكواد</label>
-          <input id="codeCount" type="number" value="5" min="1" max="50">
+          <input id="codeCount" type="number" value="5" min="1" max="100">
           <button class="btn" id="genCodesBtn">توليد أكواد</button>
           <div id="codesOutput"></div>
+          <div id="sendToTeacherArea"></div>
         </div>
 
         <div class="card">
           <h3>📋 كل الأكواد والمشتركين</h3>
-          <label>ابحث برقم الهاتف</label>
+          <label>ابحث برقم هاتف الطالب</label>
           <input id="codeSearchPhone" placeholder="07xxxxxxxxx">
           <button class="btn secondary" id="searchCodesBtn">بحث</button>
+          <label>ابحث باسم الأستاذ</label>
+          <input id="codeSearchTeacher" placeholder="اسم الأستاذ">
+          <button class="btn secondary" id="searchCodesByTeacherBtn">بحث</button>
           <button class="btn secondary" id="showAllCodesBtn">عرض الكل</button>
+          <button class="btn danger" id="deleteAllCodesBtn" style="margin-top:10px;">🗑️ حذف كل الأكواد الحالية</button>
           <div id="codesListAdmin" style="margin-top:10px;"></div>
         </div>
 
@@ -653,6 +658,7 @@
       <p>أضف صفوفك وتابع طلابك وملفاتك من هنا</p>
     </div>
     <button class="btn secondary" onclick="openTeacherBooksLibrary()">📚 مكتبة ملازمك</button>
+    <button class="btn secondary" onclick="openTeacherBuyCode()">🎫 شراء كود</button>
     <div class="card">
       <h3>➕ إضافة صف تدرّسه</h3>
       <label>المرحلة الدراسية</label>
@@ -663,6 +669,25 @@
     </div>
     <h3 style="margin-bottom:10px;color:#10203f;">📚 صفوفي</h3>
     <div id="teacherClassesList"></div>
+  </div>
+
+  <!-- شراء كود: قائمة صفوف الأستاذ -->
+  <div class="screen hidden" id="screen-teacher-buy-code">
+    <button class="btn secondary" onclick="show('screen-teacher-dashboard')">← رجوع</button>
+    <div class="card">
+      <h3>🎫 شراء كود</h3>
+      <p>اختر المادة عشان تشوف الأكواد اللي جهّزها لك المشرف بعد الدفع</p>
+    </div>
+    <div id="teacherBuyCodeClassesList"></div>
+  </div>
+
+  <!-- شراء كود: أكواد مادة معينة -->
+  <div class="screen hidden" id="screen-teacher-codes">
+    <button class="btn secondary" onclick="show('screen-teacher-buy-code')">← رجوع</button>
+    <div class="card">
+      <h3 id="teacherCodesClassTitle"></h3>
+    </div>
+    <div id="teacherCodesList"></div>
   </div>
 
   <!-- مكتبة ملازم الأستاذ -->
@@ -1925,14 +1950,18 @@ document.getElementById('copyAllOrdersBtn').onclick = async () => {
 
 function generateCode() {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const digits = '0123456789';
-  let letterPart = '';
-  for (let i=0;i<12;i++) letterPart += letters[Math.floor(Math.random()*letters.length)];
-  let digitPart = '';
-  for (let i=0;i<4;i++) digitPart += digits[Math.floor(Math.random()*digits.length)];
-  return letterPart + digitPart;
+  const symbols = '!@#$%*-_=+?';
+  const pool = letters + symbols;
+  let code = '';
+  // نضمن حرف واحد على الأقل ورمز واحد على الأقل، والباقي عشوائي من الاثنين
+  code += letters[Math.floor(Math.random()*letters.length)];
+  code += symbols[Math.floor(Math.random()*symbols.length)];
+  for (let i=0;i<8;i++) code += pool[Math.floor(Math.random()*pool.length)];
+  // خلط الترتيب
+  return code.split('').sort(() => Math.random()-0.5).join('');
 }
 
+let lastGeneratedCodeIds = [];
 document.getElementById('genCodesBtn').onclick = async () => {
   const count = +document.getElementById('codeCount').value || 5;
   const grade = document.getElementById('codeGrade').value;
@@ -1943,16 +1972,41 @@ document.getElementById('genCodesBtn').onclick = async () => {
   const durationLabel = document.getElementById('codeDuration').selectedOptions[0].textContent;
   if (!subject) { alert('اكتب اسم المادة'); return; }
   const codes = [];
+  lastGeneratedCodeIds = [];
   for (let i=0;i<count;i++) {
     const code = generateCode();
     codes.push(code);
-    await db.collection('codes').add({ code, used:false, grade, subject, teacherName, durationDays, createdAt: Date.now() });
+    const ref = await db.collection('codes').add({ code, used:false, grade, subject, teacherName, durationDays, sentToTeacher:false, createdAt: Date.now() });
+    lastGeneratedCodeIds.push(ref.id);
   }
   document.getElementById('codesOutput').innerHTML = codes.map(c => `
     <div class="code-badge" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
       <span id="code-text-${c}">${c} <span style="opacity:.7;">(${grade} — ${subject}${teacherName?' — '+teacherName:''} — ${durationLabel})</span></span>
       <button class="small-btn copy-code-btn" data-code="${c}">📋 نسخ</button>
     </div>`).join('');
+  const sendArea = document.getElementById('sendToTeacherArea');
+  if (teacherName) {
+    sendArea.innerHTML = `<button class="btn secondary" style="margin-top:10px;" onclick="sendCodesToTeacher()">📤 إرسال هذي الأكواد للأستاذ ${teacherName}</button>`;
+  } else {
+    sendArea.innerHTML = '';
+  }
+  loadCodesAdmin();
+};
+
+async function sendCodesToTeacher() {
+  if (lastGeneratedCodeIds.length === 0) return;
+  await Promise.all(lastGeneratedCodeIds.map(id => db.collection('codes').doc(id).update({ sentToTeacher: true })));
+  alert('تم إرسال الأكواد للأستاذ ✅ — راح يشوفها بخانة "شراء كود" بلوحته');
+  document.getElementById('sendToTeacherArea').innerHTML = '<p style="color:#15803d;font-weight:bold;">✅ تم الإرسال للأستاذ</p>';
+  loadCodesAdmin();
+}
+
+document.getElementById('deleteAllCodesBtn').onclick = async () => {
+  if (!confirm('هل أنت متأكد؟ راح يتم حذف جميع الأكواد الحالية نهائياً بدون رجعة!')) return;
+  if (!confirm('تأكيد نهائي: كل الأكواد (المستخدمة وغير المستخدمة) راح تنمسح بالكامل. متأكد؟')) return;
+  const snap = await db.collection('codes').get();
+  await Promise.all(snap.docs.map(d => db.collection('codes').doc(d.id).delete()));
+  alert(`تم حذف ${snap.size} كود ✅`);
   loadCodesAdmin();
 };
 
@@ -1986,18 +2040,21 @@ function renderCodesList(docs) {
     const c = d.data();
     const remaining = c.expiryAt ? formatRemainingTime(c.expiryAt) : '—';
     const style = c.used ? (c.expiryAt && Date.now() > c.expiryAt ? 'background:#fef2f2;border-color:#fecaca;' : 'background:#ecfdf3;border-color:#86efac;') : '';
+    const sentBadge = c.teacherName ? (c.sentToTeacher ? '<span style="color:#15803d;">📤 أُرسل للأستاذ</span>' : '<span style="color:#a6842e;">لم يُرسل للأستاذ بعد</span>') : '';
     return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;${style}">
       <div style="margin-bottom:6px;">
         <b>${c.code}</b><br>
         <span style="color:#888;">${c.grade||'—'} — ${c.subject||'—'}${c.teacherName ? ' — أ. '+c.teacherName : ''}</span><br>
+        ${sentBadge ? sentBadge+'<br>' : ''}
         ${c.used
           ? `👤 ${c.usedByName} — 📞 ${c.usedBy}<br>⏳ الوقت المتبقي: <b>${remaining}</b>`
           : `<span style="color:#a6842e;">غير مستخدم بعد</span>`}
       </div>
-      ${c.used ? `<div style="display:flex;gap:6px;">
+      ${c.used ? `<div style="display:flex;gap:6px;margin-bottom:6px;">
         <input id="extendDays-${d.id}" type="number" placeholder="عدد أيام إضافية" style="margin-bottom:0;flex:1;">
         <button class="small-btn" onclick="extendCode('${d.id}')">✏️ تمديد</button>
       </div>` : ''}
+      <button class="small-btn" onclick="deleteCode('${d.id}')">🗑️ حذف هذا الكود</button>
     </div>`;
   }).join('');
 }
@@ -2012,9 +2069,20 @@ document.getElementById('searchCodesBtn').onclick = async () => {
   const snap = await db.collection('codes').where('usedBy','==',phone).get();
   renderCodesList(snap.docs);
 };
+document.getElementById('searchCodesByTeacherBtn').onclick = async () => {
+  const teacherName = document.getElementById('codeSearchTeacher').value.trim();
+  if (!teacherName) { alert('اكتب اسم الأستاذ للبحث'); return; }
+  const snap = await db.collection('codes').where('teacherName','==',teacherName).orderBy('createdAt','desc').get();
+  renderCodesList(snap.docs);
+};
 async function loadCodesAdmin() {
   const snap = await db.collection('codes').orderBy('createdAt','desc').limit(100).get();
   renderCodesList(snap.docs);
+}
+async function deleteCode(codeId) {
+  if (!confirm('حذف هذا الكود نهائياً؟')) return;
+  await db.collection('codes').doc(codeId).delete();
+  loadCodesAdmin();
 }
 async function extendCode(codeId) {
   const extraDays = +document.getElementById(`extendDays-${codeId}`).value;
@@ -2077,6 +2145,63 @@ document.getElementById('addTeacherClassBtn').onclick = async () => {
   document.getElementById('tchClassSubject').value = '';
   loadTeacherClasses();
 };
+
+// ---------- شراء كود (الأستاذ) ----------
+async function openTeacherBuyCode() {
+  const snap = await db.collection('teacherClasses').where('teacherPhone','==', currentTeacher.phone).get();
+  const list = document.getElementById('teacherBuyCodeClassesList');
+  if (snap.empty) { list.innerHTML = '<div class="card"><p>لسا ما أضفت أي صف. أضف صف أولاً من لوحتك الرئيسية.</p></div>'; }
+  else {
+    list.innerHTML = snap.docs.map(d => {
+      const c = d.data();
+      return `<div class="subject-tile" onclick="openTeacherCodes('${c.grade.replace(/'/g,"\\'")}','${c.subject.replace(/'/g,"\\'")}')">
+        <div>📘 ${c.subject} — ${c.grade}</div>
+        <div class="badge">عرض الأكواد</div>
+      </div>`;
+    }).join('');
+  }
+  show('screen-teacher-buy-code');
+}
+
+async function openTeacherCodes(grade, subject) {
+  document.getElementById('teacherCodesClassTitle').textContent = `🎫 أكواد ${subject} — ${grade}`;
+  const snap = await db.collection('codes')
+    .where('teacherName','==', currentTeacher.name)
+    .where('grade','==', grade)
+    .where('subject','==', subject)
+    .where('sentToTeacher','==', true)
+    .orderBy('createdAt','desc').get();
+  const list = document.getElementById('teacherCodesList');
+  if (snap.empty) { list.innerHTML = '<div class="card"><p>ما فيه أكواد أُرسلت لك بعد لهذي المادة.</p></div>'; show('screen-teacher-codes'); return; }
+  list.innerHTML = snap.docs.map(d => {
+    const c = d.data();
+    const style = c.used ? 'background:#ecfdf3;border-color:#86efac;' : '';
+    return `<div class="code-badge" style="display:flex;flex-direction:column;align-items:stretch;gap:6px;${style}">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span id="tcode-text-${d.id}">${c.code}</span>
+        <button class="small-btn copy-code-btn" data-code="${c.code}" data-codeid="${d.id}">📋 نسخ</button>
+      </div>
+      ${c.used ? `<span style="color:#15803d;font-size:13px;">✅ تم استخدامه — الطالب: ${c.usedByName}</span>` : `<span style="color:#a6842e;font-size:13px;">لم يُستخدم بعد</span>`}
+    </div>`;
+  }).join('');
+  show('screen-teacher-codes');
+}
+
+document.getElementById('teacherCodesList').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy-code-btn');
+  if (!btn) return;
+  const code = btn.dataset.code;
+  try { await navigator.clipboard.writeText(code); }
+  catch(err) {
+    const temp = document.createElement('textarea');
+    temp.value = code; document.body.appendChild(temp); temp.select();
+    document.execCommand('copy'); document.body.removeChild(temp);
+  }
+  const wrapper = btn.closest('.code-badge');
+  wrapper.style.background = '#eef1f8';
+  btn.textContent = '✅ تم النسخ';
+  btn.disabled = true;
+});
 
 async function loadTeacherClasses() {
   const snap = await db.collection('teacherClasses').where('teacherPhone','==', currentTeacher.phone).get();
