@@ -496,7 +496,11 @@
         <div class="card">
           <h3>📚 إضافة كتاب / ملزمة</h3>
           <input id="bkTitle" placeholder="اسم الكتاب أو الملزمة">
-          <input id="bkPrice" type="number" placeholder="السعر (دينار)">
+          <input id="bkPrice" type="number" placeholder="السعر الكلي في المكتبة (دينار)">
+          <label>الأستاذ صاحب الملزمة (اختياري)</label>
+          <select id="bkTeacher"><option value="">بدون تحديد (ملزمة عامة للمكتبة)</option></select>
+          <label>حصة الأستاذ من كل نسخة تُباع (دينار)</label>
+          <input id="bkTeacherShare" type="number" placeholder="مثال: 4000">
           <label>صورة الغلاف (اختياري)</label>
           <input id="bkImage" type="file" accept="image/*">
           <div id="bkImagePreview" style="margin-bottom:10px;"></div>
@@ -515,6 +519,12 @@
           <button class="btn secondary" id="saveLibraryPhoneBtn">حفظ الرقم</button>
           <button class="btn" id="copyAllOrdersBtn" style="margin-top:10px;">📋 نسخ كل الطلبات الجديدة</button>
           <div id="ordersAdminList" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="card">
+          <h3>💰 أرباح الأساتذة من الملازم</h3>
+          <p>يحسب تلقائياً بعد كل طلب تُختم بحالة "تم التسليم"، حسب حصة الأستاذ المحددة لكل ملزمة</p>
+          <div id="teacherEarningsList" style="margin-top:10px;"></div>
         </div>
       </div>
 
@@ -642,6 +652,7 @@
       <h3 id="teacherWelcomeText"></h3>
       <p>أضف صفوفك وتابع طلابك وملفاتك من هنا</p>
     </div>
+    <button class="btn secondary" onclick="openTeacherBooksLibrary()">📚 مكتبة ملازمك</button>
     <div class="card">
       <h3>➕ إضافة صف تدرّسه</h3>
       <label>المرحلة الدراسية</label>
@@ -652,6 +663,17 @@
     </div>
     <h3 style="margin-bottom:10px;color:#10203f;">📚 صفوفي</h3>
     <div id="teacherClassesList"></div>
+  </div>
+
+  <!-- مكتبة ملازم الأستاذ -->
+  <div class="screen hidden" id="screen-teacher-books">
+    <button class="btn secondary" onclick="show('screen-teacher-dashboard')">← رجوع</button>
+    <div class="card">
+      <h3>📚 مكتبة ملازمك</h3>
+      <p>ملازمك المطبوعة بمكتبة الكوثر، مبيعاتها، وأرباحك منها</p>
+    </div>
+    <div id="teacherBooksEarningsSummary"></div>
+    <div id="teacherBooksList"></div>
   </div>
 
   <!-- تفاصيل صف الأستاذ -->
@@ -1296,7 +1318,7 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
   if (!name || !province || !district || !phone) { setMsg('checkoutMsg','الرجاء تعبئة الاسم والمحافظة والقضاء/الناحية ورقم الهاتف', false); return; }
   const ids = Object.keys(cart);
   if (ids.length === 0) { setMsg('checkoutMsg','سلتك فارغة', false); return; }
-  const items = ids.map(id => ({ title: cart[id].title, price: cart[id].price, qty: cart[id].qty }));
+  const items = ids.map(id => ({ bookId: id, title: cart[id].title, price: cart[id].price, qty: cart[id].qty }));
   const subtotal = items.reduce((s,it)=>s+it.price*it.qty,0);
   const totalPrice = subtotal + DELIVERY_FEE;
   try {
@@ -1451,6 +1473,7 @@ function enterAdminPanel() {
   loadTeachersAdmin();
   loadCodesAdmin();
   loadActiveGradesAdmin();
+  loadTeacherEarningsAdmin();
   db.collection('settings').doc('library').get().then(doc => {
     if (doc.exists && doc.data().phone) document.getElementById('libraryPhoneInput').value = doc.data().phone;
   });
@@ -1656,23 +1679,32 @@ document.getElementById('bkImage').addEventListener('change', async (e) => {
 document.getElementById('addBookBtn').onclick = async () => {
   const title = document.getElementById('bkTitle').value.trim();
   const price = +document.getElementById('bkPrice').value;
+  const teacherName = document.getElementById('bkTeacher').value || null;
+  const teacherShare = +document.getElementById('bkTeacherShare').value || 0;
   const image = document.getElementById('bkImagePreview').dataset.image || null;
   if (!title || !price) { alert('عبّئ اسم الكتاب والسعر'); return; }
-  await db.collection('books').add({ title, price, image, addedBy: currentStaffName, createdAt: Date.now() });
+  await db.collection('books').add({ title, price, teacherName, teacherShare, image, addedBy: currentStaffName, createdAt: Date.now() });
   alert(`تمت الإضافة ✅ — بواسطة: ${currentStaffName}`);
-  document.getElementById('bkTitle').value=''; document.getElementById('bkPrice').value='';
+  document.getElementById('bkTitle').value=''; document.getElementById('bkPrice').value=''; document.getElementById('bkTeacherShare').value='';
   document.getElementById('bkImage').value=''; document.getElementById('bkImagePreview').innerHTML=''; delete document.getElementById('bkImagePreview').dataset.image;
   loadBooksAdmin();
 };
+async function populateBookTeacherSelect() {
+  const teachersSnap = await db.collection('teachers').get();
+  const select = document.getElementById('bkTeacher');
+  if (select) select.innerHTML = '<option value="">بدون تحديد (ملزمة عامة للمكتبة)</option>' + teachersSnap.docs.map(t => `<option>${t.data().name}</option>`).join('');
+}
 async function loadBooksAdmin() {
+  await populateBookTeacherSelect();
   const snap = await db.collection('books').orderBy('createdAt','desc').get();
   const list = document.getElementById('booksAdminList');
   if (snap.empty) { list.innerHTML = '<p>لا توجد كتب مضافة بعد.</p>'; return; }
   list.innerHTML = snap.docs.map(d => {
     const b = d.data();
     const thumb = b.image ? `<img src="${b.image}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;margin-inline-end:10px;">` : '';
+    const teacherInfo = b.teacherName ? `<br><span style="color:#0e8fa8;">أ. ${b.teacherName} — حصته: ${b.teacherShare||0} د.ع</span>` : '';
     return `<div class="admin-list-item">
-      <div style="display:flex;align-items:center;">${thumb}<div>${b.title} — <span style="color:#b8903c;">${b.price} د.ع</span><br><span style="color:#888;">أضافه: ${b.addedBy||'—'}</span></div></div>
+      <div style="display:flex;align-items:center;">${thumb}<div>${b.title} — <span style="color:#b8903c;">${b.price} د.ع</span>${teacherInfo}<br><span style="color:#888;">أضافه: ${b.addedBy||'—'}</span></div></div>
       <button class="small-btn" onclick="deleteBook('${d.id}')">🗑️ حذف</button>
     </div>`;
   }).join('');
@@ -1796,13 +1828,83 @@ async function copySingleOrder(id) {
 async function setOrderStatus(id, status) {
   const update = { status };
   if (status === 'processing') update.processingAt = Date.now();
+  if (status === 'completed') {
+    const orderDoc = await db.collection('orders').doc(id).get();
+    const order = orderDoc.data();
+    if (!order.teacherPayoutsComputed) {
+      const teacherPayouts = {};
+      for (const item of (order.items || [])) {
+        if (!item.bookId) continue;
+        const bookDoc = await db.collection('books').doc(item.bookId).get();
+        if (!bookDoc.exists) continue;
+        const book = bookDoc.data();
+        if (book.teacherName && book.teacherShare) {
+          teacherPayouts[book.teacherName] = (teacherPayouts[book.teacherName] || 0) + book.teacherShare * item.qty;
+        }
+      }
+      update.teacherPayouts = teacherPayouts;
+      update.teacherPayoutsSettled = {};
+      update.teacherPayoutsComputed = true;
+    }
+  }
   await db.collection('orders').doc(id).update(update);
   loadOrdersAdmin();
+  loadTeacherEarningsAdmin();
 }
 async function deleteOrder(id) {
   if (!confirm('حذف هذا الطلب بالكامل؟')) return;
   await db.collection('orders').doc(id).delete();
   loadOrdersAdmin();
+  loadTeacherEarningsAdmin();
+}
+
+// ---------- أرباح الأساتذة من الملازم ----------
+async function loadTeacherEarningsAdmin() {
+  const list = document.getElementById('teacherEarningsList');
+  if (!list) return;
+  const teachersSnap = await db.collection('teachers').get();
+  const completedOrders = await db.collection('orders').where('status','==','completed').get();
+
+  const rows = teachersSnap.docs.map(t => {
+    const teacherName = t.data().name;
+    let unsettled = 0;
+    completedOrders.docs.forEach(d => {
+      const o = d.data();
+      if (o.teacherPayouts && o.teacherPayouts[teacherName] && !(o.teacherPayoutsSettled && o.teacherPayoutsSettled[teacherName])) {
+        unsettled += o.teacherPayouts[teacherName];
+      }
+    });
+    return { teacherName, unsettled };
+  });
+
+  if (rows.length === 0) { list.innerHTML = '<p>لا يوجد مدرسين مضافين بعد.</p>'; return; }
+  list.innerHTML = rows.map(r => {
+    if (r.unsettled > 0) {
+      return `<div class="admin-list-item">
+        <div><b>${r.teacherName}</b><br><span style="color:#b8903c;font-weight:bold;">${r.unsettled} د.ع مستحقة</span></div>
+        <button class="small-btn" onclick="settleTeacherEarnings('${r.teacherName.replace(/'/g,"\\'")}')">✅ تم التحاسب</button>
+      </div>`;
+    }
+    return `<div class="admin-list-item" style="background:#ecfdf3;border-color:#86efac;">
+      <div><b>${r.teacherName}</b><br><span style="color:#15803d;font-weight:bold;">✅ تم التحاسب على المبلغ</span></div>
+    </div>`;
+  }).join('');
+}
+async function settleTeacherEarnings(teacherName) {
+  if (!confirm(`تأكيد إنك حاسبت الأستاذ ${teacherName} على كامل المبلغ المستحق؟`)) return;
+  const completedOrders = await db.collection('orders').where('status','==','completed').get();
+  const batchUpdates = [];
+  completedOrders.docs.forEach(d => {
+    const o = d.data();
+    if (o.teacherPayouts && o.teacherPayouts[teacherName] && !(o.teacherPayoutsSettled && o.teacherPayoutsSettled[teacherName])) {
+      const settled = o.teacherPayoutsSettled || {};
+      settled[teacherName] = true;
+      batchUpdates.push(db.collection('orders').doc(d.id).update({ teacherPayoutsSettled: settled }));
+    }
+  });
+  await Promise.all(batchUpdates);
+  alert(`تم تسجيل التحاسب مع الأستاذ ${teacherName} ✅`);
+  loadTeacherEarningsAdmin();
 }
 
 document.getElementById('copyAllOrdersBtn').onclick = async () => {
@@ -1990,6 +2092,77 @@ async function loadTeacherClasses() {
       <div>📘 ${c.subject} — ${c.grade}</div>
       <div class="badge">${c.studentCount} طالب</div>
     </div>`).join('');
+}
+
+// ---------- مكتبة ملازم الأستاذ ----------
+async function openTeacherBooksLibrary() {
+  const booksSnap = await db.collection('books').where('teacherName','==', currentTeacher.name).get();
+  const booksList = document.getElementById('teacherBooksList');
+  const summaryEl = document.getElementById('teacherBooksEarningsSummary');
+
+  if (booksSnap.empty) {
+    booksList.innerHTML = '<div class="card"><p>ما عندك ملازم مضافة بالمكتبة بعد. اطلب من المشرف أو الموظف يضيف ملزمتك ويحدد حصتك منها.</p></div>';
+    summaryEl.innerHTML = '';
+    show('screen-teacher-books');
+    return;
+  }
+
+  const bookIds = booksSnap.docs.map(d => d.id);
+  const completedOrders = await db.collection('orders').where('status','==','completed').get();
+  const allOrders = await db.collection('orders').orderBy('createdAt','desc').limit(200).get();
+
+  const now = Date.now();
+  const weekAgo = now - 7*24*60*60*1000;
+  const monthAgo = now - 30*24*60*60*1000;
+  const yearAgo = now - 365*24*60*60*1000;
+  const statusLabel = { pending:'⏳ قيد المراجعة', processing:'🛠️ قيد التنفيذ', delivering:'🚚 قيد التوصيل', completed:'✅ تم الاستلام', cancelled:'❌ ملغى' };
+
+  let totalUnsettled = 0;
+  const bookStats = {}; // bookId -> {week, month, year, buyers:[]}
+  bookIds.forEach(id => bookStats[id] = { week:0, month:0, year:0, buyers:[] });
+
+  allOrders.docs.forEach(d => {
+    const o = d.data();
+    (o.items||[]).forEach(item => {
+      if (!item.bookId || !bookStats[item.bookId]) return;
+      bookStats[item.bookId].buyers.push({ name: o.studentName, province: o.province, status: o.status, qty: item.qty });
+    });
+  });
+  completedOrders.docs.forEach(d => {
+    const o = d.data();
+    (o.items||[]).forEach(item => {
+      if (!item.bookId || !bookStats[item.bookId]) return;
+      const t = o.createdAt;
+      if (t >= weekAgo) bookStats[item.bookId].week += item.qty;
+      if (t >= monthAgo) bookStats[item.bookId].month += item.qty;
+      if (t >= yearAgo) bookStats[item.bookId].year += item.qty;
+    });
+    if (o.teacherPayouts && o.teacherPayouts[currentTeacher.name] && !(o.teacherPayoutsSettled && o.teacherPayoutsSettled[currentTeacher.name])) {
+      totalUnsettled += o.teacherPayouts[currentTeacher.name];
+    }
+  });
+
+  summaryEl.innerHTML = `<div class="stat-box" style="margin-bottom:14px;"><div class="num">${totalUnsettled}</div><div class="label">مستحق لك حالياً (د.ع) — قبل التحاسب مع الإدارة</div></div>`;
+
+  booksList.innerHTML = booksSnap.docs.map(d => {
+    const b = d.data();
+    const stats = bookStats[d.id];
+    const buyersHtml = stats.buyers.length
+      ? stats.buyers.map(buy => `<div class="lesson-row"><div class="title">${buy.name} × ${buy.qty}<br><span style="font-size:12px;color:#8a90a3;">${buy.province||'—'}</span></div><div style="font-size:12px;">${statusLabel[buy.status]||buy.status}</div></div>`).join('')
+      : '<p style="font-size:13px;color:#8a90a3;">ما فيه طلبات على هذي الملزمة بعد.</p>';
+    return `<div class="card">
+      <h3>${b.title}</h3>
+      <p>السعر بالمكتبة: <b>${b.price} د.ع</b> — حصتك من كل نسخة: <b style="color:#b8903c;">${b.teacherShare||0} د.ع</b></p>
+      <div class="stat-row" style="margin-top:10px;">
+        <div class="stat-box"><div class="num">${stats.week}</div><div class="label">خلال أسبوع</div></div>
+        <div class="stat-box"><div class="num">${stats.month}</div><div class="label">خلال شهر</div></div>
+        <div class="stat-box"><div class="num">${stats.year}</div><div class="label">خلال سنة</div></div>
+      </div>
+      <h3 style="margin-top:14px;font-size:15px;">👥 من اشترى هذي الملزمة</h3>
+      ${buyersHtml}
+    </div>`;
+  }).join('');
+  show('screen-teacher-books');
 }
 
 async function openTeacherClass(classId, grade, subject) {
