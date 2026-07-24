@@ -172,7 +172,7 @@
       <p>اختر شنو تريد تسوي الآن</p>
     </div>
 
-    <div class="subject-tile" onclick="show('screen-teacher-login')">
+    <div class="subject-tile" onclick="openTeacherLoginScreen()">
       <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🧑‍🏫</span><div><b>الدخول كأستاذ</b><br><span style="font-size:12px;color:#8a90a3;">دخول خاص بالمدرسين لمتابعة طلابهم</span></div></div>
       <div class="badge">دخول</div>
     </div>
@@ -413,7 +413,7 @@
       <input id="adminPass" type="password" placeholder="كلمة السر">
       <button class="btn" id="adminLoginBtn">دخول</button>
       <div id="adminMsg"></div>
-      <button class="btn secondary" onclick="show('screen-teacher-login')">🧑‍🏫 تسجيل دخول كأستاذ</button>
+      <button class="btn secondary" onclick="openTeacherLoginScreen()">🧑‍🏫 تسجيل دخول كأستاذ</button>
     </div>
     <div id="adminPanel" class="hidden">
       <div class="card" id="loggedInAsCard" style="display:flex;align-items:center;justify-content:space-between;">
@@ -639,8 +639,17 @@
   <!-- دخول الأستاذ -->
   <div class="screen hidden" id="screen-teacher-login">
     <button class="btn secondary" onclick="show('screen-welcome')">← رجوع</button>
-    <div class="card">
-      <h3>🧑‍🏫 دخول الأستاذ</h3>
+    <div class="card" style="text-align:center;">
+      <h3 style="border:none;padding:0;justify-content:center;">🧑‍🏫 الأستاذ</h3>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button class="admin-tab active" id="teacherLoginModeTab" style="flex:1;">🔑 تسجيل الدخول</button>
+      <button class="admin-tab" id="teacherRegisterModeTab" style="flex:1;">📝 تسجيل جديد</button>
+    </div>
+
+    <!-- تسجيل الدخول (أستاذ مسجل من قبل) -->
+    <div class="card" id="teacherLoginModeFields">
       <label>رقم الهاتف</label>
       <input id="teacherPhone" type="tel" placeholder="07xxxxxxxxx">
       <label>كلمة السر</label>
@@ -648,11 +657,27 @@
       <button class="btn" id="teacherLoginBtn">دخول</button>
       <div id="teacherLoginMsg"></div>
     </div>
+
+    <!-- تسجيل أستاذ جديد -->
+    <div class="card hidden" id="teacherRegisterModeFields">
+      <label>الاسم الثلاثي</label>
+      <input id="teacherRegName" placeholder="مثال: أحمد علي محمد">
+      <label>رقم الهاتف</label>
+      <input id="teacherRegPhone" type="tel" placeholder="07xxxxxxxxx">
+      <label>كلمة السر</label>
+      <input id="teacherRegPass" type="password" placeholder="اختر كلمة سر">
+      <label>الصف الذي تدرّسه</label>
+      <select id="teacherRegGrade"></select>
+      <label>المادة</label>
+      <select id="teacherRegSubject"><option value="">اختر الصف أولاً</option></select>
+      <div id="teacherRegisterMsg"></div>
+      <button class="btn" id="teacherRegisterBtn">تسجيل</button>
+    </div>
   </div>
 
   <!-- لوحة الأستاذ -->
   <div class="screen hidden" id="screen-teacher-dashboard">
-    <button class="btn secondary" onclick="show('screen-teacher-login')">⏻ خروج</button>
+    <button class="btn secondary" onclick="openTeacherLoginScreen()">⏻ خروج</button>
     <div class="card">
       <h3 id="teacherWelcomeText"></h3>
       <p>أضف صفوفك وتابع طلابك وملفاتك من هنا</p>
@@ -1593,11 +1618,19 @@ async function loadTeachersAdmin() {
   }
   if (snap.empty) { list.innerHTML = '<p>لا يوجد مدرسين مضافين بعد.</p>'; return; }
   const gradeOptions = GRADES.map(g => `<option>${g}</option>`).join('');
+  const classesSnap = await db.collection('teacherClasses').get();
+  const classesByTeacher = {};
+  classesSnap.docs.forEach(cd => {
+    const c = cd.data();
+    if (!classesByTeacher[c.teacherPhone]) classesByTeacher[c.teacherPhone] = [];
+    classesByTeacher[c.teacherPhone].push(`${c.subject} — ${c.grade}`);
+  });
   list.innerHTML = snap.docs.map(d => {
     const t = d.data();
+    const classesText = (classesByTeacher[t.phone] || []).join('، ') || 'لسا ما أضاف أي صف';
     return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
-        <div><b>${t.name}</b><br><span style="color:#888;">📞 ${t.phone} &nbsp;|&nbsp; 🔑 ${t.password}</span><br><span style="color:#888;">أضافه: ${t.addedBy||'—'}</span></div>
+        <div><b>${t.name}</b><br><span style="color:#888;">📞 ${t.phone} &nbsp;|&nbsp; 🔑 ${t.password}</span><br><span style="color:#0e8fa8;font-size:13px;">📚 ${classesText}</span><br><span style="color:#888;">أضافه: ${t.addedBy||'—'}</span></div>
         <div style="display:flex;gap:6px;">
           <button class="small-btn" onclick="toggleTeacherLecturePanel('${d.id}')">🎬 إضافة محاضرة</button>
           <button class="small-btn" onclick="deleteTeacher('${d.id}')">🗑️ حذف</button>
@@ -2170,6 +2203,55 @@ document.getElementById('loadStatsBtn').onclick = async () => {
 // ---------- دخول ولوحة الأستاذ ----------
 let currentTeacher = null;
 let currentTeacherClass = null; // { id, grade, subject }
+async function openTeacherLoginScreen() {
+  switchTeacherLoginTab('login');
+  const activeList = await getActiveGradesList();
+  document.getElementById('teacherRegGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
+  document.getElementById('teacherRegSubject').innerHTML = '<option value="">اختر الصف أولاً</option>';
+  show('screen-teacher-login');
+}
+function switchTeacherLoginTab(mode) {
+  document.getElementById('teacherLoginModeTab').classList.toggle('active', mode === 'login');
+  document.getElementById('teacherRegisterModeTab').classList.toggle('active', mode === 'register');
+  document.getElementById('teacherLoginModeFields').classList.toggle('hidden', mode !== 'login');
+  document.getElementById('teacherRegisterModeFields').classList.toggle('hidden', mode !== 'register');
+}
+document.getElementById('teacherLoginModeTab').onclick = () => switchTeacherLoginTab('login');
+document.getElementById('teacherRegisterModeTab').onclick = () => switchTeacherLoginTab('register');
+
+document.getElementById('teacherRegGrade').addEventListener('change', async (e) => {
+  const grade = e.target.value;
+  const subjectSelect = document.getElementById('teacherRegSubject');
+  if (!grade) { subjectSelect.innerHTML = '<option value="">اختر الصف أولاً</option>'; return; }
+  let subjects = await getGradeSubjectsList(grade);
+  if (subjects.length === 0) {
+    const snap = await db.collection('lessons').where('grade','==', grade).get();
+    subjects = [...new Set(snap.docs.map(d=>d.data().subject))];
+  }
+  subjectSelect.innerHTML = subjects.length
+    ? subjects.map(s => `<option>${s}</option>`).join('')
+    : '<option value="">لا توجد مواد لهذا الصف بعد</option>';
+});
+
+document.getElementById('teacherRegisterBtn').onclick = async () => {
+  const name = document.getElementById('teacherRegName').value.trim();
+  const phone = document.getElementById('teacherRegPhone').value.trim();
+  const password = document.getElementById('teacherRegPass').value;
+  const grade = document.getElementById('teacherRegGrade').value;
+  const subject = document.getElementById('teacherRegSubject').value;
+  if (!name || !phone || !password) { setMsg('teacherRegisterMsg','عبّئ الاسم ورقم الهاتف وكلمة السر', false); return; }
+  if (!grade || !subject) { setMsg('teacherRegisterMsg','اختر الصف والمادة اللي تدرّسها', false); return; }
+  const existing = await db.collection('teachers').where('phone','==',phone).limit(1).get();
+  if (!existing.empty) { setMsg('teacherRegisterMsg','هذا الرقم مسجّل مسبقاً، ادخل من تبويب "تسجيل الدخول"', false); return; }
+  await db.collection('teachers').add({ name, phone, password, addedBy: 'تسجيل ذاتي', createdAt: Date.now() });
+  await db.collection('teacherClasses').add({ teacherName: name, teacherPhone: phone, grade, subject, createdAt: Date.now() });
+  setMsg('teacherRegisterMsg','تم التسجيل بنجاح ✅ سجّل دخولك الآن من تبويب "تسجيل الدخول"', true);
+  document.getElementById('teacherRegName').value = '';
+  document.getElementById('teacherRegPhone').value = '';
+  document.getElementById('teacherRegPass').value = '';
+  setTimeout(() => switchTeacherLoginTab('login'), 1200);
+};
+
 document.getElementById('teacherLoginBtn').onclick = async () => {
   const phone = document.getElementById('teacherPhone').value.trim();
   const pass = document.getElementById('teacherPass').value;
