@@ -530,6 +530,13 @@
 
       <div class="admin-section hidden" data-section="subscriptions">
         <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+
+        <div class="card">
+          <h3>🆓 تفعيل المنصة مجاناً بدون اشتراك</h3>
+          <p>إذا فعّلته، يقدر أي طالب يسجّل ويدخل لكل المحتوى بدون أي كود تفعيل. إذا أطفأته، يرجع النظام يطلب اشتراك عادي.</p>
+          <button class="btn" id="freeModeToggleBtn" style="margin-top:8px;">جاري التحميل...</button>
+        </div>
+
         <div class="card">
           <h3>🎫 توليد أكواد تفعيل</h3>
           <label>المرحلة الدراسية</label>
@@ -920,7 +927,10 @@ document.getElementById('loginBtn').onclick = async () => {
   } catch(e) { setMsg('loginMsg','خطأ بالاتصال، تأكد من إعدادات Firebase', false); console.error(e); }
 };
 
+let platformFreeMode = false;
+
 function getActiveSubscription(subject) {
+  if (platformFreeMode) return { teacherName: null, expiryAt: null, freeMode: true };
   if (!currentStudent || !currentStudent.subscriptions) return null;
   const sub = currentStudent.subscriptions[subject];
   if (!sub) return null;
@@ -928,6 +938,7 @@ function getActiveSubscription(subject) {
   return sub;
 }
 function hasAnyActiveSubscription() {
+  if (platformFreeMode) return true;
   if (!currentStudent || !currentStudent.subscriptions) return false;
   return Object.values(currentStudent.subscriptions).some(s => !s.expiryAt || Date.now() <= s.expiryAt);
 }
@@ -2879,9 +2890,40 @@ async function checkSessionValidity() {
     }
   } catch(e) { console.error(e); }
 }
+async function loadFreeModeStatus() {
+  try {
+    const doc = await db.collection('settings').doc('freeMode').get();
+    platformFreeMode = doc.exists ? !!doc.data().enabled : false;
+  } catch(e) { console.error(e); platformFreeMode = false; }
+  renderFreeModeButton();
+}
+function renderFreeModeButton() {
+  const btn = document.getElementById('freeModeToggleBtn');
+  if (!btn) return;
+  if (platformFreeMode) {
+    btn.textContent = '🟢 مجاناً — النظام مفعل بدون اشتراك';
+    btn.style.background = '#16a34a'; btn.style.borderColor = '#16a34a'; btn.style.color = '#fff';
+  } else {
+    btn.textContent = '🔴 غير مجاني — الاشتراك مطلوب';
+    btn.style.background = '#dc2626'; btn.style.borderColor = '#dc2626'; btn.style.color = '#fff';
+  }
+}
+document.getElementById('freeModeToggleBtn').onclick = async () => {
+  const newState = !platformFreeMode;
+  const msg = newState
+    ? 'هل أنت متأكد إنك تريد تفعيل المنصة مجاناً؟ كل الطلاب راح يوصلون لكل المحتوى بدون أي كود تفعيل.'
+    : 'هل أنت متأكد إنك تريد إيقاف الوضع المجاني؟ الطلاب راح يحتاجون كود تفعيل من جديد.';
+  if (!confirm(msg)) return;
+  await db.collection('settings').doc('freeMode').set({ enabled: newState });
+  platformFreeMode = newState;
+  renderFreeModeButton();
+  alert(newState ? 'تم تفعيل المنصة مجاناً ✅' : 'تم إيقاف الوضع المجاني ✅');
+};
+
 setInterval(checkSessionValidity, 30000); // تحقق كل 30 ثانية من عدم تسجيل دخول من جهاز آخر بنفس الحساب
 
 (async function init() {
+  await loadFreeModeStatus();
   const savedPhone = localStorage.getItem('kawthar_phone');
   const savedSession = localStorage.getItem('kawthar_session');
   if (savedPhone && db) {
