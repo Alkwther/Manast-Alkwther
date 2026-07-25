@@ -407,8 +407,8 @@
   <div class="screen hidden" id="screen-admin">
     <div class="card">
       <h3>🔐 دخول المشرف / الموظف</h3>
-      <label>اسم الموظف (اترك فارغاً لدخول المشرف الرئيسي)</label>
-      <input id="adminUser" placeholder="اسم الموظف (إن وجد)">
+      <label>اسم المستخدم (اترك فارغاً لدخول المشرف الرئيسي)</label>
+      <input id="adminUser" placeholder="اسم مستخدم الموظف (إن وجد)">
       <label>كلمة السر</label>
       <input id="adminPass" type="password" placeholder="كلمة السر">
       <button class="btn" id="adminLoginBtn">دخول</button>
@@ -605,7 +605,9 @@
         <div class="card">
           <h3>👥 إضافة موظف</h3>
           <input id="empName" placeholder="اسم الموظف">
-          <input id="empPass" placeholder="كلمة السر">
+          <label>اسم مستخدم (إنجليزي فقط، بدون مسافات)</label>
+          <input id="empUsername" placeholder="مثال: ahmed1">
+          <input id="empPass" placeholder="كلمة السر (6 أحرف على الأقل)">
           <label style="margin-top:6px;">صلاحيات الموظف</label>
           <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" id="permLibrary" style="width:auto;margin:0;"> إدارة المكتبة</label>
           <label style="display:flex;align-items:center;gap:8px;font-weight:normal;"><input type="checkbox" id="permCodes" style="width:auto;margin:0;"> إدارة كودات الدخول</label>
@@ -814,7 +816,20 @@ const firebaseConfig = {
   appId: "1:276288995799:web:262f8a466f6c6409814b92"
 };
 
-const ADMIN_PASSWORD = "kawthar2026"; // غيّرها لاحقاً
+// نظام المصادقة الحقيقي: كل هوية (مالك، موظف، أستاذ، طالب) تُصادق عبر Firebase Auth
+// ببريد إلكتروني اصطناعي مبني على معرّف كل نوع، بدل كلمات سر مخزّنة كنص صريح
+const OWNER_AUTH_EMAIL = "owner@kawthar-admin.app";
+const STAFF_AUTH_DOMAIN = "kawthar-staff.app";
+const TEACHER_AUTH_DOMAIN = "kawthar-teachers.app";
+function staffEmailFromUsername(username) { return `${username}@${STAFF_AUTH_DOMAIN}`; }
+function teacherEmailFromPhone(phone) { return `${phone}@${TEACHER_AUTH_DOMAIN}`; }
+// تطبيق Firebase ثانوي: يُستخدم فقط عند إنشاء حساب موظف جديد من طرف المالك،
+// حتى ما ينسحب المالك من جلسته الحالية (Firebase يسجّل دخول تلقائي لأي حساب تنشئه)
+let secondaryApp = null;
+function getSecondaryAuth() {
+  if (!secondaryApp) secondaryApp = firebase.initializeApp(firebaseConfig, 'Secondary');
+  return secondaryApp.auth();
+}
 const WHATSAPP_NUMBER = "9647809677257"; // رقم واتساب منصة الكوثر (بالصيغة الدولية بدون + أو صفر بالبداية)
 const DELIVERY_FEE = 5000; // أجور التوصيل الثابتة بالدينار العراقي، تُضاف تلقائياً لكل طلب مكتبة
 
@@ -1483,30 +1498,48 @@ const SECONDARY_GRADES = ["الرابع علمي","الرابع أدبي","ال�
 document.getElementById('adminLoginBtn').onclick = async () => {
   const nameInput = document.getElementById('adminUser').value.trim();
   const pass = document.getElementById('adminPass').value;
+  if (!pass) { setMsg('adminMsg','أدخل كلمة السر', false); return; }
 
   if (!nameInput) {
-    // دخول المشرف الرئيسي
-    if (pass === ADMIN_PASSWORD) {
-      currentStaffName = 'المشرف';
-      currentStaffRole = 'admin';
-      currentStaffPermissions = {};
-      enterAdminPanel();
-    } else setMsg('adminMsg','كلمة السر غير صحيحة', false);
+    // دخول/إنشاء المشرف الرئيسي (المالك) — حساب واحد فقط بالمنصة
+    try {
+      const ownerDoc = await db.collection('settings').doc('ownerSetup').get();
+      if (!ownerDoc.exists || !ownerDoc.data().done) {
+        // أول مرة إطلاقاً: ننشئ حساب المالك
+        if (pass.length < 6) { setMsg('adminMsg','كلمة السر يجب أن تكون 6 أحرف على الأقل', false); return; }
+        await auth.createUserWithEmailAndPassword(OWNER_AUTH_EMAIL, pass);
+        await db.collection('settings').doc('ownerSetup').set({ done: true, createdAt: Date.now() });
+        currentStaffName = 'المشرف'; currentStaffRole = 'admin'; currentStaffPermissions = {};
+        enterAdminPanel();
+      } else {
+        await auth.signInWithEmailAndPassword(OWNER_AUTH_EMAIL, pass);
+        currentStaffName = 'المشرف'; currentStaffRole = 'admin'; currentStaffPermissions = {};
+        enterAdminPanel();
+      }
+    } catch(e) {
+      console.error(e);
+      if (e.code === 'auth/wrong-password') setMsg('adminMsg','كلمة السر غير صحيحة', false);
+      else setMsg('adminMsg','خطأ بالاتصال', false);
+    }
     return;
   }
 
-  // دخول موظف (بالاسم وكلمة السر فقط)
+  // دخول موظف
   try {
-    const q = await db.collection('staff').where('name','==',nameInput).limit(1).get();
-    if (q.empty) { setMsg('adminMsg','اسم الموظف غير موجود', false); return; }
-    const staffDoc = q.docs[0];
-    const staff = staffDoc.data();
-    if (staff.password !== pass) { setMsg('adminMsg','كلمة السر غير صحيحة', false); return; }
+    await auth.signInWithEmailAndPassword(staffEmailFromUsername(nameInput), pass);
+    const q = await db.collection('staff').where('username','==',nameInput).limit(1).get();
+    if (q.empty) { setMsg('adminMsg','حسابك موجود لكن بياناتك ناقصة، تواصل مع الإدارة', false); return; }
+    const staff = q.docs[0].data();
     currentStaffName = staff.name;
     currentStaffRole = 'employee';
     currentStaffPermissions = staff.permissions || {};
     enterAdminPanel();
-  } catch(e) { setMsg('adminMsg','خطأ بالاتصال', false); console.error(e); }
+  } catch(e) {
+    console.error(e);
+    if (e.code === 'auth/user-not-found') setMsg('adminMsg','اسم المستخدم غير موجود', false);
+    else if (e.code === 'auth/wrong-password') setMsg('adminMsg','كلمة السر غير صحيحة', false);
+    else setMsg('adminMsg','خطأ بالاتصال', false);
+  }
 };
 
 function enterAdminPanel() {
@@ -1653,7 +1686,7 @@ async function loadTeachersAdmin() {
     const classesText = (classesByTeacher[t.phone] || []).join('، ') || 'لسا ما أضاف أي صف';
     return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
-        <div><b>${t.name}</b><br><span style="color:#888;">📞 ${t.phone} &nbsp;|&nbsp; 🔑 ${t.password}</span><br><span style="color:#0e8fa8;font-size:13px;">📚 ${classesText}</span><br><span style="color:#888;">أضافه: ${t.addedBy||'—'}</span></div>
+        <div><b>${t.name}</b><br><span style="color:#888;">📞 ${t.phone}</span><br><span style="color:#0e8fa8;font-size:13px;">📚 ${classesText}</span><br><span style="color:#888;">أضافه: ${t.addedBy||'—'}</span></div>
         <div style="display:flex;gap:6px;">
           <button class="small-btn" onclick="toggleTeacherLecturePanel('${d.id}')">🎬 إضافة محاضرة</button>
           <button class="small-btn" onclick="deleteTeacher('${d.id}')">🗑️ حذف</button>
@@ -1701,10 +1734,13 @@ const PERMISSION_LABELS = {
 };
 document.getElementById('addEmployeeBtn').onclick = async () => {
   const name = document.getElementById('empName').value.trim();
+  const username = document.getElementById('empUsername').value.trim();
   const password = document.getElementById('empPass').value;
-  if (!name || !password) { alert('عبّئ اسم الموظف وكلمة السر'); return; }
-  const existing = await db.collection('staff').where('name','==',name).limit(1).get();
-  if (!existing.empty) { alert('يوجد موظف بنفس هذا الاسم مسبقاً، اختر اسماً مختلفاً (أو أضف لقب مميز)'); return; }
+  if (!name || !username || !password) { alert('عبّئ اسم الموظف واسم المستخدم وكلمة السر'); return; }
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) { alert('اسم المستخدم يجب أن يكون إنجليزي فقط بدون مسافات'); return; }
+  if (password.length < 6) { alert('كلمة السر يجب أن تكون 6 أحرف على الأقل'); return; }
+  const existing = await db.collection('staff').where('username','==',username).limit(1).get();
+  if (!existing.empty) { alert('اسم المستخدم هذا موجود مسبقاً، اختر اسماً آخر'); return; }
   const permissions = {
     library: document.getElementById('permLibrary').checked,
     codes: document.getElementById('permCodes').checked,
@@ -1714,12 +1750,22 @@ document.getElementById('addEmployeeBtn').onclick = async () => {
     teachers: document.getElementById('permTeachers').checked,
     employees: document.getElementById('permEmployees').checked
   };
-  await db.collection('staff').add({ name, password, permissions, createdAt: Date.now() });
-  alert('تمت إضافة الموظف ✅');
-  document.getElementById('empName').value=''; document.getElementById('empPass').value='';
-  ['permLibrary','permCodes','permPrimary','permIntermediate','permSecondary','permTeachers','permEmployees']
-    .forEach(id => document.getElementById(id).checked = false);
-  loadEmployeesAdmin();
+  try {
+    // نستخدم تطبيق Firebase ثانوي لإنشاء حساب الموظف حتى ما ينسحب المالك من جلسته الحالية
+    const secAuth = getSecondaryAuth();
+    await secAuth.createUserWithEmailAndPassword(staffEmailFromUsername(username), password);
+    await secAuth.signOut();
+    await db.collection('staff').add({ name, username, permissions, createdAt: Date.now() });
+    alert('تمت إضافة الموظف ✅');
+    document.getElementById('empName').value=''; document.getElementById('empUsername').value=''; document.getElementById('empPass').value='';
+    ['permLibrary','permCodes','permPrimary','permIntermediate','permSecondary','permTeachers','permEmployees']
+      .forEach(id => document.getElementById(id).checked = false);
+    loadEmployeesAdmin();
+  } catch(e) {
+    console.error(e);
+    if (e.code === 'auth/email-already-in-use') alert('اسم المستخدم هذا مستخدم مسبقاً');
+    else alert('صار خطأ أثناء إنشاء حساب الموظف');
+  }
 };
 async function loadEmployeesAdmin() {
   const snap = await db.collection('staff').orderBy('createdAt','desc').get();
@@ -1737,7 +1783,7 @@ async function loadEmployeesAdmin() {
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
         <div>
           <b>${s.name}</b><br>
-          <span style="color:#888;">🔑 ${s.password}</span><br>
+          <span style="color:#888;">👤 ${s.username}</span><br>
           <span style="color:#888;">${permTags.length ? permTags.join(' · ') : 'بدون صلاحيات محددة'}</span>
         </div>
         <div style="display:flex;gap:6px;">
@@ -2263,33 +2309,47 @@ document.getElementById('teacherRegisterBtn').onclick = async () => {
   const grade = document.getElementById('teacherRegGrade').value;
   const subject = document.getElementById('teacherRegSubject').value;
   if (!name || !phone || !password) { setMsg('teacherRegisterMsg','عبّئ الاسم ورقم الهاتف وكلمة السر', false); return; }
+  if (password.length < 6) { setMsg('teacherRegisterMsg','كلمة السر يجب أن تكون 6 أحرف على الأقل', false); return; }
   if (!grade || !subject) { setMsg('teacherRegisterMsg','اختر الصف والمادة اللي تدرّسها', false); return; }
-  const existing = await db.collection('teachers').where('phone','==',phone).limit(1).get();
-  if (!existing.empty) { setMsg('teacherRegisterMsg','هذا الرقم مسجّل مسبقاً، ادخل من تبويب "تسجيل الدخول"', false); return; }
-  await db.collection('teachers').add({ name, phone, password, addedBy: 'تسجيل ذاتي', createdAt: Date.now() });
-  await db.collection('teacherClasses').add({ teacherName: name, teacherPhone: phone, grade, subject, createdAt: Date.now() });
-  setMsg('teacherRegisterMsg','تم التسجيل بنجاح ✅ سجّل دخولك الآن من تبويب "تسجيل الدخول"', true);
-  document.getElementById('teacherRegName').value = '';
-  document.getElementById('teacherRegPhone').value = '';
-  document.getElementById('teacherRegPass').value = '';
-  setTimeout(() => switchTeacherLoginTab('login'), 1200);
+  try {
+    await auth.createUserWithEmailAndPassword(teacherEmailFromPhone(phone), password);
+    await db.collection('teachers').add({ name, phone, addedBy: 'تسجيل ذاتي', createdAt: Date.now() });
+    await db.collection('teacherClasses').add({ teacherName: name, teacherPhone: phone, grade, subject, createdAt: Date.now() });
+    setMsg('teacherRegisterMsg','تم التسجيل بنجاح ✅ سجّل دخولك الآن من تبويب "تسجيل الدخول"', true);
+    document.getElementById('teacherRegName').value = '';
+    document.getElementById('teacherRegPhone').value = '';
+    document.getElementById('teacherRegPass').value = '';
+    await auth.signOut(); // ما نبقيه مسجّل دخول تلقائياً، يدخل يدوياً من تبويب تسجيل الدخول
+    setTimeout(() => switchTeacherLoginTab('login'), 1200);
+  } catch(e) {
+    console.error(e);
+    if (e.code === 'auth/email-already-in-use') setMsg('teacherRegisterMsg','هذا الرقم مسجّل مسبقاً، ادخل من تبويب "تسجيل الدخول"', false);
+    else setMsg('teacherRegisterMsg','خطأ بالاتصال', false);
+  }
 };
 
 document.getElementById('teacherLoginBtn').onclick = async () => {
   const phone = document.getElementById('teacherPhone').value.trim();
   const pass = document.getElementById('teacherPass').value;
   if (!phone || !pass) { setMsg('teacherLoginMsg','عبّئ رقم الهاتف وكلمة السر', false); return; }
-  const q = await db.collection('teachers').where('phone','==',phone).limit(1).get();
-  if (q.empty) { setMsg('teacherLoginMsg','رقم الهاتف غير مسجّل', false); return; }
-  const t = q.docs[0].data();
-  if (t.password !== pass) { setMsg('teacherLoginMsg','كلمة السر غير صحيحة', false); return; }
-  currentTeacher = t;
-  document.getElementById('teacherWelcomeText').textContent = `👋 مرحباً أستاذ ${t.name}`;
-  const activeList = await getActiveGradesList();
-  document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
-  await refreshTeacherClassSubjectOptions();
-  await loadTeacherClasses();
-  show('screen-teacher-dashboard');
+  try {
+    await auth.signInWithEmailAndPassword(teacherEmailFromPhone(phone), pass);
+    const q = await db.collection('teachers').where('phone','==',phone).limit(1).get();
+    if (q.empty) { setMsg('teacherLoginMsg','حسابك موجود لكن بياناتك ناقصة، تواصل مع الإدارة', false); return; }
+    const t = q.docs[0].data();
+    currentTeacher = t;
+    document.getElementById('teacherWelcomeText').textContent = `👋 مرحباً أستاذ ${t.name}`;
+    const activeList = await getActiveGradesList();
+    document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
+    await refreshTeacherClassSubjectOptions();
+    await loadTeacherClasses();
+    show('screen-teacher-dashboard');
+  } catch(e) {
+    console.error(e);
+    if (e.code === 'auth/user-not-found') setMsg('teacherLoginMsg','رقم الهاتف غير مسجّل', false);
+    else if (e.code === 'auth/wrong-password') setMsg('teacherLoginMsg','كلمة السر غير صحيحة', false);
+    else setMsg('teacherLoginMsg','خطأ بالاتصال', false);
+  }
 };
 
 async function refreshTeacherClassSubjectOptions() {
@@ -2955,6 +3015,11 @@ setInterval(checkSessionValidity, 30000); // تحقق كل 30 ثانية من ع
           return;
         }
       } catch(e) { console.error(e); }
+    }
+    // إذا ما فيه أي جلسة مسجّلة (زائر يتصفح المكتبة أو الدروس المجانية بدون تسجيل)،
+    // نسجّله دخول مجهول تلقائياً حتى تشتغل معه قواعد الأمان (تتطلب مصادقة لأي كتابة)
+    if (!user) {
+      auth.signInAnonymously().catch(e => console.error('anon auth failed', e));
     }
   });
   show('screen-welcome');
