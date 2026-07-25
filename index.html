@@ -172,6 +172,11 @@
       <p>اختر شنو تريد تسوي الآن</p>
     </div>
 
+    <div id="announcementsCarousel" class="hidden" style="margin-bottom:14px;border-radius:16px;overflow:hidden;box-shadow:0 4px 18px rgba(16,32,63,.12);">
+      <img id="carouselImage" style="width:100%;display:block;aspect-ratio:16/9;object-fit:cover;">
+      <p id="carouselCaption" style="padding:12px 14px;background:#fff;margin:0;text-align:center;color:#10203f;font-weight:bold;font-size:14px;"></p>
+    </div>
+
     <div class="subject-tile" onclick="openTeacherLoginScreen()">
       <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🧑‍🏫</span><div><b>الدخول كأستاذ</b><br><span style="font-size:12px;color:#8a90a3;">دخول خاص بالمدرسين لمتابعة طلابهم</span></div></div>
       <div class="badge">دخول</div>
@@ -253,6 +258,7 @@
       <input id="loginOnlyPassword" type="password" inputmode="numeric" maxlength="6" placeholder="مثال: 123456">
       <div id="loginOnlyMsg"></div>
       <button class="btn" id="loginOnlyBtn">دخول</button>
+      <p style="text-align:center;"><span style="color:#0e8fa8;text-decoration:underline;cursor:pointer;" onclick="forgotPassword('loginOnlyPhone','طالب')">نسيت كلمة السر؟</span></p>
     </div>
 
     <!-- تسجيل حساب جديد -->
@@ -459,7 +465,7 @@
         </div>
         <div class="admin-menu-item" data-section="support" data-permission="support">
           <div class="admin-menu-icon">📞</div>
-          <div class="admin-menu-text"><b>خدمة العملاء</b><span>الرد على رسائل الطلاب والأساتذة</span></div>
+          <div class="admin-menu-text"><b>خدمة العملاء <span id="supportUnreadBadge" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></b><span>الرد على رسائل الطلاب والأساتذة</span></div>
           <div class="admin-menu-arrow">‹</div>
         </div>
         <div class="admin-menu-item admin-only hidden" data-section="students" data-permission="ownerOnly">
@@ -470,6 +476,11 @@
         <div class="admin-menu-item admin-only hidden" data-section="active-grades" data-permission="ownerOnly">
           <div class="admin-menu-icon">🏫</div>
           <div class="admin-menu-text"><b>الصفوف المتاحة الآن</b><span>تحديد الصفوف التي تدرّسها المنصة حالياً</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
+        <div class="admin-menu-item admin-only hidden" data-section="announcements" data-permission="ownerOnly">
+          <div class="admin-menu-icon">📢</div>
+          <div class="admin-menu-text"><b>الإعلانات</b><span>صور وشرائط إعلانية تظهر بالصفحة الرئيسية</span></div>
           <div class="admin-menu-arrow">‹</div>
         </div>
       </div>
@@ -649,6 +660,10 @@
 
       <div class="admin-section hidden" data-section="students">
         <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <div class="stat-row">
+          <div class="stat-box"><div class="num" id="statTotalStudents">—</div><div class="label">إجمالي الطلاب</div></div>
+          <div class="stat-box"><div class="num" id="statTotalTeachers">—</div><div class="label">إجمالي المدرسين</div></div>
+        </div>
         <div class="card">
           <h3>👨‍🎓 الطلاب المسجلين</h3>
           <label>ابحث برقم الهاتف</label>
@@ -666,6 +681,21 @@
           <p>حدد الصفوف اللي تدرّسها المنصة حالياً — بس هذي الصفوف تظهر للطالب عند التسجيل، وباقي الصفوف تضل تحت تحكمك أنت والموظفين فقط.</p>
           <div id="activeGradesChecklist" style="margin:12px 0;"></div>
           <button class="btn" id="saveActiveGradesBtn">حفظ</button>
+        </div>
+      </div>
+
+      <div class="admin-section hidden" data-section="announcements">
+        <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <div class="card">
+          <h3>📢 إضافة إعلان</h3>
+          <input type="file" id="annImageInput" accept="image/*">
+          <div id="annImagePreview" style="margin-bottom:10px;"></div>
+          <textarea id="annCaption" rows="2" placeholder="نص الشرح اللي يظهر تحت الصورة"></textarea>
+          <button class="btn" id="addAnnouncementBtn">إضافة الإعلان</button>
+        </div>
+        <div class="card">
+          <h3>📋 الإعلانات الحالية</h3>
+          <div id="announcementsAdminList"></div>
         </div>
       </div>
     </div>
@@ -691,6 +721,7 @@
       <input id="teacherPass" type="password" placeholder="كلمة السر">
       <button class="btn" id="teacherLoginBtn">دخول</button>
       <div id="teacherLoginMsg"></div>
+      <p style="text-align:center;"><span style="color:#0e8fa8;text-decoration:underline;cursor:pointer;" onclick="forgotPassword('teacherPhone','أستاذ')">نسيت كلمة السر؟</span></p>
     </div>
 
     <!-- تسجيل أستاذ جديد -->
@@ -1655,6 +1686,8 @@ function enterAdminPanel() {
   loadActiveGradesAdmin();
   loadTeacherEarningsAdmin();
   loadSupportChats();
+  loadAnnouncementsAdmin();
+  if (currentStaffRole === 'admin') loadSubscriberTotals();
   db.collection('settings').doc('library').get().then(doc => {
     if (doc.exists && doc.data().phone) document.getElementById('libraryPhoneInput').value = doc.data().phone;
   });
@@ -2737,6 +2770,13 @@ async function openChat(threadId, title) {
   show('screen-chat'); // نعرض الشاشة فوراً حتى لو صار خطأ بتحميل الرسائل القديمة
   try { await purgeOldChatMessages(threadId); } catch(e) { console.error(e); }
   try { await renderChatMessages(); } catch(e) { console.error(e); document.getElementById('chatMessagesList').innerHTML = '<div class="card"><p>تعذّر تحميل الرسائل، حاول مرة ثانية.</p></div>'; }
+  if (me.role === 'staff' && threadId.startsWith('support_')) {
+    try {
+      const snap = await db.collection('messages').where('threadId','==', threadId).where('readByStaff','==', false).get();
+      await Promise.all(snap.docs.map(d => d.ref.update({ readByStaff: true })));
+      loadSupportChats();
+    } catch(e) { console.error(e); }
+  }
 }
 document.getElementById('chatBackBtn').onclick = () => {
   if (currentStudent) show('screen-home');
@@ -2771,16 +2811,35 @@ async function renderChatMessages() {
 document.getElementById('chatSendBtn').onclick = async () => {
   const text = document.getElementById('chatInput').value.trim();
   if (!text || !currentChatThread) return;
+  const isSupportThread = currentChatThread.threadId.startsWith('support_');
   await db.collection('messages').add({
     threadId: currentChatThread.threadId,
     fromRole: currentChatThread.role, fromId: currentChatThread.id, fromName: currentChatThread.name,
-    text, createdAt: Date.now()
+    text, createdAt: Date.now(),
+    ...(isSupportThread ? { readByStaff: currentChatThread.role === 'staff' } : {})
   });
   document.getElementById('chatInput').value = '';
   await renderChatMessages();
+  if (isSupportThread && currentChatThread.role !== 'staff') {
+    // رسالة جديدة من طالب/أستاذ: نحدّث شارة العدد غير المقروء لو المشرف فاتح القائمة بنفس اللحظة
+    loadSupportChats();
+  }
 };
 
 // خدمة العملاء
+function forgotPassword(phoneFieldId, userType) {
+  let phone = document.getElementById(phoneFieldId).value.trim();
+  if (!phone) {
+    phone = prompt('أدخل رقم هاتفك المسجّل بالمنصة:');
+    if (!phone) return;
+    phone = phone.trim();
+  }
+  const name = prompt('أدخل اسمك الكامل للتأكد من هويتك:');
+  if (!name) return;
+  const text = encodeURIComponent(`طلب إعادة تعيين كلمة السر - منصة الكوثر\nالنوع: ${userType}\nالاسم: ${name}\nرقم الهاتف: ${phone}\n\nالرجاء التحقق من هويتي وإعادة تعيين حسابي لأتمكن من التسجيل بكلمة سر جديدة.`);
+  window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
+}
+
 function openCustomerServiceChat() {
   const me = currentIdentity();
   if (!me) { alert('لازم تسجّل دخول أولاً'); return; }
@@ -2836,16 +2895,26 @@ async function loadSupportChats() {
       .where('threadId','<', 'support_' + '\uf8ff')
       .get();
     const threads = {};
+    const unreadByThread = {};
     snap.docs.forEach(d => {
       const m = d.data();
       if (!threads[m.threadId] || threads[m.threadId].createdAt < m.createdAt) threads[m.threadId] = m;
+      if (m.readByStaff === false) unreadByThread[m.threadId] = (unreadByThread[m.threadId] || 0) + 1;
     });
+    const totalUnread = Object.values(unreadByThread).reduce((a,b) => a+b, 0);
+    const badge = document.getElementById('supportUnreadBadge');
+    if (badge) {
+      if (totalUnread > 0) { badge.textContent = totalUnread; badge.classList.remove('hidden'); }
+      else badge.classList.add('hidden');
+    }
     const entries = Object.entries(threads).sort((a,b) => b[1].createdAt - a[1].createdAt);
     if (entries.length === 0) { list.innerHTML = '<p>لا توجد رسائل دعم بعد.</p>'; return; }
     list.innerHTML = entries.map(([threadId, lastMsg]) => {
       const roleLabel = { student: '🎓 طالب', teacher: '🧑‍🏫 أستاذ', staff: '👥 موظف' }[lastMsg.fromRole] || lastMsg.fromRole;
-      return `<div class="lesson-row" onclick="openChat('${threadId}','📞 ${lastMsg.fromName}')">
-        <div class="title">${lastMsg.fromName} <span style="font-size:11px;color:#8a90a3;">(${roleLabel})</span><br><span style="font-size:12px;color:#8a90a3;">${lastMsg.text.substring(0,50)}</span></div>
+      const unreadCount = unreadByThread[threadId] || 0;
+      const unreadBadgeHtml = unreadCount > 0 ? `<span style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;margin-inline-start:6px;">${unreadCount}</span>` : '';
+      return `<div class="lesson-row" onclick="openChat('${threadId}','📞 ${lastMsg.fromName}')" style="${unreadCount > 0 ? 'background:#fef2f2;border:1px solid #fecaca;' : ''}">
+        <div class="title">${lastMsg.fromName} ${unreadBadgeHtml}<span style="font-size:11px;color:#8a90a3;"> (${roleLabel})</span><br><span style="font-size:12px;color:#8a90a3;">${lastMsg.text.substring(0,50)}</span></div>
         <div class="play">فتح</div>
       </div>`;
     }).join('');
@@ -3056,6 +3125,84 @@ document.getElementById('searchStudentsBtn').onclick = async () => {
 };
 // ---------- الصفوف المتاحة الآن ----------
 function gradeKey(grade) { return grade.replace(/[^a-zA-Z0-9أ-ي]/g,'_'); }
+
+// ---------- الإعلانات ----------
+document.getElementById('annImageInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  const preview = document.getElementById('annImagePreview');
+  if (!file) { preview.innerHTML = ''; return; }
+  const dataUrl = await resizeImageToBase64(file, 700);
+  preview.innerHTML = `<img src="${dataUrl}" style="width:120px;border-radius:10px;border:1px solid #e2e5ec;">`;
+  preview.dataset.image = dataUrl;
+});
+document.getElementById('addAnnouncementBtn').onclick = async () => {
+  const image = document.getElementById('annImagePreview').dataset.image;
+  const caption = document.getElementById('annCaption').value.trim();
+  if (!image) { alert('اختر صورة للإعلان'); return; }
+  await db.collection('announcements').add({ image, caption, createdAt: Date.now() });
+  alert('تمت إضافة الإعلان ✅');
+  document.getElementById('annImageInput').value = '';
+  document.getElementById('annImagePreview').innerHTML = ''; delete document.getElementById('annImagePreview').dataset.image;
+  document.getElementById('annCaption').value = '';
+  loadAnnouncementsAdmin();
+};
+async function loadAnnouncementsAdmin() {
+  const snap = await db.collection('announcements').orderBy('createdAt','desc').get();
+  const list = document.getElementById('announcementsAdminList');
+  if (snap.empty) { list.innerHTML = '<p>لا توجد إعلانات مضافة بعد.</p>'; return; }
+  list.innerHTML = snap.docs.map(d => {
+    const a = d.data();
+    return `<div class="admin-list-item">
+      <div style="display:flex;align-items:center;gap:10px;"><img src="${a.image}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;"><span>${a.caption || '—'}</span></div>
+      <button class="small-btn" onclick="deleteAnnouncement('${d.id}')">🗑️ حذف</button>
+    </div>`;
+  }).join('');
+}
+async function deleteAnnouncement(id) {
+  if (!confirm('حذف هذا الإعلان؟')) return;
+  await db.collection('announcements').doc(id).delete();
+  loadAnnouncementsAdmin();
+  loadAnnouncements(); // تحديث الشريط بالصفحة الرئيسية أيضاً
+}
+
+// شريط الإعلانات بالصفحة الرئيسية (يعرضه كل الزوار)
+let announcementsList = [];
+let carouselIndex = 0;
+let carouselInterval = null;
+async function loadAnnouncements() {
+  try {
+    const snap = await db.collection('announcements').orderBy('createdAt','desc').get();
+    announcementsList = snap.docs.map(d => d.data());
+  } catch(e) { console.error(e); announcementsList = []; }
+  const container = document.getElementById('announcementsCarousel');
+  if (carouselInterval) clearInterval(carouselInterval);
+  if (announcementsList.length === 0) { container.classList.add('hidden'); return; }
+  container.classList.remove('hidden');
+  carouselIndex = 0;
+  renderCarouselSlide();
+  carouselInterval = setInterval(() => {
+    carouselIndex = (carouselIndex + 1) % announcementsList.length;
+    renderCarouselSlide();
+  }, 4000);
+}
+function renderCarouselSlide() {
+  const a = announcementsList[carouselIndex];
+  if (!a) return;
+  document.getElementById('carouselImage').src = a.image;
+  document.getElementById('carouselCaption').textContent = a.caption || '';
+}
+
+// ---------- إحصائية إجمالي المشتركين (للمالك فقط) ----------
+async function loadSubscriberTotals() {
+  try {
+    const [studentsSnap, teachersSnap] = await Promise.all([
+      db.collection('students').get(),
+      db.collection('teachers').get()
+    ]);
+    document.getElementById('statTotalStudents').textContent = studentsSnap.size;
+    document.getElementById('statTotalTeachers').textContent = teachersSnap.size;
+  } catch(e) { console.error(e); }
+}
 
 async function loadActiveGradesAdmin() {
   const doc = await db.collection('settings').doc('activeGrades').get();
@@ -3309,6 +3456,7 @@ setInterval(checkSessionValidity, 30000); // تحقق كل 30 ثانية من ع
       } catch(e) { console.error(e); }
     }
   });
+  loadAnnouncements();
   show('screen-welcome');
 })();
 </script>
