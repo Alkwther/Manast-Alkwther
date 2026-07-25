@@ -798,6 +798,7 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>
 /* ============================================================
    إعدادات Firebase — لازم تستبدلها بإعدادات مشروعك الخاص
@@ -817,12 +818,15 @@ const ADMIN_PASSWORD = "kawthar2026"; // غيّرها لاحقاً
 const WHATSAPP_NUMBER = "9647809677257"; // رقم واتساب منصة الكوثر (بالصيغة الدولية بدون + أو صفر بالبداية)
 const DELIVERY_FEE = 5000; // أجور التوصيل الثابتة بالدينار العراقي، تُضاف تلقائياً لكل طلب مكتبة
 
-let db, currentStudent = null;
+let db, auth, currentStudent = null;
 const GRADES = ["الخامس ابتدائي","السادس ابتدائي","الأول متوسط","الثاني متوسط","الثالث متوسط","الرابع علمي","الرابع أدبي","الخامس علمي","الخامس أدبي","السادس علمي","السادس أدبي","الرابع الصناعي","الخامس الصناعي","السادس الصناعي","الرابع التجاري","الخامس التجاري","السادس التجاري","الرابع الزراعي","الخامس الزراعي","السادس الزراعي"];
+const STUDENT_AUTH_DOMAIN = "kawthar-students.app"; // نطاق وهمي لتحويل رقم الهاتف لبريد إلكتروني يقبله Firebase Auth
+function studentEmailFromPhone(phone) { return `${phone}@${STUDENT_AUTH_DOMAIN}`; }
 
 try {
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
+  auth = firebase.auth();
 } catch(e) { console.error("Firebase init error", e); }
 
 function show(id) {
@@ -878,20 +882,23 @@ document.getElementById('loginOnlyBtn').onclick = async () => {
   const password = document.getElementById('loginOnlyPassword').value;
   if (!phone || !password) { setMsg('loginOnlyMsg','أدخل رقم الهاتف وكلمة السر', false); return; }
   try {
+    await auth.signInWithEmailAndPassword(studentEmailFromPhone(phone), password);
     const ref = db.collection('students').doc(phone);
     const doc = await ref.get();
-    if (!doc.exists) { setMsg('loginOnlyMsg','ما فيه حساب بهذا الرقم، سجّل حساب جديد من تبويب "تسجيل جديد"', false); return; }
+    if (!doc.exists) { setMsg('loginOnlyMsg','حسابك موجود لكن بياناتك ناقصة، تواصل مع الإدارة', false); return; }
     const existing = doc.data();
-    if (existing.password && existing.password !== password) {
-      setMsg('loginOnlyMsg','كلمة السر غير صحيحة', false); return;
-    }
     const sessionToken = generateSessionToken();
     await ref.update({ activeSession: sessionToken });
     currentStudent = { id: phone, ...existing, activeSession: sessionToken };
     localStorage.setItem('kawthar_phone', phone);
     localStorage.setItem('kawthar_session', sessionToken);
     afterLogin();
-  } catch(e) { setMsg('loginOnlyMsg','خطأ بالاتصال، تأكد من إعدادات Firebase', false); console.error(e); }
+  } catch(e) {
+    console.error(e);
+    if (e.code === 'auth/user-not-found') setMsg('loginOnlyMsg','ما فيه حساب بهذا الرقم، سجّل حساب جديد من تبويب "تسجيل جديد"', false);
+    else if (e.code === 'auth/wrong-password') setMsg('loginOnlyMsg','كلمة السر غير صحيحة', false);
+    else setMsg('loginOnlyMsg','خطأ بالاتصال، تأكد من إعدادات Firebase', false);
+  }
 };
 
 // ---------- تسجيل حساب جديد ----------
@@ -906,11 +913,10 @@ document.getElementById('loginBtn').onclick = async () => {
   if (!/^\d{6}$/.test(password)) { setMsg('loginMsg','كلمة السر يجب أن تكون 6 أرقام بالضبط', false); return; }
   if (!subject || !teacherName) { setMsg('loginMsg','اختر المادة واسم الأستاذ', false); return; }
   try {
+    await auth.createUserWithEmailAndPassword(studentEmailFromPhone(phone), password);
     const ref = db.collection('students').doc(phone);
-    const doc = await ref.get();
-    if (doc.exists) { setMsg('loginMsg','هذا الرقم مسجّل مسبقاً، ادخل من تبويب "تسجيل الدخول"', false); return; }
     const sessionToken = generateSessionToken();
-    const data = { name, phone, password, grade, activated:false, quizzesTaken:0, totalScore:0, lessonsWatched:[], activeSession: sessionToken, createdAt: Date.now() };
+    const data = { name, phone, grade, activated:false, quizzesTaken:0, totalScore:0, lessonsWatched:[], activeSession: sessionToken, createdAt: Date.now() };
     await ref.set(data);
     currentStudent = { id: phone, ...data };
     localStorage.setItem('kawthar_phone', phone);
@@ -924,7 +930,12 @@ document.getElementById('loginBtn').onclick = async () => {
     const text = encodeURIComponent(`طلب تسجيل جديد - منصة الكوثر\nاسم الطالب الثلاثي: ${name}\nرقم الهاتف: ${phone}\nالصف: ${grade}\nالمادة: ${subject}\nالأستاذ: ${teacherName}`);
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
     show('screen-registration-done');
-  } catch(e) { setMsg('loginMsg','خطأ بالاتصال، تأكد من إعدادات Firebase', false); console.error(e); }
+  } catch(e) {
+    console.error(e);
+    if (e.code === 'auth/email-already-in-use') setMsg('loginMsg','هذا الرقم مسجّل مسبقاً، ادخل من تبويب "تسجيل الدخول"', false);
+    else if (e.code === 'auth/weak-password') setMsg('loginMsg','كلمة السر ضعيفة، اختر 6 أرقام مختلفة', false);
+    else setMsg('loginMsg','خطأ بالاتصال، تأكد من إعدادات Firebase', false);
+  }
 };
 
 let platformFreeMode = false;
@@ -1434,6 +1445,7 @@ async function showMyOrders(phoneOverride) {
 
 // ---------- تسجيل الخروج ----------
 document.getElementById('logoutBtn').onclick = () => {
+  if (auth.currentUser) auth.signOut().catch(e => console.error(e));
   localStorage.removeItem('kawthar_phone');
   localStorage.removeItem('kawthar_session');
   currentStudent = null;
@@ -2871,6 +2883,7 @@ if ('serviceWorker' in navigator) {
 
 // ---------- استرجاع الجلسة ----------
 function forceLogoutOtherSession() {
+  if (auth.currentUser) auth.signOut().catch(e => console.error(e));
   localStorage.removeItem('kawthar_phone');
   localStorage.removeItem('kawthar_session');
   currentStudent = null;
@@ -2924,23 +2937,26 @@ setInterval(checkSessionValidity, 30000); // تحقق كل 30 ثانية من ع
 
 (async function init() {
   await loadFreeModeStatus();
-  const savedPhone = localStorage.getItem('kawthar_phone');
-  const savedSession = localStorage.getItem('kawthar_session');
-  if (savedPhone && db) {
-    try {
-      const doc = await db.collection('students').doc(savedPhone).get();
-      if (doc.exists) {
-        const data = doc.data();
-        if (data.activeSession && savedSession && data.activeSession !== savedSession) {
-          forceLogoutOtherSession();
+  auth.onAuthStateChanged(async (user) => {
+    if (!currentStudent && user && user.email && user.email.endsWith('@'+STUDENT_AUTH_DOMAIN)) {
+      const phone = user.email.split('@')[0];
+      const savedSession = localStorage.getItem('kawthar_session');
+      try {
+        const doc = await db.collection('students').doc(phone).get();
+        if (doc.exists) {
+          const data = doc.data();
+          if (data.activeSession && savedSession && data.activeSession !== savedSession) {
+            forceLogoutOtherSession();
+            return;
+          }
+          currentStudent = { id: phone, ...data };
+          localStorage.setItem('kawthar_phone', phone);
+          afterLogin();
           return;
         }
-        currentStudent = { id: savedPhone, ...data };
-        afterLogin();
-        return;
-      }
-    } catch(e) { console.error(e); }
-  }
+      } catch(e) { console.error(e); }
+    }
+  });
   show('screen-welcome');
 })();
 </script>
