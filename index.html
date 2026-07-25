@@ -312,6 +312,17 @@
 
   <!-- الرئيسية: المواد -->
   <div class="screen hidden" id="screen-home">
+    <div class="card" style="display:flex;align-items:center;gap:14px;">
+      <img id="studentPhotoPreview" src="" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;background:#eef1f8;flex-shrink:0;">
+      <div style="flex:1;">
+        <b id="studentNameDisplay" style="color:#10203f;"></b>
+        <label class="small-btn" style="display:inline-block;margin-top:6px;cursor:pointer;">
+          📷 تغيير صورتي
+          <input type="file" id="studentPhotoInput" accept="image/*" style="display:none;">
+        </label>
+      </div>
+    </div>
+    <button class="btn secondary" onclick="openCustomerServiceChat()">📞 خدمة العملاء</button>
     <div id="statusBanner"></div>
     <div class="stat-row">
       <div class="stat-box"><div class="num" id="statQuizzes">0</div><div class="label">اختبار محلول</div></div>
@@ -405,12 +416,12 @@
 
   <!-- لوحة تحكم المشرف -->
   <div class="screen hidden" id="screen-admin">
-    <div class="card">
+    <div class="card" id="adminLoginCard">
       <h3>🔐 دخول المشرف / الموظف</h3>
       <label>اسم المستخدم (اترك فارغاً لدخول المشرف الرئيسي)</label>
-      <input id="adminUser" placeholder="اسم مستخدم الموظف (إن وجد)">
+      <input id="adminUser" placeholder="اسم مستخدم الموظف (إن وجد)" autocomplete="off">
       <label>كلمة السر</label>
-      <input id="adminPass" type="password" placeholder="كلمة السر">
+      <input id="adminPass" type="password" placeholder="كلمة السر" autocomplete="new-password">
       <button class="btn" id="adminLoginBtn">دخول</button>
       <div id="adminMsg"></div>
       <button class="btn secondary" onclick="openTeacherLoginScreen()">🧑‍🏫 تسجيل دخول كأستاذ</button>
@@ -444,6 +455,11 @@
         <div class="admin-menu-item" data-section="team" data-permission="employees">
           <div class="admin-menu-icon">👥</div>
           <div class="admin-menu-text"><b>الموظفين</b><span>إضافة موظفين وتحديد صلاحياتهم</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
+        <div class="admin-menu-item" data-section="support" data-permission="support">
+          <div class="admin-menu-icon">📞</div>
+          <div class="admin-menu-text"><b>خدمة العملاء</b><span>الرد على رسائل الطلاب والأساتذة</span></div>
           <div class="admin-menu-arrow">‹</div>
         </div>
         <div class="admin-menu-item admin-only hidden" data-section="students" data-permission="ownerOnly">
@@ -621,6 +637,16 @@
         </div>
       </div>
 
+      <div class="admin-section hidden" data-section="support">
+        <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <div class="card">
+          <h3>📞 خدمة العملاء</h3>
+          <p>محادثات الطلاب والأساتذة اللي طلبوا مساعدة — اضغط على أي محادثة للرد</p>
+          <button class="btn secondary" id="refreshSupportBtn">🔄 تحديث القائمة</button>
+        </div>
+        <div id="supportChatsList"></div>
+      </div>
+
       <div class="admin-section hidden" data-section="students">
         <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
         <div class="card">
@@ -687,11 +713,21 @@
   <!-- لوحة الأستاذ -->
   <div class="screen hidden" id="screen-teacher-dashboard">
     <button class="btn secondary" onclick="openTeacherLoginScreen()">⏻ خروج</button>
+    <div class="card" style="display:flex;align-items:center;gap:14px;">
+      <img id="teacherPhotoPreview" src="" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;background:#eef1f8;flex-shrink:0;">
+      <div style="flex:1;">
+        <h3 id="teacherWelcomeText" style="border:none;padding:0;margin-bottom:6px;"></h3>
+        <label class="small-btn" style="display:inline-block;cursor:pointer;">
+          📷 تغيير صورتي
+          <input type="file" id="teacherPhotoInput" accept="image/*" style="display:none;">
+        </label>
+      </div>
+    </div>
     <div class="card">
-      <h3 id="teacherWelcomeText"></h3>
       <p>أضف صفوفك وتابع طلابك وملفاتك من هنا</p>
     </div>
     <button class="btn secondary" onclick="openTeacherBooksLibrary()">📚 مكتبة ملازمك</button>
+    <button class="btn secondary" onclick="openCustomerServiceChat()">📞 خدمة العملاء</button>
     <button class="btn secondary" onclick="openTeacherBuyCode()">🎫 شراء كود</button>
     <div class="card">
       <h3>➕ إضافة صف تدرّسه</h3>
@@ -725,6 +761,22 @@
   </div>
 
   <!-- مكتبة ملازم الأستاذ -->
+  <!-- شاشة الدردشة العامة (تُستخدم لخدمة العملاء، محادثة الأستاذ، ودردشة الصف) -->
+  <div class="screen hidden" id="screen-chat">
+    <button class="btn secondary" id="chatBackBtn">← رجوع</button>
+    <div class="card">
+      <h3 id="chatTitle"></h3>
+      <p style="font-size:12px;color:#8a90a3;">الرسائل تُحذف تلقائياً بعد 7 أيام</p>
+    </div>
+    <div id="chatMessagesList" style="margin-bottom:10px;"></div>
+    <div class="card" style="position:sticky;bottom:70px;">
+      <div style="display:flex;gap:8px;">
+        <input id="chatInput" placeholder="اكتب رسالتك..." style="margin-bottom:0;flex:1;">
+        <button class="btn" id="chatSendBtn" style="width:auto;padding:12px 18px;margin:0;">إرسال</button>
+      </div>
+    </div>
+  </div>
+
   <div class="screen hidden" id="screen-teacher-books">
     <button class="btn secondary" onclick="show('screen-teacher-dashboard')">← رجوع</button>
     <div class="card">
@@ -741,6 +793,12 @@
     <div class="card">
       <h3 id="teacherClassTitle"></h3>
       <p id="teacherClassStudentCount"></p>
+      <button class="btn secondary" id="teacherClassChatBtn">👥 دردشة الصف</button>
+    </div>
+
+    <div class="card">
+      <h3>💬 محادثات الطلاب معك</h3>
+      <div id="teacherChatsList"></div>
     </div>
 
     <div id="teacherLecturesList"></div>
@@ -1058,6 +1116,8 @@ async function loadRequestSubjectOptions() {
 // ---------- الرئيسية ----------
 async function loadHome() {
   loadRequestSubjectOptions();
+  document.getElementById('studentNameDisplay').textContent = currentStudent.name;
+  document.getElementById('studentPhotoPreview').src = currentStudent.photo || DEFAULT_AVATAR;
   document.getElementById('statQuizzes').textContent = currentStudent.quizzesTaken || 0;
   const avg = currentStudent.quizzesTaken ? Math.round((currentStudent.totalScore / currentStudent.quizzesTaken)) : 0;
   document.getElementById('statAvg').textContent = avg + '%';
@@ -1136,6 +1196,10 @@ async function openSubject(subject) {
         <h3 style="border:none;padding:0;">📘 ${subject}</h3>
         <p>👨‍🏫 الأستاذ: <b>${sub.teacherName || 'غير محدد'}</b></p>
         <p style="${isWarning ? 'color:#dc2626;font-weight:bold;' : 'color:#15803d;font-weight:bold;'}">⏳ الأيام المتبقية: ${remainingDays} يوم</p>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          ${sub.teacherName ? `<button class="small-btn" onclick="openTeacherStudentChat('${sub.teacherName.replace(/'/g,"\\'")}','${subject.replace(/'/g,"\\'")}')">💬 راسل الأستاذ</button>` : ''}
+          <button class="small-btn" onclick="openClassChat('${currentStudent.grade.replace(/'/g,"\\'")}','${subject.replace(/'/g,"\\'")}')">👥 دردشة الصف</button>
+        </div>
       </div>`;
   } else {
     statusHtml = `
@@ -1463,11 +1527,15 @@ document.getElementById('logoutBtn').onclick = () => {
   if (auth.currentUser) auth.signOut().catch(e => console.error(e));
   localStorage.removeItem('kawthar_phone');
   localStorage.removeItem('kawthar_session');
+  localStorage.removeItem('kawthar_staff_role');
+  localStorage.removeItem('kawthar_teacher_phone');
   currentStudent = null;
   currentStaffName = null;
   currentStaffRole = null;
   currentStaffPermissions = {};
+  currentTeacher = null;
   document.getElementById('adminPanel').classList.add('hidden');
+  document.getElementById('adminLoginCard').classList.remove('hidden');
   document.getElementById('adminUser').value = '';
   document.getElementById('adminPass').value = '';
   document.getElementById('bottomNav').classList.add('hidden');
@@ -1543,6 +1611,9 @@ document.getElementById('adminLoginBtn').onclick = async () => {
 };
 
 function enterAdminPanel() {
+  document.getElementById('adminLoginCard').classList.add('hidden');
+  document.getElementById('adminUser').value = '';
+  document.getElementById('adminPass').value = '';
   document.getElementById('adminPanel').classList.remove('hidden');
   document.getElementById('loggedInAsText').textContent =
     currentStaffRole === 'admin' ? '👋 مسجّل دخول كـ: المشرف الرئيسي' : `👋 مسجّل دخول كـ: ${currentStaffName} (موظف)`;
@@ -1560,6 +1631,7 @@ function enterAdminPanel() {
       const key = item.dataset.permission;
       let allowed = false;
       if (key === 'content') allowed = canSeeLessons;
+      else if (key === 'support') allowed = true;
       else if (key === 'ownerOnly') allowed = false;
       else allowed = !!perms[key];
       item.classList.toggle('hidden', !allowed);
@@ -1582,6 +1654,7 @@ function enterAdminPanel() {
   loadCodesAdmin();
   loadActiveGradesAdmin();
   loadTeacherEarningsAdmin();
+  loadSupportChats();
   db.collection('settings').doc('library').get().then(doc => {
     if (doc.exists && doc.data().phone) document.getElementById('libraryPhoneInput').value = doc.data().phone;
   });
@@ -1821,6 +1894,31 @@ async function deleteEmployee(id) {
 }
 
 // ---------- إدارة المكتبة (كتب وملازم) ----------
+const DEFAULT_AVATAR = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#eef1f8"/>
+    <circle cx="50" cy="38" r="18" fill="#c7d0e6"/>
+    <path d="M20 88 Q50 60 80 88 Z" fill="#c7d0e6"/>
+  </svg>`);
+
+document.getElementById('studentPhotoInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const dataUrl = await resizeImageToBase64(file, 300);
+  document.getElementById('studentPhotoPreview').src = dataUrl;
+  await db.collection('students').doc(currentStudent.id).update({ photo: dataUrl });
+  currentStudent.photo = dataUrl;
+});
+
+document.getElementById('teacherPhotoInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const dataUrl = await resizeImageToBase64(file, 300);
+  document.getElementById('teacherPhotoPreview').src = dataUrl;
+  await db.collection('teachers').doc(currentTeacher.id).update({ photo: dataUrl });
+  currentTeacher.photo = dataUrl;
+});
+
 function resizeImageToBase64(file, maxSize) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -2337,8 +2435,9 @@ document.getElementById('teacherLoginBtn').onclick = async () => {
     const q = await db.collection('teachers').where('phone','==',phone).limit(1).get();
     if (q.empty) { setMsg('teacherLoginMsg','حسابك موجود لكن بياناتك ناقصة، تواصل مع الإدارة', false); return; }
     const t = q.docs[0].data();
-    currentTeacher = t;
+    currentTeacher = { id: q.docs[0].id, ...t };
     document.getElementById('teacherWelcomeText').textContent = `👋 مرحباً أستاذ ${t.name}`;
+    document.getElementById('teacherPhotoPreview').src = t.photo || DEFAULT_AVATAR;
     const activeList = await getActiveGradesList();
     document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
     await refreshTeacherClassSubjectOptions();
@@ -2531,11 +2630,13 @@ async function openTeacherBooksLibrary() {
 async function openTeacherClass(classId, grade, subject) {
   currentTeacherClass = { id: classId, grade, subject };
   document.getElementById('teacherClassTitle').textContent = `📘 ${subject} — ${grade}`;
+  document.getElementById('teacherClassChatBtn').onclick = () => openClassChat(grade, subject);
   const subsSnap = await db.collection('codes').where('teacherName','==', currentTeacher.name).where('grade','==', grade).where('subject','==', subject).where('used','==',true).get();
   document.getElementById('teacherClassStudentCount').textContent = `👥 عدد الطلاب المشتركين: ${subsSnap.size}`;
   await loadTeacherLectures();
   await loadTeacherFiles();
   await loadTeacherActivities();
+  await loadTeacherStudentChats();
   show('screen-teacher-class');
 }
 async function loadTeacherLectures() {
@@ -2615,6 +2716,144 @@ async function loadTeacherActivities() {
     return `<div class="lesson-row"><div class="title">${a.text}<br><span style="font-size:12px;color:#8a90a3;">${typeLabel[a.type]}</span></div></div>`;
   }).join('') + '</div>';
 }
+
+// ---------- نظام الدردشة (خدمة العملاء، دردشة الأستاذ، دردشة الصف) ----------
+const CHAT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 أيام
+let currentChatThread = null; // { threadId, myRole, myId, myName }
+
+function currentIdentity() {
+  if (currentStudent) return { role: 'student', id: currentStudent.phone, name: currentStudent.name };
+  if (currentTeacher) return { role: 'teacher', id: currentTeacher.phone, name: currentTeacher.name };
+  if (currentStaffRole) return { role: 'staff', id: currentStaffName, name: currentStaffName };
+  return null;
+}
+
+async function openChat(threadId, title) {
+  const me = currentIdentity();
+  if (!me) { alert('لازم تسجّل دخول أولاً'); return; }
+  currentChatThread = { threadId, ...me };
+  document.getElementById('chatTitle').textContent = title;
+  await purgeOldChatMessages(threadId);
+  await renderChatMessages();
+  show('screen-chat');
+}
+document.getElementById('chatBackBtn').onclick = () => {
+  if (currentStudent) show('screen-home');
+  else if (currentTeacher) show('screen-teacher-dashboard');
+  else show('screen-admin');
+};
+
+async function purgeOldChatMessages(threadId) {
+  try {
+    const cutoff = Date.now() - CHAT_MAX_AGE_MS;
+    const oldSnap = await db.collection('messages')
+      .where('threadId','==', threadId)
+      .where('createdAt','<', cutoff).get();
+    await Promise.all(oldSnap.docs.map(d => d.ref.delete()));
+  } catch(e) { console.error(e); }
+}
+
+async function renderChatMessages() {
+  const snap = await db.collection('messages')
+    .where('threadId','==', currentChatThread.threadId)
+    .orderBy('createdAt','asc').get();
+  const list = document.getElementById('chatMessagesList');
+  if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد رسائل بعد. ابدأ المحادثة!</p></div>'; return; }
+  list.innerHTML = snap.docs.map(d => {
+    const m = d.data();
+    const mine = m.fromId === currentChatThread.id && m.fromRole === currentChatThread.role;
+    return `<div class="card" style="margin-bottom:8px;${mine ? 'border-inline-end:4px solid #cda44e;' : 'border-inline-start:4px solid #0e8fa8;'}">
+      <p style="font-size:12px;color:#8a90a3;margin-bottom:4px;">${m.fromName} — ${new Date(m.createdAt).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'})}</p>
+      <p style="margin:0;">${m.text}</p>
+    </div>`;
+  }).join('');
+}
+document.getElementById('chatSendBtn').onclick = async () => {
+  const text = document.getElementById('chatInput').value.trim();
+  if (!text || !currentChatThread) return;
+  await db.collection('messages').add({
+    threadId: currentChatThread.threadId,
+    fromRole: currentChatThread.role, fromId: currentChatThread.id, fromName: currentChatThread.name,
+    text, createdAt: Date.now()
+  });
+  document.getElementById('chatInput').value = '';
+  await renderChatMessages();
+};
+
+// خدمة العملاء
+function openCustomerServiceChat() {
+  const me = currentIdentity();
+  if (!me) return;
+  openChat(`support_${me.role}_${me.id}`, '📞 خدمة العملاء');
+}
+
+// دردشة الطالب مع الأستاذ (بحسب المادة)
+function openTeacherStudentChat(teacherName, subject) {
+  if (!currentStudent) return;
+  const threadId = `ts_${teacherName}_${currentStudent.phone}_${subject}`.replace(/\s+/g,'_');
+  openChat(threadId, `💬 محادثة مع أ. ${teacherName} — ${subject}`);
+}
+
+// دردشة جماعية لكل طلاب نفس المادة والصف
+function openClassChat(grade, subject) {
+  const threadId = `class_${grade}_${subject}`.replace(/\s+/g,'_');
+  openChat(threadId, `👥 دردشة الصف — ${subject}`);
+}
+
+// قائمة محادثات الطلاب مع الأستاذ (بلوحة الأستاذ)
+async function loadTeacherStudentChats() {
+  const prefix = `ts_${currentTeacher.name}_`.replace(/\s+/g,'_');
+  const list = document.getElementById('teacherChatsList');
+  if (!list) return;
+  try {
+    const snap = await db.collection('messages')
+      .where('threadId','>=', prefix)
+      .where('threadId','<', prefix + '\uf8ff')
+      .get();
+    const threads = {};
+    snap.docs.forEach(d => {
+      const m = d.data();
+      if (!threads[m.threadId] || threads[m.threadId].createdAt < m.createdAt) threads[m.threadId] = m;
+    });
+    const entries = Object.entries(threads);
+    if (entries.length === 0) { list.innerHTML = '<p>لا توجد محادثات بعد.</p>'; return; }
+    list.innerHTML = entries.map(([threadId, lastMsg]) => `
+      <div class="lesson-row" onclick="openChat('${threadId}','💬 ${lastMsg.fromName}')">
+        <div class="title">${lastMsg.fromRole === 'student' ? lastMsg.fromName : 'طالب'}<br><span style="font-size:12px;color:#8a90a3;">${lastMsg.text.substring(0,40)}</span></div>
+        <div class="play">فتح</div>
+      </div>`).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p>تعذّر تحميل المحادثات.</p>'; }
+}
+
+// ---------- صندوق خدمة العملاء (للمشرف/الموظف) ----------
+async function loadSupportChats() {
+  const list = document.getElementById('supportChatsList');
+  if (!list) return;
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('messages')
+      .where('threadId','>=', 'support_')
+      .where('threadId','<', 'support_' + '\uf8ff')
+      .get();
+    const threads = {};
+    snap.docs.forEach(d => {
+      const m = d.data();
+      if (!threads[m.threadId] || threads[m.threadId].createdAt < m.createdAt) threads[m.threadId] = m;
+    });
+    const entries = Object.entries(threads).sort((a,b) => b[1].createdAt - a[1].createdAt);
+    if (entries.length === 0) { list.innerHTML = '<p>لا توجد رسائل دعم بعد.</p>'; return; }
+    list.innerHTML = entries.map(([threadId, lastMsg]) => {
+      const roleLabel = { student: '🎓 طالب', teacher: '🧑‍🏫 أستاذ', staff: '👥 موظف' }[lastMsg.fromRole] || lastMsg.fromRole;
+      return `<div class="lesson-row" onclick="openChat('${threadId}','📞 ${lastMsg.fromName}')">
+        <div class="title">${lastMsg.fromName} <span style="font-size:11px;color:#8a90a3;">(${roleLabel})</span><br><span style="font-size:12px;color:#8a90a3;">${lastMsg.text.substring(0,50)}</span></div>
+        <div class="play">فتح</div>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p>تعذّر تحميل رسائل الدعم.</p>'; }
+}
+document.getElementById('refreshSupportBtn').onclick = loadSupportChats;
+
+
 
 async function loadRequestsAdmin() {
   const snap = await db.collection('activationRequests').where('status','==','pending').orderBy('createdAt','desc').get();
@@ -2998,7 +3237,16 @@ setInterval(checkSessionValidity, 30000); // تحقق كل 30 ثانية من ع
 (async function init() {
   await loadFreeModeStatus();
   auth.onAuthStateChanged(async (user) => {
-    if (!currentStudent && user && user.email && user.email.endsWith('@'+STUDENT_AUTH_DOMAIN)) {
+    if (!user) {
+      // زائر يتصفح المكتبة أو الدروس المجانية بدون تسجيل: نسجّله دخول مجهول
+      // حتى تشتغل معه قواعد الأمان (تتطلب مصادقة لأي كتابة)
+      auth.signInAnonymously().catch(e => console.error('anon auth failed', e));
+      return;
+    }
+    if (!user.email) return; // مستخدم مجهول (Anonymous)، ما فيه شي نسترجعه له
+
+    // استرجاع جلسة الطالب
+    if (!currentStudent && user.email && user.email.endsWith('@'+STUDENT_AUTH_DOMAIN)) {
       const phone = user.email.split('@')[0];
       const savedSession = localStorage.getItem('kawthar_session');
       try {
@@ -3015,11 +3263,50 @@ setInterval(checkSessionValidity, 30000); // تحقق كل 30 ثانية من ع
           return;
         }
       } catch(e) { console.error(e); }
+      return;
     }
-    // إذا ما فيه أي جلسة مسجّلة (زائر يتصفح المكتبة أو الدروس المجانية بدون تسجيل)،
-    // نسجّله دخول مجهول تلقائياً حتى تشتغل معه قواعد الأمان (تتطلب مصادقة لأي كتابة)
-    if (!user) {
-      auth.signInAnonymously().catch(e => console.error('anon auth failed', e));
+
+    // استرجاع جلسة المشرف الرئيسي (المالك)
+    if (!currentStaffRole && user.email === OWNER_AUTH_EMAIL) {
+      currentStaffName = 'المشرف'; currentStaffRole = 'admin'; currentStaffPermissions = {};
+      show('screen-admin');
+      enterAdminPanel();
+      return;
+    }
+
+    // استرجاع جلسة الموظف
+    if (!currentStaffRole && user.email && user.email.endsWith('@'+STAFF_AUTH_DOMAIN)) {
+      const username = user.email.split('@')[0];
+      try {
+        const q = await db.collection('staff').where('username','==',username).limit(1).get();
+        if (!q.empty) {
+          const staff = q.docs[0].data();
+          currentStaffName = staff.name; currentStaffRole = 'employee'; currentStaffPermissions = staff.permissions || {};
+          show('screen-admin');
+          enterAdminPanel();
+          return;
+        }
+      } catch(e) { console.error(e); }
+    }
+
+    // استرجاع جلسة الأستاذ
+    if (!currentTeacher && user.email && user.email.endsWith('@'+TEACHER_AUTH_DOMAIN)) {
+      const phone = user.email.split('@')[0];
+      try {
+        const q = await db.collection('teachers').where('phone','==',phone).limit(1).get();
+        if (!q.empty) {
+          const t = q.docs[0].data();
+          currentTeacher = { id: q.docs[0].id, ...t };
+          document.getElementById('teacherWelcomeText').textContent = `👋 مرحباً أستاذ ${t.name}`;
+          document.getElementById('teacherPhotoPreview').src = t.photo || DEFAULT_AVATAR;
+          const activeList = await getActiveGradesList();
+          document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
+          await refreshTeacherClassSubjectOptions();
+          await loadTeacherClasses();
+          show('screen-teacher-dashboard');
+          return;
+        }
+      } catch(e) { console.error(e); }
     }
   });
   show('screen-welcome');
