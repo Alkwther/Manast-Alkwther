@@ -166,15 +166,16 @@
 
   <!-- الشاشة الترحيبية الأولى -->
   <div class="screen" id="screen-welcome">
-    <div class="card" style="text-align:center;">
-      <img src="icon-192.png" alt="شعار منصة الكوثر" style="width:64px;height:64px;border-radius:16px;margin:0 auto 14px;box-shadow:0 4px 14px rgba(16,32,63,.25);">
-      <h3 style="border:none;padding:0;justify-content:center;">مرحباً بك 👋</h3>
-      <p>اختر شنو تريد تسوي الآن</p>
+    <div id="welcomeFallbackCard" class="card" style="text-align:center;">
+      <img src="icon-192.png" alt="شعار منصة الكوثر" style="width:64px;height:64px;border-radius:16px;margin:0 auto;box-shadow:0 4px 14px rgba(16,32,63,.25);">
     </div>
 
-    <div id="announcementsCarousel" class="hidden" style="margin-bottom:14px;border-radius:16px;overflow:hidden;box-shadow:0 4px 18px rgba(16,32,63,.12);">
-      <img id="carouselImage" style="width:100%;display:block;aspect-ratio:16/9;object-fit:cover;">
-      <p id="carouselCaption" style="padding:12px 14px;background:#fff;margin:0;text-align:center;color:#10203f;font-weight:bold;font-size:14px;"></p>
+    <div id="announcementsCarousel" class="hidden" style="margin-bottom:16px;border-radius:18px;overflow:hidden;box-shadow:0 8px 26px rgba(16,32,63,.18);background:#0d1c48;position:relative;">
+      <div style="width:100%;aspect-ratio:16/10;background:#0a1830;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+        <img id="carouselImage" style="max-width:100%;max-height:100%;display:block;object-fit:contain;">
+      </div>
+      <p id="carouselCaption" style="padding:14px 16px;background:#fff;margin:0;text-align:center;color:#10203f;font-weight:800;font-size:15px;"></p>
+      <div id="carouselDots" style="display:flex;justify-content:center;gap:6px;padding:10px 0;background:#fff;"></div>
     </div>
 
     <div class="subject-tile" onclick="openTeacherLoginScreen()">
@@ -1953,7 +1954,8 @@ document.getElementById('teacherPhotoInput').addEventListener('change', async (e
   currentTeacher.photo = dataUrl;
 });
 
-function resizeImageToBase64(file, maxSize) {
+function resizeImageToBase64(file, maxSize, quality) {
+  quality = quality || 0.7;
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -1965,7 +1967,7 @@ function resizeImageToBase64(file, maxSize) {
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
+        resolve(canvas.toDataURL('image/jpeg', quality));
       };
       img.onerror = reject;
       img.src = e.target.result;
@@ -3132,7 +3134,7 @@ document.getElementById('annImageInput').addEventListener('change', async (e) =>
   const file = e.target.files[0];
   const preview = document.getElementById('annImagePreview');
   if (!file) { preview.innerHTML = ''; return; }
-  const dataUrl = await resizeImageToBase64(file, 500);
+  const dataUrl = await resizeImageToBase64(file, 900, 0.8);
   preview.innerHTML = `<img src="${dataUrl}" style="width:120px;border-radius:10px;border:1px solid #e2e5ec;">`;
   preview.dataset.image = dataUrl;
 });
@@ -3182,21 +3184,41 @@ async function loadAnnouncements() {
     announcementsList = snap.docs.map(d => d.data());
   } catch(e) { console.error(e); announcementsList = []; }
   const container = document.getElementById('announcementsCarousel');
+  const fallback = document.getElementById('welcomeFallbackCard');
   if (carouselInterval) clearInterval(carouselInterval);
-  if (announcementsList.length === 0) { container.classList.add('hidden'); return; }
+  if (announcementsList.length === 0) {
+    container.classList.add('hidden');
+    if (fallback) fallback.classList.remove('hidden');
+    return;
+  }
+  if (fallback) fallback.classList.add('hidden');
   container.classList.remove('hidden');
   carouselIndex = 0;
   renderCarouselSlide();
-  carouselInterval = setInterval(() => {
-    carouselIndex = (carouselIndex + 1) % announcementsList.length;
-    renderCarouselSlide();
-  }, 4000);
+  if (announcementsList.length > 1) {
+    carouselInterval = setInterval(() => {
+      carouselIndex = (carouselIndex + 1) % announcementsList.length;
+      renderCarouselSlide();
+    }, 4500);
+  }
 }
 function renderCarouselSlide() {
   const a = announcementsList[carouselIndex];
   if (!a) return;
   document.getElementById('carouselImage').src = a.image;
   document.getElementById('carouselCaption').textContent = a.caption || '';
+  const dots = document.getElementById('carouselDots');
+  if (announcementsList.length > 1) {
+    dots.innerHTML = announcementsList.map((_, i) =>
+      `<span style="width:8px;height:8px;border-radius:50%;background:${i===carouselIndex ? '#cda44e' : '#e2e5ec'};display:inline-block;"></span>`
+    ).join('');
+  } else {
+    dots.innerHTML = '';
+  }
+}
+function goToCarouselSlide(i) {
+  carouselIndex = i;
+  renderCarouselSlide();
 }
 
 // ---------- إحصائية إجمالي المشتركين (للمالك فقط) ----------
