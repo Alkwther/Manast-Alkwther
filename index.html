@@ -330,6 +330,7 @@
       </div>
     </div>
     <button class="btn secondary" onclick="openCustomerServiceChat()">📞 خدمة العملاء</button>
+    <button class="btn secondary" onclick="openClassmatesList()">👥 زملائي بالصف</button>
     <div id="statusBanner"></div>
     <div class="stat-row">
       <div class="stat-box"><div class="num" id="statQuizzes">0</div><div class="label">اختبار محلول</div></div>
@@ -576,10 +577,17 @@
           <label>مدة الاشتراك</label>
           <select id="codeDuration">
             <option value="30">شهر واحد</option>
+            <option value="60">شهرين</option>
             <option value="90" selected>3 أشهر</option>
-            <option value="120">فصل دراسي (4 أشهر)</option>
-            <option value="270">سنة دراسية كاملة (9 أشهر)</option>
-            <option value="365">سنة كاملة (12 شهر)</option>
+            <option value="120">4 أشهر</option>
+            <option value="150">5 أشهر</option>
+            <option value="180">6 أشهر</option>
+            <option value="210">7 أشهر</option>
+            <option value="240">8 أشهر</option>
+            <option value="270">9 أشهر</option>
+            <option value="300">10 أشهر</option>
+            <option value="330">11 شهر</option>
+            <option value="360">12 شهر</option>
           </select>
           <label>عدد الأكواد</label>
           <input id="codeCount" type="number" value="5" min="1" max="100">
@@ -794,6 +802,16 @@
 
   <!-- مكتبة ملازم الأستاذ -->
   <!-- شاشة الدردشة العامة (تُستخدم لخدمة العملاء، محادثة الأستاذ، ودردشة الصف) -->
+  <!-- زملائي بالصف -->
+  <div class="screen hidden" id="screen-classmates">
+    <button class="btn secondary" onclick="show('screen-home')">← رجوع</button>
+    <div class="card">
+      <h3>👥 زملائي بالصف</h3>
+      <p style="font-size:12px;color:#8a90a3;">كل الطلاب المسجلين بنفس صفك، بغض النظر عن المادة</p>
+    </div>
+    <div id="classmatesList"></div>
+  </div>
+
   <div class="screen hidden" id="screen-chat">
     <button class="btn secondary" id="chatBackBtn">← رجوع</button>
     <div class="card">
@@ -2862,6 +2880,25 @@ function openClassChat(grade, subject) {
   openChat(threadId, `👥 دردشة الصف — ${subject}`);
 }
 
+// زملاء الصف (كل الطلاب بنفس المرحلة، بغض النظر عن المادة)
+async function openClassmatesList() {
+  const list = document.getElementById('classmatesList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  show('screen-classmates');
+  try {
+    const snap = await db.collection('students').where('grade','==', currentStudent.grade).get();
+    const classmates = snap.docs.map(d => d.data()).filter(s => s.phone !== currentStudent.phone);
+    if (classmates.length === 0) { list.innerHTML = '<div class="card"><p>ما فيه طلاب ثانيين بنفس صفك مسجلين لحد الآن.</p></div>'; return; }
+    list.innerHTML = classmates.map(s => `
+      <div class="lesson-row">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <img src="${s.photo || DEFAULT_AVATAR}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
+          <div class="title" style="margin:0;">${s.name}</div>
+        </div>
+      </div>`).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<div class="card"><p>تعذّر تحميل القائمة.</p></div>'; }
+}
+
 // قائمة محادثات الطلاب مع الأستاذ (بلوحة الأستاذ)
 async function loadTeacherStudentChats() {
   const prefix = `ts_${currentTeacher.name}_`.replace(/\s+/g,'_');
@@ -2927,15 +2964,22 @@ document.getElementById('refreshSupportBtn').onclick = loadSupportChats;
 
 
 
+function monthDurationOptionsHtml(selectedDays) {
+  const months = [
+    [30,'شهر واحد'], [60,'شهرين'], [90,'3 أشهر'], [120,'4 أشهر'], [150,'5 أشهر'], [180,'6 أشهر'],
+    [210,'7 أشهر'], [240,'8 أشهر'], [270,'9 أشهر'], [300,'10 أشهر'], [330,'11 شهر'], [360,'12 شهر']
+  ];
+  const sel = selectedDays || 90;
+  return months.map(([days,label]) => `<option value="${days}" ${days===sel?'selected':''}>${label}</option>`).join('');
+}
+
 async function loadRequestsAdmin() {
   const snap = await db.collection('activationRequests').where('status','==','pending').orderBy('createdAt','desc').get();
   const list = document.getElementById('requestsAdminList');
   if (snap.empty) { list.innerHTML = '<p>لا توجد طلبات معلّقة.</p>'; return; }
   const teachersSnap = await db.collection('teachers').get();
   const teacherOptions = '<option value="">بدون تحديد</option>' + teachersSnap.docs.map(t => `<option>${t.data().name}</option>`).join('');
-  const durationOptions = `
-    <option value="90" selected>3 أشهر</option>
-    <option value="180">6 أشهر</option>`;
+  const durationOptions = monthDurationOptionsHtml(90);
 
   list.innerHTML = snap.docs.map(d => {
     const r = d.data();
@@ -3013,8 +3057,11 @@ async function renderStudentsList(docs) {
   pendingSnap.docs.forEach(d => {
     const r = d.data();
     if (!pendingByPhone[r.studentPhone]) pendingByPhone[r.studentPhone] = [];
-    pendingByPhone[r.studentPhone].push(r);
+    pendingByPhone[r.studentPhone].push({ id: d.id, ...r });
   });
+  const teachersSnap = await db.collection('teachers').get();
+  const teacherOptionsHtml = '<option value="">بدون تحديد</option>' + teachersSnap.docs.map(t => `<option>${t.data().name}</option>`).join('');
+
   list.innerHTML = docs.map(d => {
     const s = d.data();
     const subs = s.subscriptions || {};
@@ -3026,19 +3073,27 @@ async function renderStudentsList(docs) {
         }).join(' — ')
       : 'لا يوجد اشتراكات';
     const pendingReqs = pendingByPhone[s.phone] || [];
-    const pendingText = pendingReqs.length
-      ? pendingReqs.map(r => `📩 طلب معلّق — المواد: ${(r.requestedSubjects||[]).join('، ') || 'غير محددة'}`).join('<br>')
-      : '';
+    const pendingHtml = pendingReqs.map(r => {
+      const subjects = r.requestedSubjects || [];
+      return subjects.map((subject, i) => `
+        <div style="background:#faf1dc;border-radius:10px;padding:8px 10px;margin-top:6px;">
+          <p style="font-size:12px;color:#8a6a1f;font-weight:bold;margin-bottom:6px;">📩 طلب معلّق — ${subject}</p>
+          <select id="pendReqTeacher-${r.id}-${i}" style="margin-bottom:6px;">${teacherOptionsHtml}</select>
+          <select id="pendReqDuration-${r.id}-${i}" style="margin-bottom:6px;">${monthDurationOptionsHtml(90)}</select>
+          <button class="small-btn" onclick="createCodeForPendingSubject('${r.id}','${s.grade.replace(/'/g,"\\'")}','${subject.replace(/'/g,"\\'")}',${i})">🎫 إنشاء كود تفعيل</button>
+          <div id="pendReqCodeOut-${r.id}-${i}" style="margin-top:6px;"></div>
+        </div>`).join('');
+    }).join('');
     return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
         <div>
           <b>${s.name}</b> — ${s.grade}<br>
           <span style="color:#888;">${s.phone}</span><br>
           <span style="color:#888;font-size:12px;">${subsText}</span>
-          ${pendingText ? `<br><span style="color:#b8903c;font-size:12px;">${pendingText}</span>` : ''}
         </div>
         <button class="small-btn" onclick="toggleEditStudent('${s.phone}')">✏️ تعديل</button>
       </div>
+      ${pendingHtml}
       <div id="editStudentPanel-${s.phone}" class="hidden" style="background:#f6f7fb;border-radius:10px;padding:10px;margin-top:6px;">
         <p style="font-weight:bold;color:#10203f;margin-bottom:8px;">إضافة أكواد اشتراك لـ ${s.name} (حتى 10 أكواد)</p>
         <div style="display:flex;gap:6px;">
@@ -3051,6 +3106,33 @@ async function renderStudentsList(docs) {
     </div>`;
   }).join('');
 }
+
+async function createCodeForPendingSubject(reqId, grade, subject, index) {
+  const teacherName = document.getElementById(`pendReqTeacher-${reqId}-${index}`).value || null;
+  const durationDays = +document.getElementById(`pendReqDuration-${reqId}-${index}`).value;
+  const code = generateCode();
+  await db.collection('codes').add({
+    code, grade, subject, teacherName, durationDays,
+    used: false, sentToTeacher: false, createdAt: Date.now()
+  });
+  const out = document.getElementById(`pendReqCodeOut-${reqId}-${index}`);
+  out.innerHTML = `<div class="code-badge" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <span>${code}</span>
+    <button class="small-btn copy-pending-code-btn" data-code="${code}">📋 نسخ</button>
+  </div><p style="font-size:11px;color:#8a90a3;margin-top:4px;">انسخه والصقه بخانة "اكتب الكود هنا" بأسفل بطاقة هذا الطالب، ثم اضغط إضافة وحفظ.</p>`;
+}
+document.getElementById('studentsAdminList').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy-pending-code-btn');
+  if (!btn) return;
+  const code = btn.dataset.code;
+  try { await navigator.clipboard.writeText(code); }
+  catch(err) {
+    const temp = document.createElement('textarea');
+    temp.value = code; document.body.appendChild(temp); temp.select();
+    document.execCommand('copy'); document.body.removeChild(temp);
+  }
+  btn.textContent = '✅ تم النسخ';
+});
 
 function toggleEditStudent(phone) {
   const panel = document.getElementById(`editStudentPanel-${phone}`);
