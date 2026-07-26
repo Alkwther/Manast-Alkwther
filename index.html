@@ -967,14 +967,18 @@ function generateSessionToken() {
 }
 
 async function openStudentLogin() {
-  const activeList = await getActiveGradesList();
-  const select = document.getElementById('loginGrade');
-  select.innerHTML = '<option value="">اختر المرحلة</option>' + activeList.map(g => `<option>${g}</option>`).join('');
-  const teachersSnap = await db.collection('teachers').get();
-  document.getElementById('loginTeacher').innerHTML = '<option value="">اختر</option>' + teachersSnap.docs.map(t => `<option>${t.data().name}</option>`).join('');
-  document.getElementById('loginSubject').innerHTML = '<option value="">اختر المرحلة أولاً</option>';
   switchLoginTab('login');
-  show('screen-login');
+  show('screen-login'); // نفتح الشاشة فوراً، وبعدين نعبّي البيانات — حتى لو صار تأخير أو خطأ بالتحقق ما يتعطل الدخول للشاشة
+  try {
+    const activeList = await getActiveGradesList();
+    const select = document.getElementById('loginGrade');
+    select.innerHTML = '<option value="">اختر المرحلة</option>' + activeList.map(g => `<option>${g}</option>`).join('');
+  } catch(e) { console.error(e); }
+  try {
+    const teachersSnap = await db.collection('teachers').get();
+    document.getElementById('loginTeacher').innerHTML = '<option value="">اختر</option>' + teachersSnap.docs.map(t => `<option>${t.data().name}</option>`).join('');
+  } catch(e) { console.error(e); }
+  document.getElementById('loginSubject').innerHTML = '<option value="">اختر المرحلة أولاً</option>';
 }
 
 function switchLoginTab(mode) {
@@ -2426,10 +2430,12 @@ let currentTeacher = null;
 let currentTeacherClass = null; // { id, grade, subject }
 async function openTeacherLoginScreen() {
   switchTeacherLoginTab('login');
-  const activeList = await getActiveGradesList();
-  document.getElementById('teacherRegGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
-  document.getElementById('teacherRegSubject').innerHTML = '<option value="">اختر الصف أولاً</option>';
-  show('screen-teacher-login');
+  show('screen-teacher-login'); // نفتح الشاشة فوراً، وبعدين نعبّي البيانات حتى لو تأخرت أو فشلت
+  try {
+    const activeList = await getActiveGradesList();
+    document.getElementById('teacherRegGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
+    document.getElementById('teacherRegSubject').innerHTML = '<option value="">اختر الصف أولاً</option>';
+  } catch(e) { console.error(e); }
 }
 function switchTeacherLoginTab(mode) {
   document.getElementById('teacherLoginModeTab').classList.toggle('active', mode === 'login');
@@ -3243,11 +3249,30 @@ async function loadAnnouncementsAdmin() {
   if (snap.empty) { list.innerHTML = '<p>لا توجد إعلانات مضافة بعد.</p>'; return; }
   list.innerHTML = snap.docs.map(d => {
     const a = d.data();
-    return `<div class="admin-list-item">
-      <div style="display:flex;align-items:center;gap:10px;"><img src="${a.image}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;"><span>${a.caption || '—'}</span></div>
-      <button class="small-btn" onclick="deleteAnnouncement('${d.id}')">🗑️ حذف</button>
+    return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="display:flex;align-items:center;gap:10px;"><img src="${a.image}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;"><span id="annCaptionText-${d.id}">${a.caption || '—'}</span></div>
+        <div style="display:flex;gap:6px;">
+          <button class="small-btn" onclick="toggleEditAnnouncement('${d.id}')">✏️ تعديل</button>
+          <button class="small-btn" onclick="deleteAnnouncement('${d.id}')">🗑️ حذف</button>
+        </div>
+      </div>
+      <div id="annEditPanel-${d.id}" class="hidden" style="margin-top:8px;background:#f6f7fb;border-radius:10px;padding:10px;">
+        <textarea id="annEditText-${d.id}" rows="2" style="margin-bottom:6px;">${a.caption || ''}</textarea>
+        <button class="btn" onclick="saveAnnouncementEdit('${d.id}')">💾 حفظ التعديل</button>
+      </div>
     </div>`;
   }).join('');
+}
+function toggleEditAnnouncement(id) {
+  document.getElementById(`annEditPanel-${id}`).classList.toggle('hidden');
+}
+async function saveAnnouncementEdit(id) {
+  const newCaption = document.getElementById(`annEditText-${id}`).value.trim();
+  await db.collection('announcements').doc(id).update({ caption: newCaption });
+  alert('تم حفظ التعديل ✅');
+  loadAnnouncementsAdmin();
+  loadAnnouncements();
 }
 async function deleteAnnouncement(id) {
   if (!confirm('حذف هذا الإعلان؟')) return;
