@@ -936,6 +936,7 @@ try {
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
+  if (id === 'screen-welcome' && typeof loadAnnouncements === 'function') loadAnnouncements();
 }
 function setMsg(el, text, ok) {
   document.getElementById(el).innerHTML = `<div class="msg ${ok?'ok':'err'}">${text}</div>`;
@@ -3131,7 +3132,7 @@ document.getElementById('annImageInput').addEventListener('change', async (e) =>
   const file = e.target.files[0];
   const preview = document.getElementById('annImagePreview');
   if (!file) { preview.innerHTML = ''; return; }
-  const dataUrl = await resizeImageToBase64(file, 700);
+  const dataUrl = await resizeImageToBase64(file, 500);
   preview.innerHTML = `<img src="${dataUrl}" style="width:120px;border-radius:10px;border:1px solid #e2e5ec;">`;
   preview.dataset.image = dataUrl;
 });
@@ -3139,12 +3140,18 @@ document.getElementById('addAnnouncementBtn').onclick = async () => {
   const image = document.getElementById('annImagePreview').dataset.image;
   const caption = document.getElementById('annCaption').value.trim();
   if (!image) { alert('اختر صورة للإعلان'); return; }
-  await db.collection('announcements').add({ image, caption, createdAt: Date.now() });
-  alert('تمت إضافة الإعلان ✅');
-  document.getElementById('annImageInput').value = '';
-  document.getElementById('annImagePreview').innerHTML = ''; delete document.getElementById('annImagePreview').dataset.image;
-  document.getElementById('annCaption').value = '';
-  loadAnnouncementsAdmin();
+  try {
+    await db.collection('announcements').add({ image, caption, createdAt: Date.now() });
+    alert('تمت إضافة الإعلان ✅');
+    document.getElementById('annImageInput').value = '';
+    document.getElementById('annImagePreview').innerHTML = ''; delete document.getElementById('annImagePreview').dataset.image;
+    document.getElementById('annCaption').value = '';
+    loadAnnouncementsAdmin();
+    loadAnnouncements();
+  } catch(e) {
+    console.error(e);
+    alert('صار خطأ أثناء إضافة الإعلان: ' + (e.message || 'خطأ غير معروف') + '\nجرب صورة أصغر أو تأكد من قواعد Firestore.');
+  }
 };
 async function loadAnnouncementsAdmin() {
   const snap = await db.collection('announcements').orderBy('createdAt','desc').get();
