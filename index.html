@@ -2447,10 +2447,10 @@ let currentTeacherClass = null; // { id, grade, subject }
 async function openTeacherLoginScreen() {
   switchTeacherLoginTab('login');
   show('screen-teacher-login'); // نفتح الشاشة فوراً، وبعدين نعبّي البيانات حتى لو تأخرت أو فشلت
+  document.getElementById('teacherRegSubject').innerHTML = '<option value="">اختر الصف أولاً</option>';
   try {
     const activeList = await getActiveGradesList();
     document.getElementById('teacherRegGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
-    document.getElementById('teacherRegSubject').innerHTML = '<option value="">اختر الصف أولاً</option>';
   } catch(e) { console.error(e); }
 }
 function switchTeacherLoginTab(mode) {
@@ -2472,8 +2472,8 @@ document.getElementById('teacherRegGrade').addEventListener('change', async (e) 
     subjects = [...new Set(snap.docs.map(d=>d.data().subject))];
   }
   subjectSelect.innerHTML = subjects.length
-    ? subjects.map(s => `<option>${s}</option>`).join('')
-    : '<option value="">لا توجد مواد لهذا الصف بعد</option>';
+    ? '<option value="">اختر المادة</option>' + subjects.map(s => `<option>${s}</option>`).join('')
+    : '<option value="">لا توجد مواد مضافة لهذا الصف بعد</option>';
 });
 
 document.getElementById('teacherRegisterBtn').onclick = async () => {
@@ -2481,7 +2481,7 @@ document.getElementById('teacherRegisterBtn').onclick = async () => {
   const phone = document.getElementById('teacherRegPhone').value.trim();
   const password = document.getElementById('teacherRegPass').value;
   const grade = document.getElementById('teacherRegGrade').value;
-  const subject = document.getElementById('teacherRegSubject').value;
+  const subject = document.getElementById('teacherRegSubject').value.trim();
   if (!name || !phone || !password) { setMsg('teacherRegisterMsg','عبّئ الاسم ورقم الهاتف وكلمة السر', false); return; }
   if (password.length < 6) { setMsg('teacherRegisterMsg','كلمة السر يجب أن تكون 6 أحرف على الأقل', false); return; }
   if (!grade || !subject) { setMsg('teacherRegisterMsg','اختر الصف والمادة اللي تدرّسها', false); return; }
