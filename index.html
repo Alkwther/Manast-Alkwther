@@ -353,8 +353,11 @@
   <!-- مشغل الفيديو -->
   <div class="screen hidden" id="screen-video">
     <button class="btn secondary" id="backToLessons">← رجوع للدروس</button>
-    <div class="video-wrap" id="videoWrap"></div>
+    <div class="video-wrap" id="videoWrap" oncontextmenu="return false;" style="-webkit-user-select:none;user-select:none;"></div>
     <div class="card"><h3 id="videoTitle"></h3></div>
+    <div class="card" style="background:#fef2f2;border-inline-start:4px solid #dc2626;">
+      <p style="margin:0;font-size:12.5px;color:#7a2f2a;">⚠️ هذا المحتوى خاص بك فقط، يُمنع تسجيله أو مشاركته مع أي شخص آخر.</p>
+    </div>
   </div>
 
   <!-- الاختبار -->
@@ -623,6 +626,11 @@
 
       <div class="admin-section hidden" data-section="teachers">
         <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <div class="card">
+          <h3>📢 رسالة جماعية لكل الأساتذة</h3>
+          <textarea id="broadcastTeacherMsg" rows="3" placeholder="اكتب الرسالة اللي تريد ترسلها لكل الأساتذة المسجلين"></textarea>
+          <button class="btn" id="sendBroadcastTeacherBtn">إرسال للجميع</button>
+        </div>
         <div class="card">
           <h3>🧑‍🏫 إضافة مدرّس</h3>
           <input id="tchName" placeholder="اسم المدرّس">
@@ -1281,12 +1289,16 @@ async function openSubject(subject) {
     list.innerHTML = Object.entries(byChapter).map(([chapter, lessons]) => `
       <h3 style="margin:14px 0 8px;color:#10203f;">📂 ${chapter}</h3>
       ${lessons.map(l => {
-        const locked = !l.free && !sub;
+        const teacherMismatch = sub && l.teacherName && sub.teacherName && l.teacherName !== sub.teacherName;
+        const locked = !l.free && (!sub || teacherMismatch);
+        const lockMsg = teacherMismatch
+          ? `اشتراكك بهذي المادة مع أ. ${sub.teacherName.replace(/'/g,"\\'")}، وهذا الدرس خاص بأستاذ آخر`
+          : `هذا الدرس يتطلب تفعيل اشتراك مادة ${subject.replace(/'/g,"\\'")}`;
         return `<div class="lesson-row">
           <div class="title">${locked?'🔒 ':'🎬 '}${l.title}${l.teacherName ? `<br><span style="font-size:12px;color:#8a90a3;">أ. ${l.teacherName} — ${subject}</span>` : ''}</div>
           <div style="display:flex;gap:6px;">
             ${l.pdfUrl ? `<a href="${l.pdfUrl}" target="_blank" class="small-btn" style="display:inline-block;text-decoration:none;">📄 PDF</a>` : ''}
-            <button class="play" onclick="${locked? `alert('هذا الدرس يتطلب تفعيل اشتراك مادة ${subject.replace(/'/g,"\\'")}')`:`playLesson('${l.id}')`}">${locked?'مقفل':'مشاهدة'}</button>
+            <button class="play" onclick="${locked? `alert('${lockMsg}')`:`playLesson('${l.id}')`}">${locked?'مقفل':'مشاهدة'}</button>
           </div>
         </div>`;
       }).join('')}
@@ -1783,6 +1795,27 @@ document.getElementById('addQuestionBtn').onclick = async () => {
 };
 
 // ---------- إدارة المدرسين ----------
+document.getElementById('sendBroadcastTeacherBtn').onclick = async () => {
+  const text = document.getElementById('broadcastTeacherMsg').value.trim();
+  if (!text) { alert('اكتب نص الرسالة أولاً'); return; }
+  if (!confirm('تأكيد إرسال هذي الرسالة لكل الأساتذة المسجلين؟')) return;
+  try {
+    const teachersSnap = await db.collection('teachers').get();
+    const fromName = currentStaffRole === 'admin' ? 'المشرف' : currentStaffName;
+    await Promise.all(teachersSnap.docs.map(d => {
+      const t = d.data();
+      return db.collection('messages').add({
+        threadId: `staffteacher_${t.phone}`,
+        fromRole: 'staff', fromId: fromName, fromName: fromName,
+        text, createdAt: Date.now(),
+        readByStaff: true, readByTeacher: false
+      });
+    }));
+    alert(`تم إرسال الرسالة لـ ${teachersSnap.size} أستاذ ✅`);
+    document.getElementById('broadcastTeacherMsg').value = '';
+  } catch(e) { console.error(e); alert('صار خطأ أثناء الإرسال'); }
+};
+
 document.getElementById('addTeacherBtn').onclick = async () => {
   const name = document.getElementById('tchName').value.trim();
   const phone = document.getElementById('tchPhone').value.trim();
@@ -1812,9 +1845,21 @@ async function loadTeachersAdmin() {
     if (!classesByTeacher[c.teacherPhone]) classesByTeacher[c.teacherPhone] = [];
     classesByTeacher[c.teacherPhone].push(`${c.subject} — ${c.grade}`);
   });
+  const lecturesSnap = await db.collection('lessons').get();
+  const lecturesByTeacher = {};
+  lecturesSnap.docs.forEach(ld => {
+    const l = ld.data();
+    if (!l.teacherName) return;
+    if (!lecturesByTeacher[l.teacherName]) lecturesByTeacher[l.teacherName] = [];
+    lecturesByTeacher[l.teacherName].push({ id: ld.id, ...l });
+  });
   list.innerHTML = snap.docs.map(d => {
     const t = d.data();
     const classesText = (classesByTeacher[t.phone] || []).join('، ') || 'لسا ما أضاف أي صف';
+    const lectures = lecturesByTeacher[t.name] || [];
+    const lecturesHtml = lectures.length
+      ? lectures.map(l => `<div class="lesson-row"><div class="title">${l.title}<br><span style="font-size:12px;color:#8a90a3;">${l.subject} — <a href="${l.videoUrl}" target="_blank">فتح الرابط</a></span></div><button class="small-btn" onclick="deleteTeacherLecture('${l.id}','${d.id}')">🗑️</button></div>`).join('')
+      : '<p style="font-size:12px;color:#8a90a3;">ما فيه محاضرات مرفوعة له بعد.</p>';
     return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
         <div><b>${t.name}</b><br><span style="color:#888;">📞 ${t.phone}</span><br><span style="color:#0e8fa8;font-size:13px;">📚 ${classesText}</span><br><span style="color:#888;">أضافه: ${t.addedBy||'—'}</span></div>
@@ -1831,9 +1876,16 @@ async function loadTeachersAdmin() {
         <input id="tchLecTitle-${d.id}" placeholder="اسم المحاضرة">
         <input id="tchLecUrl-${d.id}" placeholder="رابط يوتيوب">
         <button class="btn" style="margin-top:6px;" onclick="addTeacherLecture('${d.id}','${t.name.replace(/'/g,"\\'")}')">إضافة</button>
+        <p style="font-weight:bold;color:#10203f;margin:10px 0 6px;">📂 محاضراته المرفوعة (${lectures.length})</p>
+        ${lecturesHtml}
       </div>
     </div>`;
   }).join('');
+}
+async function deleteTeacherLecture(lessonId, teacherId) {
+  if (!confirm('حذف هذي المحاضرة؟')) return;
+  await db.collection('lessons').doc(lessonId).delete();
+  loadTeachersAdmin();
 }
 function toggleTeacherLecturePanel(id) {
   document.getElementById(`tchLecturePanel-${id}`).classList.toggle('hidden');
