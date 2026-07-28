@@ -784,6 +784,7 @@
       <p>أضف صفوفك وتابع طلابك وملفاتك من هنا</p>
     </div>
     <button class="btn secondary" onclick="openTeacherBooksLibrary()">📚 مكتبة ملازمك</button>
+    <button class="btn secondary" onclick="openTeacherUploadBooklet()">📤 ارفع ملزمتك</button>
     <button class="btn secondary" onclick="openCustomerServiceChat()">📞 خدمة العملاء</button>
     <button class="btn secondary" onclick="openStaffTeacherChatFromTeacher()">💬 الدردشة مع الإدارة <span id="teacherChatUnreadBadge" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></button>
     <button class="btn secondary" onclick="openTeacherBuyCode()">🎫 شراء كود</button>
@@ -843,6 +844,29 @@
         <input id="chatInput" placeholder="اكتب رسالتك..." style="margin-bottom:0;flex:1;">
         <button class="btn" id="chatSendBtn" style="width:auto;padding:12px 18px;margin:0;">إرسال</button>
       </div>
+    </div>
+  </div>
+
+  <!-- رفع ملزمة الأستاذ -->
+  <div class="screen hidden" id="screen-teacher-upload-booklet">
+    <button class="btn secondary" onclick="show('screen-teacher-dashboard')">← رجوع</button>
+    <div class="card">
+      <h3>📤 ارفع ملزمتك</h3>
+      <p>ارفع صورة احترافية لملزمتك، وحدد اسمها وسعرها — راح تُعرض بمكتبة الكوثر للطلاب</p>
+      <label>صورة الملزمة</label>
+      <input type="file" id="tchBookletImageInput" accept="image/*">
+      <div id="tchBookletImagePreview" style="margin-bottom:10px;"></div>
+      <label>اسم الملزمة</label>
+      <input id="tchBookletTitle" placeholder="مثال: ملزمة الرياضيات - الفصل الأول">
+      <label>الصف</label>
+      <select id="tchBookletGrade"></select>
+      <label>السعر الكلي بالمكتبة (دينار)</label>
+      <input id="tchBookletPrice" type="number" placeholder="مثال: 10000">
+      <div class="box" style="background:#f6f7fb;border-radius:10px;padding:12px 14px;margin:10px 0;border-inline-start:4px solid #0e8fa8;">
+        <p style="margin:0;">حصتك من كل نسخة: <b id="tchBookletMyShare" style="color:#15803d;">— دينار</b></p>
+        <p style="margin:6px 0 0;">أجور المنصة (20%): <b id="tchBookletPlatformShare" style="color:#8a90a3;">— دينار</b></p>
+      </div>
+      <button class="btn" id="submitTeacherBookletBtn">📤 رفع الملزمة</button>
     </div>
   </div>
 
@@ -2696,6 +2720,51 @@ async function loadTeacherClasses() {
 }
 
 // ---------- مكتبة ملازم الأستاذ ----------
+async function openTeacherUploadBooklet() {
+  document.getElementById('tchBookletImageInput').value = '';
+  document.getElementById('tchBookletImagePreview').innerHTML = '';
+  document.getElementById('tchBookletTitle').value = '';
+  document.getElementById('tchBookletPrice').value = '';
+  document.getElementById('tchBookletMyShare').textContent = '— دينار';
+  document.getElementById('tchBookletPlatformShare').textContent = '— دينار';
+  const activeList = await getActiveGradesList();
+  document.getElementById('tchBookletGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
+  show('screen-teacher-upload-booklet');
+}
+document.getElementById('tchBookletImageInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  const preview = document.getElementById('tchBookletImagePreview');
+  if (!file) { preview.innerHTML = ''; return; }
+  const dataUrl = await resizeImageToBase64(file, 800, 0.8);
+  preview.innerHTML = `<img src="${dataUrl}" style="width:140px;border-radius:10px;border:1px solid #e2e5ec;">`;
+  preview.dataset.image = dataUrl;
+});
+document.getElementById('tchBookletPrice').addEventListener('input', (e) => {
+  const price = +e.target.value || 0;
+  const myShare = Math.round(price * 0.8);
+  const platformShare = price - myShare;
+  document.getElementById('tchBookletMyShare').textContent = price ? `${myShare} دينار` : '— دينار';
+  document.getElementById('tchBookletPlatformShare').textContent = price ? `${platformShare} دينار` : '— دينار';
+});
+document.getElementById('submitTeacherBookletBtn').onclick = async () => {
+  const image = document.getElementById('tchBookletImagePreview').dataset.image;
+  const title = document.getElementById('tchBookletTitle').value.trim();
+  const grade = document.getElementById('tchBookletGrade').value;
+  const price = +document.getElementById('tchBookletPrice').value;
+  if (!image) { alert('ارفع صورة للملزمة'); return; }
+  if (!title || !price) { alert('اكتب اسم الملزمة والسعر'); return; }
+  const teacherShare = Math.round(price * 0.8);
+  try {
+    await db.collection('books').add({
+      title, price, grade, image,
+      teacherName: currentTeacher.name, teacherShare,
+      addedBy: currentTeacher.name, createdAt: Date.now()
+    });
+    alert(`تم رفع الملزمة ✅ — حصتك من كل نسخة: ${teacherShare} دينار`);
+    show('screen-teacher-dashboard');
+  } catch(e) { console.error(e); alert('صار خطأ أثناء الرفع'); }
+};
+
 async function openTeacherBooksLibrary() {
   const booksSnap = await db.collection('books').where('teacherName','==', currentTeacher.name).get();
   const booksList = document.getElementById('teacherBooksList');
