@@ -195,6 +195,17 @@
       <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📖</span><div><b>الدروس المجانية</b><br><span style="font-size:12px;color:#8a90a3;">تصفح دروس تجريبية بدون تسجيل كامل</span></div></div>
       <div class="badge">تصفح</div>
     </div>
+
+    <div class="subject-tile" onclick="show('screen-print-shop')">
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🖨️</span><div><b>المطبعة</b><br><span style="font-size:12px;color:#8a90a3;">احسب سعر طباعة ملزمتك</span></div></div>
+      <div class="badge">فتح</div>
+    </div>
+  </div>
+
+  <!-- المطبعة (حاسبة أسعار الملازم) -->
+  <div class="screen hidden" id="screen-print-shop">
+    <button class="btn secondary" onclick="show('screen-welcome')">← رجوع</button>
+    <iframe src="https://alkwther.github.io/alkawther-calc/" style="width:100%;height:82vh;border:none;border-radius:16px;box-shadow:0 4px 18px rgba(16,32,63,.12);"></iframe>
   </div>
 
   <!-- اختيار المرحلة للدروس المجانية -->
@@ -776,6 +787,7 @@
     <button class="btn secondary" onclick="openCustomerServiceChat()">📞 خدمة العملاء</button>
     <button class="btn secondary" onclick="openStaffTeacherChatFromTeacher()">💬 الدردشة مع الإدارة <span id="teacherChatUnreadBadge" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></button>
     <button class="btn secondary" onclick="openTeacherBuyCode()">🎫 شراء كود</button>
+    <button class="btn secondary" onclick="show('screen-print-shop')">🖨️ المطبعة — أسعار الطباعة</button>
     <div class="card">
       <h3>➕ إضافة صف تدرّسه</h3>
       <label>المرحلة الدراسية</label>
