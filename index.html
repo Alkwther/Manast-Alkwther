@@ -1597,6 +1597,16 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 
       <div class="admin-section hidden" data-section="library-orders">
         <button class="btn secondary admin-back-btn" data-back-to="library-hub">← رجوع للمكتبة</button>
+
+        <div class="card">
+          <h3>📊 إحصائية الطلبات</h3>
+          <div class="stat-row">
+            <div class="stat-box"><div class="num" id="statOrdersToday">0</div><div class="label">اليوم</div></div>
+            <div class="stat-box"><div class="num" id="statOrdersMonth">0</div><div class="label">هذا الشهر</div></div>
+            <div class="stat-box"><div class="num" id="statOrdersYear">0</div><div class="label">هذي السنة</div></div>
+          </div>
+        </div>
+
         <div class="card">
           <h3>🧾 طلبات المكتبة (ملازم + كتب + دفاتر)</h3>
           <label>رقم هاتف المكتبة (يظهر للطالب للتواصل)</label>
@@ -3627,8 +3637,6 @@ document.getElementById('cleanupBookletsDupBtn').onclick = async () => {
 };
 
 async function loadTbGradesAdmin() {
-  await seedDefaultTbGradesIfNeeded();
-  await seedDefaultTbSubjectsIfNeeded();
   const pricingDoc = await db.collection('settings').doc('textbookPricing').get();
   const pricing = pricingDoc.exists ? pricingDoc.data() : {};
   document.getElementById('tbTier1Price').value = pricing.tier1Price || 4000;
@@ -3929,6 +3937,28 @@ async function robustCopy(text) {
 async function loadOrdersAdmin() {
   const snap = await db.collection('orders').orderBy('createdAt','desc').limit(50).get();
   const list = document.getElementById('ordersAdminList');
+
+  // إحصائية الطلبات (يومي/شهري/سنوي) — نحسبها من كل الطلبات وليس فقط آخر 50
+  try {
+    const allSnap = await db.collection('orders').get();
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const startOfYear = new Date(now.getFullYear(), 0, 1).getTime();
+    let todayCount = 0, monthCount = 0, yearCount = 0;
+    allSnap.docs.forEach(d => {
+      const t = d.data().createdAt || 0;
+      if (t >= startOfToday) todayCount++;
+      if (t >= startOfMonth) monthCount++;
+      if (t >= startOfYear) yearCount++;
+    });
+    const elToday = document.getElementById('statOrdersToday');
+    const elMonth = document.getElementById('statOrdersMonth');
+    const elYear = document.getElementById('statOrdersYear');
+    if (elToday) elToday.textContent = todayCount;
+    if (elMonth) elMonth.textContent = monthCount;
+    if (elYear) elYear.textContent = yearCount;
+  } catch(e) { console.error(e); }
 
   // شارة الطلبات الجديدة (لسا ما انسخت من قبل الموظف/المشرف)
   const newCount = snap.docs.filter(d => !d.data().processingAt && d.data().status !== 'cancelled' && d.data().status !== 'completed').length;
