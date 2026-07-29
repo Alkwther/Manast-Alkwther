@@ -2620,7 +2620,7 @@ function renderLibraryNav() {
   // مستوى 3: الملازم/الكتب داخل الصف
   const back = `<button class="btn secondary" onclick="libraryNavGrade=null; renderLibraryNav();">← رجوع لصفوف ${STAGE_LABELS_AR[libraryNavStage]}</button>`;
   const books = libraryAllBooks.filter(b => b.grade === libraryNavGrade);
-  if (books.length === 0) { list.innerHTML = back + '<div class="card"><p>ما فيه ملازم أو كتب مضافة لهذا الصف بعد.</p></div>'; return; }
+  if (books.length === 0) { list.innerHTML = back + '<div class="card"><p>لا توجد ملازم لهذا الصف بعد.</p></div>'; return; }
   const booksHtml = books.map(b => {
     const thumb = b.image
       ? `<img src="${b.image}" style="width:52px;height:52px;object-fit:cover;border-radius:9px;margin-inline-end:12px;flex-shrink:0;">`
@@ -3357,8 +3357,42 @@ async function seedDefaultTbGradesIfNeeded() {
   }
   await Promise.all(batchPromises);
 }
+const DEFAULT_TB_SUBJECTS = {
+  "الأول ابتدائي": ["إسلامية","اخلاقية","قراءة","نشاط قراءة","رياضيات","نشاط رياضيات","انكليزي","نشاط انكليزي","علوم","نشاط علوم"],
+  "الثاني ابتدائي": ["إسلامية","اخلاقية","قراءة","رياضيات","نشاط رياضيات","انكليزي","نشاط انكليزي","علوم","نشاط علوم"],
+  "الثالث ابتدائي": ["إسلامية","قراءة","رياضيات","نشاط رياضيات","انكليزي","نشاط انكليزي","علوم","نشاط علوم"],
+  "الرابع ابتدائي": ["إسلامية","قراءة","رياضيات","نشاط رياضيات","انكليزي","نشاط انكليزي","علوم","نشاط علوم","قواعد","اجتماعيات"],
+  "الخامس ابتدائي": ["إسلامية","قراءة","رياضيات","نشاط رياضيات","انكليزي","نشاط انكليزي","علوم","نشاط علوم","قواعد","اجتماعيات"],
+  "السادس ابتدائي": ["إسلامية","قراءة","رياضيات","نشاط رياضيات","انكليزي","نشاط انكليزي","علوم","نشاط علوم","قواعد","اجتماعيات"],
+  "الأول متوسط": ["إسلامية","عربي ج١","عربي ج٢","انكليزي","نشاط الإنكليزي","رياضيات","فيزياء","كيمياء","احياء","اجتماعيات","حاسوب"],
+  "الثاني متوسط": ["إسلامية","عربي ج١","عربي ج٢","انكليزي","نشاط الإنكليزي","رياضيات","فيزياء","كيمياء","احياء","اجتماعيات","حاسوب"],
+  "الثالث متوسط": ["إسلامية","عربي ج١","عربي ج٢","انكليزي","نشاط الإنكليزي","رياضيات","فيزياء","كيمياء","احياء"],
+  "الرابع علمي": ["إسلامية","عربي ج١","عربي ج٢","انكليزي","نشاط الإنكليزي","رياضيات","فيزياء","كيمياء","احياء","حاسوب","جرائم حزب البعث"],
+  "الرابع أدبي": ["اجتماع","تاريخ","جغرافية","رياضيات","حاسوب","جرائم حزب البعث","عربي جزء أول","عربي جزء ثاني","إسلامية","إنكليزي","نشاط انكليزي"],
+  "الخامس علمي": ["إسلامية","عربي ج١","عربي ج٢","انكليزي","نشاط الإنكليزي","رياضيات","فيزياء","كيمياء","حاسوب"],
+  "الخامس أدبي": ["اقتصاد","تاريخ","جغرافية","رياضيات","فلسفة","حاسوب","عربي جزء أول","عربي جزء ثاني","إسلامية","إنكليزي","نشاط إنكليزي"],
+  "السادس أدبي": ["اقتصاد","تاريخ","جغرافية","رياضيات","عربي جزء أول","عربي جزء ثاني","إسلامية","إنكليزي","نشاط إنكليزي"],
+  "السادس علمي": ["إسلامية","عربي ج١","عربي ج٢","رياضيات","انكليزي","نشاط الإنكليزي","فيزياء","كيمياء","احياء"]
+};
+async function seedDefaultTbSubjectsIfNeeded() {
+  const snap = await db.collection('textbookSubjects').limit(1).get();
+  if (!snap.empty) return;
+  const gradesSnap = await db.collection('textbookGrades').get();
+  const gradeIdByName = {};
+  gradesSnap.docs.forEach(d => { gradeIdByName[d.data().name] = d.id; });
+  const batchPromises = [];
+  for (const [gradeName, subjects] of Object.entries(DEFAULT_TB_SUBJECTS)) {
+    const gradeId = gradeIdByName[gradeName];
+    if (!gradeId) continue;
+    for (const name of subjects) {
+      batchPromises.push(db.collection('textbookSubjects').add({ gradeId, name, price:0, image:null, createdAt: Date.now() }));
+    }
+  }
+  await Promise.all(batchPromises);
+}
 async function loadTbGradesAdmin() {
   await seedDefaultTbGradesIfNeeded();
+  await seedDefaultTbSubjectsIfNeeded();
   const pricingDoc = await db.collection('settings').doc('textbookPricing').get();
   const pricing = pricingDoc.exists ? pricingDoc.data() : {};
   document.getElementById('tbTier1Price').value = pricing.tier1Price || 4000;
@@ -6224,6 +6258,8 @@ const STAGE_LABELS = { primary: { icon:'🏫', label:'المرحلة الابت�
 
 async function tbLoadData() {
   try {
+    await seedDefaultTbGradesIfNeeded();
+    await seedDefaultTbSubjectsIfNeeded();
     const [gradesSnap, subjectsSnap, pricingDoc] = await Promise.all([
       db.collection('textbookGrades').orderBy('order','asc').get(),
       db.collection('textbookSubjects').get(),
