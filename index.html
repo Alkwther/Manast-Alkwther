@@ -2879,10 +2879,10 @@ async function showMyOrders(phoneOverride) {
       const o = d.data();
       // نستخدم الحالة المحسوبة للعرض فقط هنا؛ حفظها بقاعدة البيانات مسموح للموظف/المشرف حصراً (يصير من لوحة التحكم)
       o.status = computeEffectiveStatus(o);
-      rows.push(o);
+      rows.push({ id: d.id, o });
     }
-    rows.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
-    list.innerHTML = rows.map(o => {
+    rows.sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
+    list.innerHTML = rows.map(({id, o}) => {
       const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
       return `<div class="card">
         <h3>${ORDER_STATUS_LABELS[o.status] || o.status}</h3>
@@ -2890,7 +2890,7 @@ async function showMyOrders(phoneOverride) {
         <p style="color:#8a90a3;">مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع</p>
         <p><b>المجموع: ${o.totalPrice} د.ع</b></p>
         <p style="color:#888;">${o.province} - ${o.district}</p>
-        ${o.status !== 'completed' && o.status !== 'cancelled' ? `<p>📞 للتعديل أو الإلغاء تواصل مع المكتبة: <b>${libraryPhone}</b></p>` : ''}
+        ${o.status !== 'completed' && o.status !== 'cancelled' ? `<button class="small-btn" onclick="openChat('order_${id}','💬 طلبك — تعديل أو استفسار')">💬 مراسلة المكتبة بخصوص هذا الطلب</button>` : ''}
       </div>`;
     }).join('');
   } catch(e) {
@@ -3996,13 +3996,67 @@ async function loadOrdersAdmin() {
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="small-btn" onclick="copySingleOrder('${id}')" style="${isCopied?'background:#16a34a;color:#fff;':''}">${isCopied ? '✅ تم النسخ' : '📋 نسخ'}</button>
+        <button class="small-btn" onclick="toggleEditOrder('${id}')">✏️ تعديل الطلب</button>
+        <button class="small-btn" onclick="openChat('order_${id}','💬 طلب ${o.studentName}')">💬 مراسلة الزبون</button>
         <button class="small-btn" onclick="setOrderStatus('${id}','delivering')">🚚 قيد التوصيل</button>
         <button class="small-btn" onclick="setOrderStatus('${id}','completed')">✅ تم التسليم</button>
         <button class="small-btn" onclick="setOrderStatus('${id}','cancelled')">❌ إلغاء</button>
         <button class="small-btn" onclick="deleteOrder('${id}')">🗑️ حذف الطلب</button>
       </div>
+      <div id="editOrderPanel-${id}" class="hidden" style="background:#f6f7fb;border-radius:10px;padding:10px;margin-top:8px;">
+        <label>اسم الزبون</label>
+        <input id="eoName-${id}" value="${o.studentName.replace(/"/g,'&quot;')}">
+        <label>رقم الهاتف</label>
+        <input id="eoPhone-${id}" value="${o.phone}">
+        <label>رقم هاتف آخر</label>
+        <input id="eoAltPhone-${id}" value="${o.altPhone||''}">
+        <label>المحافظة</label>
+        <input id="eoProvince-${id}" value="${o.province}">
+        <label>القضاء/الناحية</label>
+        <input id="eoDistrict-${id}" value="${o.district}">
+        <label>أقرب نقطة دالّة</label>
+        <input id="eoLandmark-${id}" value="${o.landmark||''}">
+        <p style="font-weight:bold;color:#10203f;margin:10px 0 6px;">المواد:</p>
+        ${o.items.map((it,i) => `
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="flex:1;font-size:13px;">${it.title} (${it.price} د.ع)</span>
+            <input id="eoQty-${id}-${i}" type="number" value="${it.qty}" style="width:60px;margin:0;">
+          </div>`).join('')}
+        <label>أجور التوصيل</label>
+        <input id="eoDelivery-${id}" type="number" value="${o.deliveryFee||0}">
+        <button class="btn" onclick="saveOrderEdit('${id}')">💾 حفظ التعديلات</button>
+      </div>
     </div>`;
   }).join('');
+}
+
+function toggleEditOrder(id) {
+  document.getElementById(`editOrderPanel-${id}`).classList.toggle('hidden');
+}
+
+async function saveOrderEdit(id) {
+  const doc = await db.collection('orders').doc(id).get();
+  if (!doc.exists) return;
+  const o = doc.data();
+  const studentName = document.getElementById(`eoName-${id}`).value.trim();
+  const phone = document.getElementById(`eoPhone-${id}`).value.trim();
+  const altPhone = document.getElementById(`eoAltPhone-${id}`).value.trim();
+  const province = document.getElementById(`eoProvince-${id}`).value.trim();
+  const district = document.getElementById(`eoDistrict-${id}`).value.trim();
+  const landmark = document.getElementById(`eoLandmark-${id}`).value.trim();
+  const deliveryFee = +document.getElementById(`eoDelivery-${id}`).value || 0;
+  const items = o.items.map((it, i) => ({ ...it, qty: Math.max(0, +document.getElementById(`eoQty-${id}-${i}`).value || 0) })).filter(it => it.qty > 0);
+  if (items.length === 0) { alert('لازم تبقي مادة واحدة على الأقل بالطلب'); return; }
+  const subtotal = items.reduce((s,it) => s + it.price*it.qty, 0);
+  const totalPrice = subtotal + deliveryFee;
+  try {
+    await db.collection('orders').doc(id).update({
+      studentName, studentPhone: phone, phone, altPhone, province, district, landmark,
+      items, subtotal, deliveryFee, totalPrice, editedAt: Date.now()
+    });
+    alert('تم حفظ التعديلات ✅ — الزبون بيشوف الطلب المعدّل بمجرد ما يفتح "طلباتي"');
+    loadOrdersAdmin();
+  } catch(e) { console.error(e); alert('صار خطأ أثناء الحفظ: ' + (e.message||'')); }
 }
 
 async function copySingleOrder(id) {
