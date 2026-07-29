@@ -1442,19 +1442,9 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <div class="admin-menu-text"><b>الدروس والأسئلة</b><span>إضافة دروس فيديو وأسئلة الاختبارات</span></div>
           <div class="admin-menu-arrow">‹</div>
         </div>
-        <div class="admin-menu-item" data-section="library-booklets" data-permission="library">
-          <div class="admin-menu-icon">📦</div>
-          <div class="admin-menu-text"><b>الملازم <span id="ordersUnreadBadge" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></b><span>مراحل، صفوف، إضافة وتعديل ملازم الأساتذة، الطلبات</span></div>
-          <div class="admin-menu-arrow">‹</div>
-        </div>
-        <div class="admin-menu-item" data-section="library-textbooks" data-permission="library">
-          <div class="admin-menu-icon">📖</div>
-          <div class="admin-menu-text"><b>الكتب المدرسية</b><span>مراحل، صفوف، مواد، الأسعار</span></div>
-          <div class="admin-menu-arrow">‹</div>
-        </div>
-        <div class="admin-menu-item" data-section="library-notebooks" data-permission="library">
-          <div class="admin-menu-icon">📓</div>
-          <div class="admin-menu-text"><b>الدفاتر</b><span>إضافة وتعديل الدفاتر وأسعارها</span></div>
+        <div class="admin-menu-item" data-section="library-hub" data-permission="library">
+          <div class="admin-menu-icon">📚</div>
+          <div class="admin-menu-text"><b>المكتبة <span id="ordersUnreadBadge" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></b><span>الملازم، الكتب المدرسية، الدفاتر، طلبات المكتبة</span></div>
           <div class="admin-menu-arrow">‹</div>
         </div>
         <div class="admin-menu-item" data-section="subscriptions" data-permission="codes">
@@ -1527,8 +1517,32 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
         </div>
       </div>
 
-      <div class="admin-section hidden" data-section="library-booklets">
+      <div class="admin-section hidden" data-section="library-hub">
         <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <div class="admin-menu-item" data-section="library-booklets">
+          <div class="admin-menu-icon">📦</div>
+          <div class="admin-menu-text"><b>الملازم</b><span>مراحل، صفوف، إضافة وتعديل ملازم الأساتذة</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
+        <div class="admin-menu-item" data-section="library-textbooks">
+          <div class="admin-menu-icon">📖</div>
+          <div class="admin-menu-text"><b>الكتب المدرسية</b><span>مراحل، صفوف، مواد، الأسعار</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
+        <div class="admin-menu-item" data-section="library-notebooks">
+          <div class="admin-menu-icon">📓</div>
+          <div class="admin-menu-text"><b>الدفاتر</b><span>إضافة وتعديل الدفاتر وأسعارها</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
+        <div class="admin-menu-item" data-section="library-orders">
+          <div class="admin-menu-icon">🧾</div>
+          <div class="admin-menu-text"><b>طلبات المكتبة <span id="ordersUnreadBadge2" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></b><span>كل طلبات الملازم والكتب والدفاتر</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
+      </div>
+
+      <div class="admin-section hidden" data-section="library-booklets">
+        <button class="btn secondary admin-back-btn" data-back-to="library-hub">← رجوع للمكتبة</button>
 
         <div class="card">
           <h3>🏫 إدارة مراحل وصفوف الملازم</h3>
@@ -1575,6 +1589,15 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
         </div>
 
         <div class="card">
+          <h3>💰 أرباح الأساتذة من الملازم</h3>
+          <p>يحسب تلقائياً بعد كل طلب تُختم بحالة "تم التسليم"، حسب حصة الأستاذ المحددة لكل ملزمة</p>
+          <div id="teacherEarningsList" style="margin-top:10px;"></div>
+        </div>
+      </div>
+
+      <div class="admin-section hidden" data-section="library-orders">
+        <button class="btn secondary admin-back-btn" data-back-to="library-hub">← رجوع للمكتبة</button>
+        <div class="card">
           <h3>🧾 طلبات المكتبة (ملازم + كتب + دفاتر)</h3>
           <label>رقم هاتف المكتبة (يظهر للطالب للتواصل)</label>
           <input id="libraryPhoneInput" placeholder="07xxxxxxxxx">
@@ -1582,16 +1605,10 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <button class="btn" id="copyAllOrdersBtn" style="margin-top:10px;">📋 نسخ كل الطلبات الجديدة</button>
           <div id="ordersAdminList" style="margin-top:10px;"></div>
         </div>
-
-        <div class="card">
-          <h3>💰 أرباح الأساتذة من الملازم</h3>
-          <p>يحسب تلقائياً بعد كل طلب تُختم بحالة "تم التسليم"، حسب حصة الأستاذ المحددة لكل ملزمة</p>
-          <div id="teacherEarningsList" style="margin-top:10px;"></div>
-        </div>
       </div>
 
       <div class="admin-section hidden" data-section="library-textbooks">
-        <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <button class="btn secondary admin-back-btn" data-back-to="library-hub">← رجوع للمكتبة</button>
 
         <div class="card">
           <h3>📖 الكتب المدرسية — الأسعار العامة</h3>
@@ -1636,7 +1653,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       </div>
 
       <div class="admin-section hidden" data-section="library-notebooks">
-        <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+        <button class="btn secondary admin-back-btn" data-back-to="library-hub">← رجوع للمكتبة</button>
 
         <div class="card">
           <h3>📓 إضافة دفتر</h3>
@@ -2091,6 +2108,11 @@ function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
   if (id === 'screen-welcome' && typeof loadAnnouncements === 'function') loadAnnouncements();
+  // شريط السلة العائم: نخفيه بشاشة الدفع نفسها (يغطي النموذج بدون فايدة)، ونعيد إظهاره بأي شاشة ثانية
+  if (typeof renderCartBar === 'function') {
+    if (id === 'screen-checkout') { const b = document.getElementById('cartBar'); if (b) b.remove(); }
+    else renderCartBar();
+  }
 }
 function setMsg(el, text, ok) {
   document.getElementById(el).innerHTML = `<div class="msg ${ok?'ok':'err'}">${text}</div>`;
@@ -2671,6 +2693,9 @@ function renderCartBar() {
   if (existing) existing.remove();
   const ids = Object.keys(cart);
   if (ids.length === 0) return;
+  // ما نعرض الشريط العائم إذا كنا أصلاً بشاشة الدفع (يغطي على حقول النموذج بدون فايدة)
+  const checkoutScreen = document.getElementById('screen-checkout');
+  if (checkoutScreen && !checkoutScreen.classList.contains('hidden')) return;
   const total = ids.reduce((sum,id) => sum + cart[id].price * cart[id].qty, 0);
   const count = ids.reduce((sum,id) => sum + cart[id].qty, 0);
   const bar = document.createElement('div');
@@ -2686,6 +2711,8 @@ function openCheckout() {
   document.getElementById('ckName').value = currentStudent ? currentStudent.name : '';
   prefillSavedDeliveryInfo();
   show('screen-checkout');
+  const existingBar = document.getElementById('cartBar');
+  if (existingBar) existingBar.remove();
 }
 function prefillSavedDeliveryInfo() {
   try {
@@ -2775,7 +2802,7 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
     cart = {}; saveCartToStorage();
     setMsg('checkoutMsg','تم إرسال طلبك بنجاح ✅', true);
     setTimeout(() => showMyOrders(phone), 700);
-  } catch(e) { setMsg('checkoutMsg','خطأ بالاتصال', false); console.error(e); }
+  } catch(e) { setMsg('checkoutMsg', 'خطأ عند إرسال الطلب: ' + (e.message || 'خطأ غير معروف'), false); console.error(e); }
 };
 
 async function checkReturningCustomer() {
@@ -3026,7 +3053,10 @@ document.querySelectorAll('.admin-menu-item').forEach(item => {
   item.onclick = () => openAdminSection(item.dataset.section);
 });
 document.querySelectorAll('.admin-back-btn').forEach(btn => {
-  btn.onclick = () => showAdminMenu();
+  btn.onclick = () => {
+    if (btn.dataset.backTo) openAdminSection(btn.dataset.backTo);
+    else showAdminMenu();
+  };
 });
 
 function populateGradeSelects(gradesList) {
@@ -3861,11 +3891,12 @@ async function loadOrdersAdmin() {
 
   // شارة الطلبات الجديدة (لسا ما انسخت من قبل الموظف/المشرف)
   const newCount = snap.docs.filter(d => !d.data().processingAt && d.data().status !== 'cancelled' && d.data().status !== 'completed').length;
-  const badge = document.getElementById('ordersUnreadBadge');
-  if (badge) {
+  ['ordersUnreadBadge','ordersUnreadBadge2'].forEach(bid => {
+    const badge = document.getElementById(bid);
+    if (!badge) return;
     if (newCount > 0) { badge.textContent = newCount; badge.classList.remove('hidden'); }
     else badge.classList.add('hidden');
-  }
+  });
 
   if (snap.empty) { list.innerHTML = '<p>لا توجد طلبات بعد.</p>'; return; }
 
