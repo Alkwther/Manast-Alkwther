@@ -1516,6 +1516,23 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 
       <div class="admin-section hidden" data-section="library">
         <button class="btn secondary admin-back-btn">← رجوع للقائمة</button>
+
+        <div class="card">
+          <h3>🏫 إدارة مراحل وصفوف الملازم</h3>
+          <p style="font-size:12.5px;color:#8a90a3;">أضف أو احذف صفوف داخل كل مرحلة — تنعكس مباشرة على قائمة "الملازم" وخيارات الإضافة بالأسفل</p>
+          <label>المرحلة</label>
+          <select id="libStageManage">
+            <option value="primary">ابتدائية</option>
+            <option value="middle">متوسطة</option>
+            <option value="secondary">إعدادية</option>
+          </select>
+          <div style="display:flex;gap:6px;">
+            <input id="libNewGradeName" placeholder="اسم الصف الجديد" style="margin-bottom:0;flex:1;">
+            <button class="small-btn" id="addLibGradeBtn">➕ إضافة</button>
+          </div>
+          <div id="libGradesCurrentList" style="margin-top:10px;"></div>
+        </div>
+
         <div class="card">
           <h3>📚 إضافة كتاب / ملزمة</h3>
           <input id="bkTitle" placeholder="اسم الكتاب أو الملزمة">
@@ -1571,6 +1588,17 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
         </div>
 
         <div class="card">
+          <h3>📦 أسعار البكج الكامل حسب المرحلة</h3>
+          <label>بكج المرحلة الابتدائية</label>
+          <input id="tbPkgPricePrimary" type="number" placeholder="مثال: 20000">
+          <label>بكج المرحلة المتوسطة</label>
+          <input id="tbPkgPriceMiddle" type="number" placeholder="مثال: 24000">
+          <label>بكج المرحلة الإعدادية</label>
+          <input id="tbPkgPriceSecondary" type="number" placeholder="مثال: 28000">
+          <button class="btn" id="saveTbStagePkgBtn">حفظ أسعار البكج</button>
+        </div>
+
+        <div class="card">
           <h3>➕ إضافة صف (الكتب المدرسية)</h3>
           <input id="tbGradeName" placeholder="اسم الصف (مثال: الأول متوسط)">
           <label>المرحلة</label>
@@ -1579,8 +1607,6 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
             <option value="middle">متوسطة</option>
             <option value="secondary">إعدادية</option>
           </select>
-          <label>سعر البكج الكامل (كل الكتب)</label>
-          <input id="tbGradePkgPrice" type="number" placeholder="مثال: 20000">
           <button class="btn" id="addTbGradeBtn">إضافة الصف</button>
         </div>
 
@@ -2750,12 +2776,28 @@ let currentStaffRole = null; // 'admin' أو 'employee'
 let currentStaffPermissions = {}; // صلاحيات الموظف الحالي
 
 const PRIMARY_GRADES = ["الأول ابتدائي","الثاني ابتدائي","الثالث ابتدائي","الرابع ابتدائي","الخامس ابتدائي","السادس ابتدائي"];
-const LIBRARY_STAGE_GRADES = {
+let LIBRARY_STAGE_GRADES = {
   primary: ["الأول ابتدائي","الثاني ابتدائي","الثالث ابتدائي","الرابع ابتدائي","الخامس ابتدائي","السادس ابتدائي"],
   middle: ["الأول متوسط","الثاني متوسط","الثالث متوسط"],
   secondary: ["الرابع علمي","الرابع أدبي","الخامس علمي","الخامس أدبي","السادس علمي","السادس أدبي"]
 };
-const STAGE_LABELS_AR = { primary:'المرحلة الابتدائية', middle:'المرحلة المتوسطة', secondary:'المرحلة الإعدادية' };
+let STAGE_LABELS_AR = { primary:'المرحلة الابتدائية', middle:'المرحلة المتوسطة', secondary:'المرحلة الإعدادية' };
+async function loadLibraryStructure() {
+  try {
+    const doc = await db.collection('settings').doc('libraryStructure').get();
+    if (doc.exists && doc.data().stages) {
+      const stages = doc.data().stages;
+      LIBRARY_STAGE_GRADES = {}; STAGE_LABELS_AR = {};
+      stages.forEach(s => { LIBRARY_STAGE_GRADES[s.id] = s.grades || []; STAGE_LABELS_AR[s.id] = s.label; });
+    } else {
+      await saveLibraryStructure(); // أول مرة: نحفظ القيم الافتراضية بقاعدة البيانات
+    }
+  } catch(e) { console.error('loadLibraryStructure failed', e); }
+}
+async function saveLibraryStructure() {
+  const stages = Object.keys(LIBRARY_STAGE_GRADES).map(id => ({ id, label: STAGE_LABELS_AR[id], grades: LIBRARY_STAGE_GRADES[id] }));
+  await db.collection('settings').doc('libraryStructure').set({ stages });
+}
 function gradeToStage(grade) {
   for (const [stage, grades] of Object.entries(LIBRARY_STAGE_GRADES)) {
     if (grades.includes(grade)) return stage;
@@ -3229,7 +3271,7 @@ document.getElementById('addBookBtn').onclick = async () => {
 };
 function populateBkGradeSelect() {
   const stage = document.getElementById('bkStage').value;
-  document.getElementById('bkGrade').innerHTML = LIBRARY_STAGE_GRADES[stage].map(g => `<option>${g}</option>`).join('');
+  document.getElementById('bkGrade').innerHTML = (LIBRARY_STAGE_GRADES[stage]||[]).map(g => `<option>${g}</option>`).join('');
 }
 document.getElementById('bkStage').addEventListener('change', populateBkGradeSelect);
 populateBkGradeSelect();
@@ -3238,35 +3280,94 @@ async function populateBookTeacherSelect() {
   const select = document.getElementById('bkTeacher');
   if (select) select.innerHTML = '<option value="">بدون تحديد (ملزمة عامة للمكتبة)</option>' + teachersSnap.docs.map(t => `<option>${t.data().name}</option>`).join('');
 }
+
+// ---------- إدارة مراحل وصفوف الملازم ----------
+function renderLibGradesCurrentList() {
+  const stage = document.getElementById('libStageManage').value;
+  const grades = LIBRARY_STAGE_GRADES[stage] || [];
+  const list = document.getElementById('libGradesCurrentList');
+  list.innerHTML = grades.length
+    ? grades.map(g => `<div class="lesson-row"><div class="title">${g}</div><button class="small-btn" onclick="deleteLibGrade('${g.replace(/'/g,"\\'")}')">🗑️</button></div>`).join('')
+    : '<p style="font-size:12px;color:#8a90a3;">لا توجد صفوف بهذي المرحلة بعد.</p>';
+}
+document.getElementById('libStageManage').addEventListener('change', () => { renderLibGradesCurrentList(); populateBkGradeSelect(); document.getElementById('bkStage').value = document.getElementById('libStageManage').value; });
+document.getElementById('addLibGradeBtn').onclick = async () => {
+  const stage = document.getElementById('libStageManage').value;
+  const name = document.getElementById('libNewGradeName').value.trim();
+  if (!name) { alert('اكتب اسم الصف'); return; }
+  if (LIBRARY_STAGE_GRADES[stage].includes(name)) { alert('هذا الصف موجود مسبقاً'); return; }
+  LIBRARY_STAGE_GRADES[stage] = [...LIBRARY_STAGE_GRADES[stage], name];
+  await saveLibraryStructure();
+  document.getElementById('libNewGradeName').value = '';
+  renderLibGradesCurrentList();
+  populateBkGradeSelect();
+  alert('تمت إضافة الصف ✅');
+};
+async function deleteLibGrade(gradeName) {
+  if (!confirm(`حذف صف "${gradeName}"؟`)) return;
+  const stage = document.getElementById('libStageManage').value;
+  LIBRARY_STAGE_GRADES[stage] = LIBRARY_STAGE_GRADES[stage].filter(g => g !== gradeName);
+  await saveLibraryStructure();
+  renderLibGradesCurrentList();
+  populateBkGradeSelect();
+}
 // ---------- الكتب المدرسية (إدارة) ----------
 document.getElementById('saveTbPricingBtn').onclick = async () => {
   const tier1Price = +document.getElementById('tbTier1Price').value || 4000;
   const tier1Max = +document.getElementById('tbTier1Max').value || 3;
   const tier2Price = +document.getElementById('tbTier2Price').value || 3000;
-  await db.collection('settings').doc('textbookPricing').set({ tier1Price, tier1Max, tier2Price });
+  await db.collection('settings').doc('textbookPricing').set({ tier1Price, tier1Max, tier2Price }, { merge: true });
   alert('تم حفظ الأسعار ✅');
+};
+document.getElementById('saveTbStagePkgBtn').onclick = async () => {
+  const stagePkgPrices = {
+    primary: +document.getElementById('tbPkgPricePrimary').value || 20000,
+    middle: +document.getElementById('tbPkgPriceMiddle').value || 24000,
+    secondary: +document.getElementById('tbPkgPriceSecondary').value || 28000
+  };
+  await db.collection('settings').doc('textbookPricing').set({ stagePkgPrices }, { merge: true });
+  alert('تم حفظ أسعار البكج ✅');
 };
 
 document.getElementById('addTbGradeBtn').onclick = async () => {
   const name = document.getElementById('tbGradeName').value.trim();
   const stage = document.getElementById('tbGradeStage').value;
-  const pkgPrice = +document.getElementById('tbGradePkgPrice').value;
-  if (!name || !pkgPrice) { alert('عبّئ اسم الصف وسعر البكج'); return; }
+  if (!name) { alert('اكتب اسم الصف'); return; }
   const countSnap = await db.collection('textbookGrades').get();
-  await db.collection('textbookGrades').add({ name, stage, pkgPrice, order: countSnap.size, createdAt: Date.now() });
-  document.getElementById('tbGradeName').value = ''; document.getElementById('tbGradePkgPrice').value = '';
+  await db.collection('textbookGrades').add({ name, stage, order: countSnap.size, createdAt: Date.now() });
+  document.getElementById('tbGradeName').value = '';
   alert('تمت إضافة الصف ✅');
   loadTbGradesAdmin();
 };
 
-async function loadTbGradesAdmin() {
-  const pricingDoc = await db.collection('settings').doc('textbookPricing').get();
-  if (pricingDoc.exists) {
-    const p = pricingDoc.data();
-    document.getElementById('tbTier1Price').value = p.tier1Price || 4000;
-    document.getElementById('tbTier1Max').value = p.tier1Max || 3;
-    document.getElementById('tbTier2Price').value = p.tier2Price || 3000;
+const DEFAULT_TB_GRADES = {
+  primary: ["الأول ابتدائي","الثاني ابتدائي","الثالث ابتدائي","الرابع ابتدائي","الخامس ابتدائي","السادس ابتدائي"],
+  middle: ["الأول متوسط","الثاني متوسط","الثالث متوسط"],
+  secondary: ["الرابع علمي","الرابع أدبي","الخامس علمي","الخامس أدبي","السادس علمي","السادس أدبي"]
+};
+async function seedDefaultTbGradesIfNeeded() {
+  const snap = await db.collection('textbookGrades').limit(1).get();
+  if (!snap.empty) return;
+  let order = 0;
+  const batchPromises = [];
+  for (const [stage, names] of Object.entries(DEFAULT_TB_GRADES)) {
+    for (const name of names) {
+      batchPromises.push(db.collection('textbookGrades').add({ name, stage, order: order++, createdAt: Date.now() }));
+    }
   }
+  await Promise.all(batchPromises);
+}
+async function loadTbGradesAdmin() {
+  await seedDefaultTbGradesIfNeeded();
+  const pricingDoc = await db.collection('settings').doc('textbookPricing').get();
+  const pricing = pricingDoc.exists ? pricingDoc.data() : {};
+  document.getElementById('tbTier1Price').value = pricing.tier1Price || 4000;
+  document.getElementById('tbTier1Max').value = pricing.tier1Max || 3;
+  document.getElementById('tbTier2Price').value = pricing.tier2Price || 3000;
+  const stagePkg = pricing.stagePkgPrices || {};
+  document.getElementById('tbPkgPricePrimary').value = stagePkg.primary || 20000;
+  document.getElementById('tbPkgPriceMiddle').value = stagePkg.middle || 24000;
+  document.getElementById('tbPkgPriceSecondary').value = stagePkg.secondary || 28000;
 
   const gradesSnap = await db.collection('textbookGrades').orderBy('order','asc').get();
   const subjectsSnap = await db.collection('textbookSubjects').get();
@@ -3293,12 +3394,13 @@ async function loadTbGradesAdmin() {
       </div>`).join('') || '<p style="font-size:12px;color:#8a90a3;">لا توجد مواد مضافة لهذا الصف بعد.</p>';
     return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div><b>${g.name}</b> — ${stageLabels[g.stage]}<br><span style="color:#b8903c;">بكج كامل: ${g.pkgPrice} د.ع</span></div>
+        <div><b>${g.name}</b> — ${stageLabels[g.stage]}</div>
         <button class="small-btn" onclick="deleteTbGrade('${d.id}')">🗑️ حذف الصف</button>
       </div>
       <div style="background:#f6f7fb;border-radius:10px;padding:10px;margin-top:8px;">
         <p style="font-weight:bold;color:#10203f;margin-bottom:8px;">➕ إضافة مادة لهذا الصف</p>
         <input id="tbSubjName-${d.id}" placeholder="اسم المادة">
+        <input id="tbSubjPrice-${d.id}" type="number" placeholder="سعر الكتاب المفرد (دينار)">
         <input type="file" id="tbSubjImage-${d.id}" accept="image/*">
         <div id="tbSubjImagePreview-${d.id}" style="margin-bottom:8px;"></div>
         <button class="btn" onclick="addTbSubject('${d.id}')">إضافة المادة</button>
@@ -3322,9 +3424,10 @@ async function loadTbGradesAdmin() {
 }
 async function addTbSubject(gradeId) {
   const name = document.getElementById(`tbSubjName-${gradeId}`).value.trim();
+  const price = +document.getElementById(`tbSubjPrice-${gradeId}`).value || 0;
   const image = document.getElementById(`tbSubjImagePreview-${gradeId}`).dataset.image || null;
-  if (!name) { alert('اكتب اسم المادة'); return; }
-  await db.collection('textbookSubjects').add({ gradeId, name, image, createdAt: Date.now() });
+  if (!name || !price) { alert('اكتب اسم المادة والسعر'); return; }
+  await db.collection('textbookSubjects').add({ gradeId, name, price, image, createdAt: Date.now() });
   loadTbGradesAdmin();
 }
 async function deleteTbSubject(id) {
@@ -3402,6 +3505,8 @@ async function openNotebooksScreen() {
 
 async function loadBooksAdmin() {
   await populateBookTeacherSelect();
+  populateBkGradeSelect();
+  renderLibGradesCurrentList();
   const snap = await db.collection('books').orderBy('createdAt','desc').get();
   const list = document.getElementById('booksAdminList');
   if (snap.empty) { list.innerHTML = '<p>لا توجد كتب مضافة بعد.</p>'; return; }
@@ -4030,7 +4135,7 @@ async function openTeacherUploadBooklet() {
 }
 function populateTchBookletGradeSelect() {
   const stage = document.getElementById('tchBookletStage').value;
-  document.getElementById('tchBookletGrade').innerHTML = LIBRARY_STAGE_GRADES[stage].map(g => `<option>${g}</option>`).join('');
+  document.getElementById('tchBookletGrade').innerHTML = (LIBRARY_STAGE_GRADES[stage]||[]).map(g => `<option>${g}</option>`).join('');
 }
 document.getElementById('tchBookletStage').addEventListener('change', populateTchBookletGradeSelect);
 document.getElementById('tchBookletImageInput').addEventListener('change', async (e) => {
@@ -5031,6 +5136,7 @@ setInterval(checkSessionValidity, 30000); // تحقق كل 30 ثانية من ع
 
 (async function init() {
   await loadFreeModeStatus();
+  await loadLibraryStructure();
   auth.onAuthStateChanged(async (user) => {
     if (!user) {
       // زائر يتصفح المكتبة أو الدروس المجانية بدون تسجيل: نسجّله دخول مجهول
@@ -6123,19 +6229,24 @@ async function tbLoadData() {
       db.collection('textbookSubjects').get(),
       db.collection('settings').doc('textbookPricing').get()
     ]);
-    if (pricingDoc.exists) TB_PRICING = { tier1Price: 4000, tier2Price: 3000, tier1Max: 3, ...pricingDoc.data() };
+    const defaultStagePkg = { primary: 20000, middle: 24000, secondary: 28000 };
+    let stagePkgPrices = defaultStagePkg;
+    if (pricingDoc.exists) {
+      TB_PRICING = { tier1Price: 4000, tier2Price: 3000, tier1Max: 3, ...pricingDoc.data() };
+      stagePkgPrices = { ...defaultStagePkg, ...(pricingDoc.data().stagePkgPrices || {}) };
+    }
 
     const subjectsByGrade = {};
     subjectsSnap.docs.forEach(d => {
       const s = d.data();
       if (!subjectsByGrade[s.gradeId]) subjectsByGrade[s.gradeId] = [];
-      subjectsByGrade[s.gradeId].push({ id: d.id, name: s.name, image: s.image || null });
+      subjectsByGrade[s.gradeId].push({ id: d.id, name: s.name, image: s.image || null, price: s.price || 0 });
     });
 
     TB_GRADES = {};
     gradesSnap.docs.forEach(d => {
       const g = d.data();
-      TB_GRADES[d.id] = { name: g.name, stage: g.stage, pkg: g.pkgPrice, books: subjectsByGrade[d.id] || [] };
+      TB_GRADES[d.id] = { name: g.name, stage: g.stage, pkg: stagePkgPrices[g.stage] || 20000, books: subjectsByGrade[d.id] || [] };
     });
   } catch(e) { console.error('tbLoadData error', e); }
 }
@@ -6225,7 +6336,7 @@ function openGrade(gradeId) {
         <svg width="11" height="9" viewBox="0 0 12 10" fill="none"><path d="M1 5L4.5 8.5L11 1.5" stroke="#0f2744" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       <span class="book-name">${b.name}</span>
-      <span class="book-price-tag" id="bpt-${i}"></span>
+      <span class="book-price-tag" id="bpt-${i}">${b.price > 0 ? b.price.toLocaleString() + ' د' : ''}</span>
     </div>`).join('');
 
   updatePkgCard();
@@ -6265,12 +6376,24 @@ function calcBookPrice(count) {
   if (count <= TB_PRICING.tier1Max) return count * TB_PRICING.tier1Price;
   return count * TB_PRICING.tier2Price;
 }
+function calcBooksTotal(gradeId, bookNames) {
+  const g = TB_GRADES[gradeId];
+  if (!g) return calcBookPrice(bookNames.length);
+  let total = 0, unpricedCount = 0;
+  bookNames.forEach(name => {
+    const book = g.books.find(b => b.name === name);
+    if (book && book.price > 0) total += book.price;
+    else unpricedCount++;
+  });
+  if (unpricedCount > 0) total += calcBookPrice(unpricedCount);
+  return total;
+}
 
 function updateMiniSum() {
   const ms = document.getElementById('miniSum');
   if (currentIsPkg || currentSelBooks.length === 0) { ms.classList.add('hidden'); return; }
   ms.classList.remove('hidden');
-  const price = calcBookPrice(currentSelBooks.length);
+  const price = calcBooksTotal(currentGrade, currentSelBooks);
   document.getElementById('miniCount').textContent = currentSelBooks.length;
   document.getElementById('miniAmt').textContent = price.toLocaleString();
 }
@@ -6284,7 +6407,7 @@ function confirmGradeSelection() {
   if (currentIsPkg) {
     cart[currentGrade] = { type:'pkg', books: g.books.map(b=>b.name), pkgPrice:g.pkg, delivery:0 };
   } else {
-    const bp = calcBookPrice(currentSelBooks.length);
+    const bp = calcBooksTotal(currentGrade, currentSelBooks);
     cart[currentGrade] = { type:'books', books:[...currentSelBooks], pkgPrice:0, booksPrice:bp, delivery:4000 };
   }
   tbUpdateGradeCards();
@@ -6347,6 +6470,9 @@ function goToCart() {
   showPage('pageCart');
 }
 
+function cartHasPackage() {
+  return Object.values(cart).some(c => c.type === 'pkg');
+}
 function renderCart() {
   const content = document.getElementById('cartContent');
   const totalCard = document.getElementById('cartTotalCard');
@@ -6358,41 +6484,42 @@ function renderCart() {
     return;
   }
 
-  let booksTotal = 0, deliveryTotal = 0, hasFreeDelivery = false, hasPaidDelivery = false;
+  const hasPkg = cartHasPackage();
+  let booksTotal = 0, deliveryTotal = 0;
 
   content.innerHTML = grades.map(gid => {
     const g = TB_GRADES[gid];
     const c = cart[gid];
     const isPkg = c.type === 'pkg';
-    const price = isPkg ? c.pkgPrice : c.booksPrice;
+    let price, delivery;
+    if (isPkg) { price = c.pkgPrice; delivery = 0; }
+    else {
+      // مع وجود بكج بأي صف آخر بالسلة: السعر المفرد يصير أرخص (سعر الفئة الثانية) والتوصيل مجاني
+      price = hasPkg ? c.books.length * TB_PRICING.tier2Price : c.booksPrice;
+      delivery = hasPkg ? 0 : c.delivery;
+    }
     booksTotal += price;
-    if (isPkg) hasFreeDelivery = true;
-    else { deliveryTotal += c.delivery; hasPaidDelivery = true; }
+    deliveryTotal += delivery;
 
+    const perBookPrice = isPkg ? 0 : (hasPkg ? TB_PRICING.tier2Price : (c.books.length<=TB_PRICING.tier1Max?TB_PRICING.tier1Price:TB_PRICING.tier2Price));
     const booksHtml = c.books.map(b => `
       <div class="cart-item-row">
         <span class="cart-item-name">📗 ${b}</span>
-        ${isPkg ? '' : `<span class="cart-item-price">${(c.books.length<=TB_PRICING.tier1Max?TB_PRICING.tier1Price:TB_PRICING.tier2Price).toLocaleString()} د</span>`}
+        ${isPkg ? '' : `<span class="cart-item-price">${perBookPrice.toLocaleString()} د</span>`}
         ${isPkg ? '' : `<button class="cart-item-del" onclick="removeBook('${gid}','${b.replace(/'/g,"\\'")}')">حذف</button>`}
       </div>`).join('');
 
     return `<div class="cart-grade-block">
       <div class="cart-grade-hdr">
-        <span>${g.name} — ${isPkg ? 'بكج كامل' : c.books.length+' كتاب'} (${price.toLocaleString()} د${isPkg?'':' + توصيل '+c.delivery.toLocaleString()+' د'})</span>
+        <span>${g.name} — ${isPkg ? 'بكج كامل' : c.books.length+' كتاب'} (${price.toLocaleString()} د${(isPkg||delivery===0)?' + توصيل مجاني':' + توصيل '+delivery.toLocaleString()+' د'})</span>
         <button class="remove-grade" onclick="removeGrade('${gid}')">حذف الصف</button>
       </div>
       ${booksHtml}
     </div>`;
   }).join('');
 
-  let deliveryLabel, grandTotal;
-  if (hasFreeDelivery && !hasPaidDelivery) {
-    deliveryLabel = 'مجاني 🎉';
-    grandTotal = booksTotal;
-  } else {
-    deliveryLabel = deliveryTotal.toLocaleString() + ' دينار';
-    grandTotal = booksTotal + deliveryTotal;
-  }
+  const deliveryLabel = deliveryTotal === 0 ? 'مجاني 🎉' : deliveryTotal.toLocaleString() + ' دينار';
+  const grandTotal = booksTotal + deliveryTotal;
 
   document.getElementById('ctBooks').textContent = booksTotal.toLocaleString() + ' دينار';
   document.getElementById('ctDelivery').textContent = deliveryLabel;
@@ -6404,7 +6531,7 @@ function removeBook(gid, bookName) {
   const c = cart[gid];
   c.books = c.books.filter(b => b !== bookName);
   if (c.books.length === 0) { removeGrade(gid); return; }
-  c.booksPrice = calcBookPrice(c.books.length);
+  c.booksPrice = calcBooksTotal(gid, c.books);
   c.delivery = 4000;
   tbUpdateGradeCards();
   updateCartBar();
@@ -6455,12 +6582,14 @@ function goToConfirm() {
 }
 
 function fillConfirm() {
-  let booksTotal=0, deliveryTotal=0, delivFree=true;
+  const hasPkg = cartHasPackage();
+  let booksTotal=0, deliveryTotal=0;
   const bHtml = Object.keys(cart).map(gid => {
     const g=TB_GRADES[gid], c=cart[gid];
-    const price = c.type==='pkg'?c.pkgPrice:c.booksPrice;
+    const isPkg = c.type==='pkg';
+    const price = isPkg ? c.pkgPrice : (hasPkg ? c.books.length * TB_PRICING.tier2Price : c.booksPrice);
     booksTotal+=price;
-    if(c.type!=='pkg'){deliveryTotal+=c.delivery;delivFree=false;}
+    if (!isPkg && !hasPkg) deliveryTotal+=c.delivery;
     const typeLabel=c.type==='pkg'?'بكج كامل':c.books.length+' كتاب';
     const booksList=c.books.map(b=>`<div style="font-size:.75rem;color:var(--gray600);padding:2px 0;border-bottom:1px dashed var(--gray200)">📗 ${b}</div>`).join('');
     return `<div class="confirm-row" style="flex-direction:column;align-items:flex-start;gap:6px">
@@ -6472,7 +6601,7 @@ function fillConfirm() {
     </div>`;
   }).join('');
 
-  const grand = booksTotal+(delivFree?0:deliveryTotal);
+  const grand = booksTotal + deliveryTotal;
   document.getElementById('cfBooks').innerHTML = bHtml + `
     <div style="background:linear-gradient(135deg,#fdf4db,#fdf8ef);border-radius:8px;padding:10px 12px;margin-top:10px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:.85rem;font-weight:800;color:var(--navy)">المجموع الكلي</span>
@@ -6486,27 +6615,29 @@ function fillConfirm() {
   if(delivery.phone2){document.getElementById('cfPhone2').textContent=delivery.phone2;p2r.style.display='flex';}else{p2r.style.display='none';}
   const lmr=document.getElementById('cfLmRow');
   if(delivery.landmark){document.getElementById('cfLandmark').textContent=delivery.landmark;lmr.style.display='flex';}else{lmr.style.display='none';}
-  document.getElementById('cfDeliveryNote').textContent = delivFree ? 'التوصيل مجاني لأن طلبك يشمل بكج كامل 🎉' : 'التوصيل ٤,٠٠٠ دينار — الدفع عند الاستلام';
+  document.getElementById('cfDeliveryNote').textContent = deliveryTotal === 0 ? 'التوصيل مجاني 🎉' : `التوصيل ${deliveryTotal.toLocaleString()} دينار — الدفع عند الاستلام`;
 }
 
 // ── WhatsApp ──
 function sendWhatsApp() {
-  let booksTotal=0, deliveryTotal=0, delivFree=true;
+  const hasPkg = cartHasPackage();
+  let booksTotal=0, deliveryTotal=0;
   let lines = '';
 
   Object.keys(cart).forEach(gid => {
     const g=TB_GRADES[gid], c=cart[gid];
-    const price=c.type==='pkg'?c.pkgPrice:c.booksPrice;
+    const isPkg = c.type==='pkg';
+    const price = isPkg ? c.pkgPrice : (hasPkg ? c.books.length * TB_PRICING.tier2Price : c.booksPrice);
     booksTotal+=price;
-    if(c.type!=='pkg'){deliveryTotal+=c.delivery;delivFree=false;}
-    const typeLabel=c.type==='pkg'?'بكج كامل (جميع الكتب)':c.books.length+' كتاب مختار';
+    if (!isPkg && !hasPkg) deliveryTotal+=c.delivery;
+    const typeLabel=isPkg?'بكج كامل (جميع الكتب)':c.books.length+' كتاب مختار';
     lines+=`${g.name} — ${typeLabel}\n`;
     c.books.forEach(b=>{ lines+=`   • ${b}\n`; });
     lines+=`   السعر: ${price.toLocaleString()} دينار\n\n`;
   });
 
-  const grand=booksTotal+(delivFree?0:deliveryTotal);
-  const delivLabel=delivFree?'مجاني 🎉':deliveryTotal.toLocaleString()+' دينار';
+  const grand=booksTotal+deliveryTotal;
+  const delivLabel=deliveryTotal===0?'مجاني 🎉':deliveryTotal.toLocaleString()+' دينار';
 
   let msg=`📚 مطبعة الكوثر — طلب حجز كتب\n`;
   msg+=`✨✨✨✨✨✨✨✨✨✨\n\n`;
@@ -6531,6 +6662,22 @@ async function openTextbooksScreen() {
   tbRenderStageBlocks();
   updateCartBar();
 }
+
+// تعريض الدوال اللي تُستدعى من onclick="" بالـHTML للنطاق العام (window)،
+// لأن الكود هنا كله محاط بدالة IIFE معزولة، وخاصية onclick بالـHTML تنفّذ بالنطاق العام دائماً
+window.openTextbooksScreen = openTextbooksScreen;
+window.openGrade = openGrade;
+window.togglePackage = togglePackage;
+window.toggleBook = toggleBook;
+window.confirmGradeSelection = confirmGradeSelection;
+window.goToGrades = goToGrades;
+window.goToCartFromGrades = goToCartFromGrades;
+window.goToCart = goToCart;
+window.removeBook = removeBook;
+window.removeGrade = removeGrade;
+window.goToDelivery = goToDelivery;
+window.goToConfirm = goToConfirm;
+window.sendWhatsApp = sendWhatsApp;
 
 })();
 </script>
