@@ -2873,7 +2873,7 @@ async function showMyOrders(phoneOverride) {
     for (const d of snap.docs) {
       const o = d.data();
       const effectiveStatus = computeEffectiveStatus(o);
-      if (effectiveStatus !== o.status && (o.status === 'pending' || o.status === 'processing')) {
+      if (effectiveStatus !== o.status && (o.status === 'pending' || o.status === 'processing' || o.status === 'delivering')) {
         await db.collection('orders').doc(d.id).update({ status: effectiveStatus });
       }
       o.status = effectiveStatus;
@@ -3849,28 +3849,20 @@ function formatOrderTime(ts) {
   return new Date(ts).toLocaleString('ar-EG', { dateStyle:'medium', timeStyle:'short' });
 }
 
-// حساب حالة الطلب الفعلية بناءً على وقت "نسخ الطلب" من قبل الموظف، وقاعدة الساعة 6 عصراً:
-// - نُسخ قبل 6 عصراً: يصير "قيد التنفيذ" فوراً (لون أزرق)، و"قيد التوصيل" الساعة 7 صباح اليوم التالي
-// - نُسخ بعد 6 عصراً: يبقى "قيد التحضير" لين الساعة 7 صباح اليوم التالي (يصير عندها "قيد التنفيذ")، و"قيد التوصيل" الساعة 7 صباح اليوم اللي بعده
-function at7AM(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 7, 0, 0, 0).getTime(); }
-function addDays(ts, days) { const d = new Date(ts); d.setDate(d.getDate() + days); return d; }
+// حساب حالة الطلب تلقائياً حسب عدد الأيام منذ تاريخ الحجز نفسه (بدون أي شرط بنسخ الموظف):
+// - يوم الحجز نفسه: قيد التنفيذ
+// - اليوم التالي: قيد التوصيل
+// - اليوم اللي بعده: تم التسليم
+// ملاحظة: لو الموظف/المشرف غيّر الحالة يدوياً (تم التسليم/ملغى) تبقى كما حددها ولا يتم تجاوزها تلقائياً
 function computeEffectiveStatus(order) {
-  if (order.status === 'completed' || order.status === 'cancelled') return order.status;
-  if (!order.processingAt) return 'pending'; // ما انسخ بعد من قبل الموظف
-  const copiedAt = new Date(order.processingAt);
-  const isBeforeCutoff = copiedAt.getHours() < 18; // قبل الساعة 6 عصراً
-  let processingStartsAt, deliveringStartsAt;
-  if (isBeforeCutoff) {
-    processingStartsAt = order.processingAt; // فوراً
-    deliveringStartsAt = at7AM(addDays(order.processingAt, 1));
-  } else {
-    processingStartsAt = at7AM(addDays(order.processingAt, 1));
-    deliveringStartsAt = at7AM(addDays(order.processingAt, 2));
-  }
-  const now = Date.now();
-  if (now >= deliveringStartsAt) return 'delivering';
-  if (now >= processingStartsAt) return 'processing';
-  return 'pending';
+  if (order.status === 'cancelled' || order.status === 'completed') return order.status;
+  const orderDay = new Date(order.createdAt);
+  const orderDayStart = new Date(orderDay.getFullYear(), orderDay.getMonth(), orderDay.getDate()).getTime();
+  const todayStart = new Date().setHours(0,0,0,0);
+  const daysPassed = Math.round((todayStart - orderDayStart) / (24*60*60*1000));
+  if (daysPassed >= 2) return 'completed';
+  if (daysPassed >= 1) return 'delivering';
+  return 'processing';
 }
 
 function buildOrderBlock(o) {
@@ -3976,7 +3968,7 @@ async function loadOrdersAdmin() {
   for (const d of snap.docs) {
     const o = d.data();
     const effectiveStatus = computeEffectiveStatus(o);
-    if (effectiveStatus !== o.status && (o.status === 'pending' || o.status === 'processing')) {
+    if (effectiveStatus !== o.status && (o.status === 'pending' || o.status === 'processing' || o.status === 'delivering')) {
       await db.collection('orders').doc(d.id).update({ status: effectiveStatus });
     }
     o.status = effectiveStatus;
