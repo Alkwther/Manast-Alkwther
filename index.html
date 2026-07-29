@@ -746,7 +746,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <div class="badge">دخول</div>
     </div>
 
-    <div class="subject-tile" onclick="show('screen-library');">
+    <div class="subject-tile" onclick="show('screen-library'); checkReturningCustomer();">
       <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📚</span><div><b>المكتبة</b><br><span style="font-size:12px;color:#8a90a3;">تصفح واطلب الكتب والملازم</span></div></div>
       <div class="badge">تصفح</div>
     </div>
@@ -1135,6 +1135,12 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
   <!-- مكتبة الكتب والملازم -->
   <div class="screen hidden" id="screen-library">
     <button class="btn secondary" onclick="show('screen-welcome')">← رجوع</button>
+    <div id="returningCustomerNotice"></div>
+
+    <div class="subject-tile" onclick="showMyOrders()">
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📦</span><div><b>طلباتي</b><br><span style="font-size:12px;color:#8a90a3;">تابع حالة طلباتك السابقة</span></div></div>
+      <div class="badge">عرض</div>
+    </div>
 
     <div class="subject-tile" onclick="show('screen-library-booklets'); loadLibrary();">
       <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📦</span><div><b>الملازم</b><br><span style="font-size:12px;color:#8a90a3;">ملازم الأساتذة حسب المرحلة والصف</span></div></div>
@@ -1438,7 +1444,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
         </div>
         <div class="admin-menu-item" data-section="library-booklets" data-permission="library">
           <div class="admin-menu-icon">📦</div>
-          <div class="admin-menu-text"><b>الملازم</b><span>مراحل، صفوف، إضافة وتعديل ملازم الأساتذة</span></div>
+          <div class="admin-menu-text"><b>الملازم <span id="ordersUnreadBadge" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></b><span>مراحل، صفوف، إضافة وتعديل ملازم الأساتذة، الطلبات</span></div>
           <div class="admin-menu-arrow">‹</div>
         </div>
         <div class="admin-menu-item" data-section="library-textbooks" data-permission="library">
@@ -2712,12 +2718,34 @@ function renderCartItems() {
   list.innerHTML = ids.map(id => {
     const it = cart[id];
     subtotal += it.price * it.qty;
-    return `<div class="lesson-row"><div class="title">${it.title} × ${it.qty}</div><div>${it.price * it.qty} د.ع</div></div>`;
+    return `<div class="lesson-row" style="flex-wrap:wrap;gap:8px;">
+      <div class="title" style="flex:1;min-width:150px;">${it.title}<br><span style="color:#8a90a3;font-size:12px;">${it.price} د.ع × ${it.qty} = ${it.price * it.qty} د.ع</span></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="small-btn" onclick="changeCartItemQty('${id}',-1)">−</button>
+        <span style="min-width:16px;text-align:center;">${it.qty}</span>
+        <button class="small-btn" onclick="changeCartItemQty('${id}',1)">+</button>
+        <button class="small-btn" onclick="removeCartItem('${id}')">🗑️</button>
+      </div>
+    </div>`;
   }).join('');
   const deliveryFee = calcCartDeliveryFee();
   document.getElementById('cartSubtotal').textContent = subtotal + ' د.ع';
   document.getElementById('cartDeliveryFee').textContent = deliveryFee === 0 ? 'مجاني 🎉' : deliveryFee + ' د.ع';
   document.getElementById('cartTotal').textContent = (subtotal + deliveryFee) + ' د.ع';
+}
+function changeCartItemQty(id, delta) {
+  if (!cart[id]) return;
+  cart[id].qty += delta;
+  if (cart[id].qty <= 0) delete cart[id];
+  saveCartToStorage();
+  renderCartItems();
+  renderCartBar();
+}
+function removeCartItem(id) {
+  delete cart[id];
+  saveCartToStorage();
+  renderCartItems();
+  renderCartBar();
 }
 document.getElementById('backToLibrary').onclick = () => show('screen-library-booklets');
 document.getElementById('backToLibrary2').onclick = () => show('screen-library-booklets');
@@ -2750,8 +2778,37 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
   } catch(e) { setMsg('checkoutMsg','خطأ بالاتصال', false); console.error(e); }
 };
 
+async function checkReturningCustomer() {
+  const notice = document.getElementById('returningCustomerNotice');
+  notice.innerHTML = '';
+  let phone = null;
+  try {
+    const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
+    if (saved && saved.phone) phone = saved.phone;
+  } catch(e) { console.error(e); }
+  if (!phone) return;
+  try {
+    const snap = await db.collection('orders').where('studentPhone','==', phone).get();
+    const activeCount = snap.docs.filter(d => {
+      const s = d.data().status;
+      return s !== 'completed' && s !== 'cancelled';
+    }).length;
+    if (activeCount > 0) {
+      notice.innerHTML = `<div class="card" style="background:#ecfdf3;border:1px solid #86efac;cursor:pointer;" onclick="showMyOrders()">
+        <p style="margin:0;color:#15803d;font-weight:bold;">👋 أهلاً بعودتك! عندك ${activeCount} طلب قيد التنفيذ — اضغط هنا لعرض حالته</p>
+      </div>`;
+    }
+  } catch(e) { console.error(e); }
+}
+
 async function showMyOrders(phoneOverride) {
   let phone = phoneOverride || (currentStudent ? currentStudent.phone : null);
+  if (!phone) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
+      if (saved && saved.phone) phone = saved.phone;
+    } catch(e) { console.error(e); }
+  }
   if (!phone) {
     phone = prompt('أدخل رقم الهاتف اللي استخدمته بالطلب:');
     if (!phone) return;
@@ -2764,10 +2821,11 @@ async function showMyOrders(phoneOverride) {
     const rows = [];
     for (const d of snap.docs) {
       const o = d.data();
-      if (o.status === 'processing' && Date.now() >= nextSevenAM(o.processingAt || o.createdAt)) {
-        await db.collection('orders').doc(d.id).update({ status: 'delivering' });
-        o.status = 'delivering';
+      const effectiveStatus = computeEffectiveStatus(o);
+      if (effectiveStatus !== o.status && (o.status === 'pending' || o.status === 'processing')) {
+        await db.collection('orders').doc(d.id).update({ status: effectiveStatus });
       }
+      o.status = effectiveStatus;
       rows.push(o);
     }
     list.innerHTML = rows.map(o => {
@@ -2812,7 +2870,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.classList.add('active');
     const target = btn.dataset.target;
     if (target === 'screen-home') { show('screen-home'); loadHome(); }
-    else if (target === 'screen-library') { show('screen-library'); }
+    else if (target === 'screen-library') { show('screen-library'); checkReturningCustomer(); }
     else show(target);
   };
 });
@@ -3453,28 +3511,46 @@ async function seedDefaultTbSubjectsIfNeeded() {
 // تنظيف التكرار الحالي (لو صار تكرار بسبب استدعاء الزرع أكثر من مرة بنفس اللحظة)
 async function cleanupDuplicateTbGrades() {
   const gradesSnap = await db.collection('textbookGrades').orderBy('createdAt','asc').get();
-  const seenNames = new Set();
-  const dupGradeIds = [];
+  const keeperIdByName = {};
+  const dupToKeeper = {}; // duplicateGradeId -> keeperGradeId
   gradesSnap.docs.forEach(d => {
     const name = d.data().name;
-    if (seenNames.has(name)) dupGradeIds.push(d.id);
-    else seenNames.add(name);
+    if (keeperIdByName[name]) dupToKeeper[d.id] = keeperIdByName[name];
+    else keeperIdByName[name] = d.id;
   });
+  const dupGradeIds = Object.keys(dupToKeeper);
 
-  const subjectsSnap = await db.collection('textbookSubjects').orderBy('createdAt','asc').get();
+  // الخطوة 1: نعيد ربط أي مادة كانت تابعة لصف مكرّر إلى الصف الأساسي (الأول) بدل ما تختفي
+  const subjectsSnap = await db.collection('textbookSubjects').get();
+  const reassignPromises = [];
+  subjectsSnap.docs.forEach(d => {
+    const s = d.data();
+    if (dupToKeeper[s.gradeId]) {
+      reassignPromises.push(db.collection('textbookSubjects').doc(d.id).update({ gradeId: dupToKeeper[s.gradeId] }));
+    }
+  });
+  if (reassignPromises.length) await Promise.all(reassignPromises);
+
+  // الخطوة 2: بعد إعادة الربط، نحذف أي مادة صارت مكرّرة بنفس الصف (نفس الاسم)
+  const subjectsSnap2 = await db.collection('textbookSubjects').get();
   const seenSubjectKeys = new Set();
   const dupSubjectIds = [];
-  subjectsSnap.docs.forEach(d => {
+  subjectsSnap2.docs.forEach(d => {
     const s = d.data();
     const key = s.gradeId + '__' + s.name;
     if (seenSubjectKeys.has(key)) dupSubjectIds.push(d.id);
     else seenSubjectKeys.add(key);
   });
 
+  // الخطوة 3: نحذف الصفوف المكرّرة نفسها (بعد ما نقلنا موادها بأمان)
   await Promise.all([
     ...dupGradeIds.map(id => db.collection('textbookGrades').doc(id).delete()),
     ...dupSubjectIds.map(id => db.collection('textbookSubjects').doc(id).delete())
   ]);
+
+  // الخطوة 4: نعيد تشغيل الزرع الافتراضي حتى ترجع أي مادة كانت ناقصة أصلاً لأي صف
+  await seedDefaultTbSubjectsIfNeeded();
+
   return { removedGrades: dupGradeIds.length, removedSubjects: dupSubjectIds.length };
 }
 async function cleanupDuplicateBooklets() {
@@ -3706,10 +3782,10 @@ document.getElementById('saveLibraryPhoneBtn').onclick = async () => {
   alert('تم حفظ رقم المكتبة ✅');
 };
 
-const ORDER_STATUS_LABELS = { pending:'⏳ قيد المراجعة', processing:'🛠️ قيد التنفيذ', delivering:'🚚 قيد التوصيل', completed:'✅ تم التسليم', cancelled:'❌ ملغى' };
+const ORDER_STATUS_LABELS = { pending:'📦 قيد التحضير', processing:'🛠️ قيد التنفيذ', delivering:'🚚 قيد التوصيل', completed:'✅ تم التسليم', cancelled:'❌ ملغى' };
 const ORDER_STATUS_STYLE = {
   pending: 'background:#fff;border-color:rgba(16,32,63,.05);',
-  processing: 'background:#ecfdf3;border-color:#86efac;',
+  processing: 'background:#eff6ff;border-color:#93c5fd;',
   delivering: 'background:#ecfdf3;border-color:#86efac;',
   completed: 'background:#eef1f8;border-color:#c7d0e6;',
   cancelled: 'background:#fef2f2;border-color:#fecaca;'
@@ -3717,11 +3793,29 @@ const ORDER_STATUS_STYLE = {
 function formatOrderTime(ts) {
   return new Date(ts).toLocaleString('ar-EG', { dateStyle:'medium', timeStyle:'short' });
 }
-function nextSevenAM(ts) {
-  const d = new Date(ts);
-  const candidate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 7, 0, 0, 0);
-  if (candidate.getTime() <= ts) candidate.setDate(candidate.getDate() + 1);
-  return candidate.getTime();
+
+// حساب حالة الطلب الفعلية بناءً على وقت "نسخ الطلب" من قبل الموظف، وقاعدة الساعة 6 عصراً:
+// - نُسخ قبل 6 عصراً: يصير "قيد التنفيذ" فوراً (لون أزرق)، و"قيد التوصيل" الساعة 7 صباح اليوم التالي
+// - نُسخ بعد 6 عصراً: يبقى "قيد التحضير" لين الساعة 7 صباح اليوم التالي (يصير عندها "قيد التنفيذ")، و"قيد التوصيل" الساعة 7 صباح اليوم اللي بعده
+function at7AM(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 7, 0, 0, 0).getTime(); }
+function addDays(ts, days) { const d = new Date(ts); d.setDate(d.getDate() + days); return d; }
+function computeEffectiveStatus(order) {
+  if (order.status === 'completed' || order.status === 'cancelled') return order.status;
+  if (!order.processingAt) return 'pending'; // ما انسخ بعد من قبل الموظف
+  const copiedAt = new Date(order.processingAt);
+  const isBeforeCutoff = copiedAt.getHours() < 18; // قبل الساعة 6 عصراً
+  let processingStartsAt, deliveringStartsAt;
+  if (isBeforeCutoff) {
+    processingStartsAt = order.processingAt; // فوراً
+    deliveringStartsAt = at7AM(addDays(order.processingAt, 1));
+  } else {
+    processingStartsAt = at7AM(addDays(order.processingAt, 1));
+    deliveringStartsAt = at7AM(addDays(order.processingAt, 2));
+  }
+  const now = Date.now();
+  if (now >= deliveringStartsAt) return 'delivering';
+  if (now >= processingStartsAt) return 'processing';
+  return 'pending';
 }
 
 function buildOrderBlock(o) {
@@ -3764,24 +3858,36 @@ async function robustCopy(text) {
 async function loadOrdersAdmin() {
   const snap = await db.collection('orders').orderBy('createdAt','desc').limit(50).get();
   const list = document.getElementById('ordersAdminList');
+
+  // شارة الطلبات الجديدة (لسا ما انسخت من قبل الموظف/المشرف)
+  const newCount = snap.docs.filter(d => !d.data().processingAt && d.data().status !== 'cancelled' && d.data().status !== 'completed').length;
+  const badge = document.getElementById('ordersUnreadBadge');
+  if (badge) {
+    if (newCount > 0) { badge.textContent = newCount; badge.classList.remove('hidden'); }
+    else badge.classList.add('hidden');
+  }
+
   if (snap.empty) { list.innerHTML = '<p>لا توجد طلبات بعد.</p>'; return; }
 
-  // ترقية تلقائية: أي طلب "قيد التنفيذ" منذ الساعة 7 صباحاً التالية يصبح "قيد التوصيل"
+  // ترقية تلقائية للحالة حسب قاعدة الساعة 6 عصراً (نسخ الطلب قبل/بعد هذا الوقت)
   const rows = [];
   for (const d of snap.docs) {
     const o = d.data();
-    if (o.status === 'processing' && Date.now() >= nextSevenAM(o.processingAt || o.createdAt)) {
-      await db.collection('orders').doc(d.id).update({ status: 'delivering' });
-      o.status = 'delivering';
+    const effectiveStatus = computeEffectiveStatus(o);
+    if (effectiveStatus !== o.status && (o.status === 'pending' || o.status === 'processing')) {
+      await db.collection('orders').doc(d.id).update({ status: effectiveStatus });
     }
+    o.status = effectiveStatus;
     rows.push({ id: d.id, o });
   }
 
   list.innerHTML = rows.map(({id, o}) => {
     const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
     const style = ORDER_STATUS_STYLE[o.status] || '';
+    const isNew = !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed';
     return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;border-width:1.5px;${style}">
       <div style="margin-bottom:6px;">
+        ${isNew ? '<span style="background:#dc2626;color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">🆕 جديد</span> ' : ''}
         <span style="color:#8a90a3;font-size:12px;">🕒 ${formatOrderTime(o.createdAt)}</span><br>
         <b>${o.studentName}</b> — ${o.phone}${o.altPhone ? ' / '+o.altPhone : ''}<br>
         <span style="color:#888;">${o.province} - ${o.district}</span><br>
@@ -3893,15 +3999,16 @@ async function settleTeacherEarnings(teacherName) {
 
 document.getElementById('copyAllOrdersBtn').onclick = async () => {
   const snap = await db.collection('orders').where('status','==','pending').orderBy('createdAt','asc').get();
-  if (snap.empty) { alert('لا توجد طلبات جديدة بانتظار النسخ.'); return; }
-  const fullText = snap.docs.map(d => buildOrderBlock(d.data())).join('\n\n');
+  const notCopiedDocs = snap.docs.filter(d => !d.data().processingAt);
+  if (notCopiedDocs.length === 0) { alert('لا توجد طلبات جديدة بانتظار النسخ.'); return; }
+  const fullText = notCopiedDocs.map(d => buildOrderBlock(d.data())).join('\n\n');
   await robustCopy(fullText);
-  // تحديث كل الطلبات المنسوخة إلى "قيد التنفيذ" — يتم دائماً بغض النظر عن نجاح النسخ التلقائي
+  // تحديث وقت النسخ فقط — الحالة المعروضة للزبون تُحسب تلقائياً بمرور الوقت عبر computeEffectiveStatus
   const now = Date.now();
-  await Promise.all(snap.docs.map(d => db.collection('orders').doc(d.id).update({ status:'processing', processingAt: now })));
+  await Promise.all(notCopiedDocs.map(d => db.collection('orders').doc(d.id).update({ processingAt: now })));
   const btn = document.getElementById('copyAllOrdersBtn');
   const original = btn.textContent;
-  btn.textContent = '✅ تم النسخ — الطلبات الآن قيد التنفيذ';
+  btn.textContent = '✅ تم النسخ — الحالة تتحدّث تلقائياً للزبون';
   setTimeout(() => { btn.textContent = original; }, 2500);
   loadOrdersAdmin();
 };
