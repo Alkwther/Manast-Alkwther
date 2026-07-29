@@ -2802,17 +2802,7 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
   const deliveryFee = calcCartDeliveryFee();
   const totalPrice = subtotal + deliveryFee;
   try {
-    // نتأكد إن تسجيل الدخول المجهول (اللي يتطلبه Firestore لأي كتابة) اكتمل فعلياً قبل محاولة الإرسال،
-    // لأن أحياناً يكون ما اكتمل بعد لو المستخدم أسرع بإكمال الطلب
-    if (!auth.currentUser) {
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('تعذّر تسجيل الدخول التلقائي، تأكد من اتصالك بالإنترنت وحاول مرة أخرى')), 8000);
-        const unsub = auth.onAuthStateChanged(user => {
-          if (user) { clearTimeout(timeout); unsub(); resolve(); }
-        });
-        auth.signInAnonymously().catch(err => { clearTimeout(timeout); unsub(); reject(err); });
-      });
-    }
+    await ensureAuthed();
     await db.collection('orders').add({
       studentPhone: currentStudent ? currentStudent.phone : phone,
       studentName: name,
@@ -2836,6 +2826,7 @@ async function checkReturningCustomer() {
   } catch(e) { console.error(e); }
   if (!phone) return;
   try {
+    await ensureAuthed();
     const snap = await db.collection('orders').where('studentPhone','==', phone).get();
     const activeCount = snap.docs.filter(d => {
       const s = d.data().status;
@@ -2847,6 +2838,19 @@ async function checkReturningCustomer() {
       </div>`;
     }
   } catch(e) { console.error(e); }
+}
+
+// نتأكد إن تسجيل الدخول المجهول (اللي يتطلبه Firestore لأي قراءة أو كتابة) اكتمل فعلياً،
+// لأن أحياناً يفتح المستخدم صفحة تحتاج بيانات محمية قبل ما يكتمل هذا التسجيل بالخلفية
+async function ensureAuthed() {
+  if (auth.currentUser) return;
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('تعذّر تسجيل الدخول التلقائي، تأكد من اتصالك بالإنترنت وحاول مرة أخرى')), 8000);
+    const unsub = auth.onAuthStateChanged(user => {
+      if (user) { clearTimeout(timeout); unsub(); resolve(); }
+    });
+    auth.signInAnonymously().catch(err => { clearTimeout(timeout); unsub(); reject(err); });
+  });
 }
 
 async function showMyOrders(phoneOverride) {
@@ -2866,6 +2870,7 @@ async function showMyOrders(phoneOverride) {
   const list = document.getElementById('myOrdersList');
   list.innerHTML = '<p>جاري التحميل...</p>';
   try {
+    await ensureAuthed();
     // فلتر مساواة وحيد بلا orderBy بالاستعلام نفسه (يتجنب الحاجة لفهرس مركّب)، والترتيب يصير محلياً
     const snap = await db.collection('orders').where('studentPhone','==', phone).get();
     if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد طلبات بعد.</p></div>'; return; }
