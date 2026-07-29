@@ -2852,10 +2852,13 @@ async function showMyOrders(phoneOverride) {
     if (!phone) return;
     phone = phone.trim();
   }
-  const snap = await db.collection('orders').where('studentPhone','==', phone).orderBy('createdAt','desc').get();
+  show('screen-my-orders'); // نفتح الشاشة فوراً حتى لو صار تأخير أو خطأ بتحميل الطلبات
   const list = document.getElementById('myOrdersList');
-  if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد طلبات بعد.</p></div>'; }
-  else {
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    // فلتر مساواة وحيد بلا orderBy بالاستعلام نفسه (يتجنب الحاجة لفهرس مركّب)، والترتيب يصير محلياً
+    const snap = await db.collection('orders').where('studentPhone','==', phone).get();
+    if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد طلبات بعد.</p></div>'; return; }
     const rows = [];
     for (const d of snap.docs) {
       const o = d.data();
@@ -2866,6 +2869,7 @@ async function showMyOrders(phoneOverride) {
       o.status = effectiveStatus;
       rows.push(o);
     }
+    rows.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
     list.innerHTML = rows.map(o => {
       const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
       return `<div class="card">
@@ -2877,8 +2881,10 @@ async function showMyOrders(phoneOverride) {
         ${o.status !== 'completed' && o.status !== 'cancelled' ? `<p>📞 للتعديل أو الإلغاء تواصل مع المكتبة: <b>${libraryPhone}</b></p>` : ''}
       </div>`;
     }).join('');
+  } catch(e) {
+    console.error(e);
+    list.innerHTML = `<div class="card" style="background:#fef2f2;"><p style="color:#b91c1c;">⚠️ تعذّر تحميل طلباتك: ${e.message || 'خطأ غير معروف'}</p></div>`;
   }
-  show('screen-my-orders');
 }
 
 // ---------- تسجيل الخروج ----------
@@ -3860,17 +3866,41 @@ function computeEffectiveStatus(order) {
 }
 
 function buildOrderBlock(o) {
-  const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
-  return [
-    '————————————————',
-    `👤 الاسم: ${o.studentName}`,
-    `📞 الهاتف: ${o.phone}${o.altPhone ? ' / '+o.altPhone : ''}`,
-    `📍 العنوان: ${o.province} - ${o.district}`,
-    `📦 الطلب: ${itemsText}`,
-    `💰 المجموع: ${o.totalPrice} د.ع (مواد: ${o.subtotal||o.totalPrice} + توصيل: ${o.deliveryFee||0})`,
-    `🕒 الوقت: ${formatOrderTime(o.createdAt)}`,
-    '————————————————'
-  ].join('\n');
+  const packages = o.items.filter(it => it.bookId && it.bookId.startsWith('pkg_'));
+  const books = o.items.filter(it => it.bookId && it.bookId.startsWith('subj_'));
+  const notebooks = o.items.filter(it => it.bookId && it.bookId.startsWith('nb_'));
+  const booklets = o.items.filter(it => !it.bookId || (!it.bookId.startsWith('pkg_') && !it.bookId.startsWith('subj_') && !it.bookId.startsWith('nb_')));
+
+  const lines = ['📚 منصة الكوثر', '————————————————', `👤 ${o.studentName}`, ''];
+
+  if (packages.length) {
+    packages.forEach(it => lines.push(`📦 ${it.qty} × ${it.title} — ${(it.price*it.qty).toLocaleString()} د.ع`));
+    lines.push('');
+  }
+  if (books.length) {
+    books.forEach(it => lines.push(`📗 ${it.qty} × ${it.title} — ${(it.price*it.qty).toLocaleString()} د.ع`));
+    lines.push('');
+  }
+  if (booklets.length) {
+    booklets.forEach(it => lines.push(`📕 ${it.qty} × ${it.title} — ${(it.price*it.qty).toLocaleString()} د.ع`));
+    lines.push('');
+  }
+  if (notebooks.length) {
+    notebooks.forEach(it => lines.push(`📓 ${it.qty} × ${it.title} — ${(it.price*it.qty).toLocaleString()} د.ع`));
+    lines.push('');
+  }
+
+  lines.push(`🚚 التوصيل: ${o.deliveryFee ? o.deliveryFee.toLocaleString()+' د.ع' : 'مجاني'}`);
+  lines.push(`💰 المبلغ الكلي: ${o.totalPrice.toLocaleString()} د.ع`);
+  lines.push('————————————————');
+  lines.push(`📍 العنوان: ${o.province} - ${o.district}`);
+  if (o.landmark) lines.push(`📌 أقرب نقطة دالّة: ${o.landmark}`);
+  lines.push(`📞 رقم الهاتف: ${o.phone}`);
+  if (o.altPhone) lines.push(`📞 رقم هاتف آخر: ${o.altPhone}`);
+  lines.push('————————————————');
+  lines.push(`🕒 ${formatOrderTime(o.createdAt)}`);
+
+  return lines.join('\n');
 }
 
 // محاولة نسخ قوية: الحافظة الحديثة ← طريقة بديلة قديمة ← نافذة نسخ يدوية كحل أخير
@@ -3925,9 +3955,12 @@ async function loadOrdersAdmin() {
 
   list.innerHTML = rows.map(({id, o}) => {
     const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
-    const style = ORDER_STATUS_STYLE[o.status] || '';
-    const isNew = !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed';
-    return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;border-width:1.5px;${style}">
+    const isCopied = !!o.processingAt;
+    const cardStyle = isCopied
+      ? 'background:#ecfdf3;border:2px solid #16a34a;'
+      : 'background:#fef2f2;border:2px solid #dc2626;';
+    const isNew = !isCopied && o.status !== 'cancelled' && o.status !== 'completed';
+    return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;${cardStyle}">
       <div style="margin-bottom:6px;">
         ${isNew ? '<span style="background:#dc2626;color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">🆕 جديد</span> ' : ''}
         <span style="color:#8a90a3;font-size:12px;">🕒 ${formatOrderTime(o.createdAt)}</span><br>
@@ -3938,7 +3971,7 @@ async function loadOrdersAdmin() {
         الحالة: <b>${ORDER_STATUS_LABELS[o.status]||o.status}</b>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="small-btn" onclick="copySingleOrder('${id}')">📋 نسخ</button>
+        <button class="small-btn" onclick="copySingleOrder('${id}')" style="${isCopied?'background:#16a34a;color:#fff;':''}">${isCopied ? '✅ تم النسخ' : '📋 نسخ'}</button>
         <button class="small-btn" onclick="setOrderStatus('${id}','delivering')">🚚 قيد التوصيل</button>
         <button class="small-btn" onclick="setOrderStatus('${id}','completed')">✅ تم التسليم</button>
         <button class="small-btn" onclick="setOrderStatus('${id}','cancelled')">❌ إلغاء</button>
@@ -3953,7 +3986,11 @@ async function copySingleOrder(id) {
   if (!doc.exists) return;
   const o = doc.data();
   await robustCopy(buildOrderBlock(o));
-  await db.collection('orders').doc(id).update({ status:'processing', processingAt: Date.now() });
+  // لو أول مرة تُنسخ، نسجّل وقت النسخ (يبدأ حساب تطور الحالة تلقائياً من هذا الوقت)
+  // ولو انسخت من قبل، نسمح بإعادة النسخ العادية بدون ما نغيّر وقت النسخ الأصلي
+  if (!o.processingAt) {
+    await db.collection('orders').doc(id).update({ status:'processing', processingAt: Date.now() });
+  }
   loadOrdersAdmin();
 }
 
