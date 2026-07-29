@@ -3346,16 +3346,17 @@ const DEFAULT_TB_GRADES = {
   secondary: ["الرابع علمي","الرابع أدبي","الخامس علمي","الخامس أدبي","السادس علمي","السادس أدبي"]
 };
 async function seedDefaultTbGradesIfNeeded() {
-  const snap = await db.collection('textbookGrades').limit(1).get();
-  if (!snap.empty) return;
-  let order = 0;
+  const snap = await db.collection('textbookGrades').get();
+  const existingNames = new Set(snap.docs.map(d => d.data().name));
+  let order = snap.size;
   const batchPromises = [];
   for (const [stage, names] of Object.entries(DEFAULT_TB_GRADES)) {
     for (const name of names) {
+      if (existingNames.has(name)) continue;
       batchPromises.push(db.collection('textbookGrades').add({ name, stage, order: order++, createdAt: Date.now() }));
     }
   }
-  await Promise.all(batchPromises);
+  if (batchPromises.length) await Promise.all(batchPromises);
 }
 const DEFAULT_TB_SUBJECTS = {
   "الأول ابتدائي": ["إسلامية","اخلاقية","قراءة","نشاط قراءة","رياضيات","نشاط رياضيات","انكليزي","نشاط انكليزي","علوم","نشاط علوم"],
@@ -3375,20 +3376,29 @@ const DEFAULT_TB_SUBJECTS = {
   "السادس علمي": ["إسلامية","عربي ج١","عربي ج٢","رياضيات","انكليزي","نشاط الإنكليزي","فيزياء","كيمياء","احياء"]
 };
 async function seedDefaultTbSubjectsIfNeeded() {
-  const snap = await db.collection('textbookSubjects').limit(1).get();
-  if (!snap.empty) return;
   const gradesSnap = await db.collection('textbookGrades').get();
   const gradeIdByName = {};
   gradesSnap.docs.forEach(d => { gradeIdByName[d.data().name] = d.id; });
+
+  const subjectsSnap = await db.collection('textbookSubjects').get();
+  const existingByGrade = {};
+  subjectsSnap.docs.forEach(d => {
+    const s = d.data();
+    if (!existingByGrade[s.gradeId]) existingByGrade[s.gradeId] = new Set();
+    existingByGrade[s.gradeId].add(s.name);
+  });
+
   const batchPromises = [];
   for (const [gradeName, subjects] of Object.entries(DEFAULT_TB_SUBJECTS)) {
     const gradeId = gradeIdByName[gradeName];
     if (!gradeId) continue;
+    const existingNames = existingByGrade[gradeId] || new Set();
     for (const name of subjects) {
+      if (existingNames.has(name)) continue;
       batchPromises.push(db.collection('textbookSubjects').add({ gradeId, name, price:0, image:null, createdAt: Date.now() }));
     }
   }
-  await Promise.all(batchPromises);
+  if (batchPromises.length) await Promise.all(batchPromises);
 }
 async function loadTbGradesAdmin() {
   await seedDefaultTbGradesIfNeeded();
@@ -6284,7 +6294,11 @@ async function tbLoadData() {
       const g = d.data();
       TB_GRADES[d.id] = { name: g.name, stage: g.stage, pkg: stagePkgPrices[g.stage] || 20000, books: subjectsByGrade[d.id] || [] };
     });
-  } catch(e) { console.error('tbLoadData error', e); }
+  } catch(e) {
+    console.error('tbLoadData error', e);
+    const container = document.getElementById('tbStageBlocks');
+    if (container) container.innerHTML = `<div class="card" style="background:#fef2f2;"><p style="color:#b91c1c;">⚠️ تعذّر تحميل الصفوف: ${e.message || 'خطأ غير معروف'}<br>تأكد من قواعد Firestore (textbookGrades وtextbookSubjects) وحاول تحديث الصفحة.</p></div>`;
+  }
 }
 
 function tbRenderStageBlocks() {
