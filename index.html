@@ -2877,11 +2877,8 @@ async function showMyOrders(phoneOverride) {
     const rows = [];
     for (const d of snap.docs) {
       const o = d.data();
-      const effectiveStatus = computeEffectiveStatus(o);
-      if (effectiveStatus !== o.status && (o.status === 'pending' || o.status === 'processing' || o.status === 'delivering')) {
-        await db.collection('orders').doc(d.id).update({ status: effectiveStatus });
-      }
-      o.status = effectiveStatus;
+      // نستخدم الحالة المحسوبة للعرض فقط هنا؛ حفظها بقاعدة البيانات مسموح للموظف/المشرف حصراً (يصير من لوحة التحكم)
+      o.status = computeEffectiveStatus(o);
       rows.push(o);
     }
     rows.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
