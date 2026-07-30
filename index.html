@@ -3906,6 +3906,15 @@ function formatOrderTime(ts) {
 // ملاحظة: لو الموظف/المشرف غيّر الحالة يدوياً (تم التسليم/ملغى) تبقى كما حددها ولا يتم تجاوزها تلقائياً
 function computeEffectiveStatus(order) {
   if (order.status === 'cancelled' || order.status === 'completed') return order.status;
+
+  if (order.status === 'delivering') {
+    // طلب دخل مرحلة "قيد التوصيل" (يدوياً أو تلقائياً) — ما نرجّعه أبداً لـ"قيد التنفيذ"،
+    // الشي الوحيد اللي يصير له تلقائياً هو الإتمام بعد 48 ساعة من دخوله هذي المرحلة
+    const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000;
+    if (order.deliveringAt && (Date.now() - order.deliveringAt) >= FORTY_EIGHT_HOURS) return 'completed';
+    return 'delivering';
+  }
+
   const orderDay = new Date(order.createdAt);
   const orderDayStart = new Date(orderDay.getFullYear(), orderDay.getMonth(), orderDay.getDate()).getTime();
   const todayStart = new Date().setHours(0,0,0,0);
@@ -4017,7 +4026,7 @@ async function loadOrdersAdmin() {
     });
   } catch(e) { console.error(e); }
 
-  // ترقية تلقائية للحالة، + حذف الطلبات الملغاة بعد 48 ساعة، + إتمام الطلبات قيد التوصيل تلقائياً بعد 48 ساعة
+  // ترقية تلقائية للحالة، + حذف الطلبات الملغاة بعد 48 ساعة
   const allRows = [];
   const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000;
   for (const d of snap.docs) {
@@ -4029,12 +4038,7 @@ async function loadOrdersAdmin() {
       continue;
     }
 
-    let effectiveStatus = computeEffectiveStatus(o);
-
-    // إتمام تلقائي للطلبات "قيد التوصيل" بعد 48 ساعة من دخولها هذي المرحلة
-    if (o.status === 'delivering' && o.deliveringAt && (Date.now() - o.deliveringAt) >= FORTY_EIGHT_HOURS) {
-      effectiveStatus = 'completed';
-    }
+    const effectiveStatus = computeEffectiveStatus(o);
 
     if (effectiveStatus !== o.status && (o.status === 'pending' || o.status === 'processing' || o.status === 'delivering')) {
       const update = { status: effectiveStatus };
