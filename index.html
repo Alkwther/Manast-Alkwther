@@ -5470,9 +5470,18 @@ document.getElementById('annImageInput').addEventListener('change', async (e) =>
   const preview = document.getElementById('annImagePreview');
   if (!file) { preview.innerHTML = ''; return; }
   const dataUrl = await resizeImageToBase64(file, 900, 0.8);
-  preview.innerHTML = `<img src="${dataUrl}" style="width:120px;border-radius:10px;border:1px solid #e2e5ec;">`;
+  preview.innerHTML = `<div style="position:relative;display:inline-block;">
+    <img src="${dataUrl}" style="width:120px;border-radius:10px;border:1px solid #e2e5ec;display:block;">
+    <button type="button" onclick="removeAnnImagePreview()" style="position:absolute;top:-8px;left:-8px;width:26px;height:26px;border-radius:50%;background:#dc2626;color:#fff;border:2px solid #fff;font-weight:bold;cursor:pointer;line-height:1;">✕</button>
+  </div>`;
   preview.dataset.image = dataUrl;
 });
+function removeAnnImagePreview() {
+  document.getElementById('annImageInput').value = '';
+  const preview = document.getElementById('annImagePreview');
+  preview.innerHTML = '';
+  delete preview.dataset.image;
+}
 document.getElementById('addAnnouncementBtn').onclick = async () => {
   const image = document.getElementById('annImagePreview').dataset.image;
   const caption = document.getElementById('annCaption').value.trim();
