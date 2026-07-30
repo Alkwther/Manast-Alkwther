@@ -2073,10 +2073,12 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     <div id="teacherActivitiesList"></div>
   </div>
 
-  <div class="card hidden" id="installBanner" style="position:fixed;bottom:70px;left:12px;right:12px;max-width:456px;margin:0 auto;z-index:60;border:1px solid #cda44e;">
-    <p id="installText" style="margin-bottom:10px;font-weight:bold;color:#10203f;"></p>
-    <button class="btn" id="installActionBtn" style="margin-bottom:6px;">تثبيت التطبيق</button>
-    <button class="btn secondary" id="dismissInstallBtn" style="margin-bottom:0;">إغلاق</button>
+  <div class="card hidden" id="topBanner" style="position:fixed;top:0;left:0;right:0;max-width:480px;margin:0 auto;z-index:70;border-radius:0;border-bottom:2px solid #cda44e;">
+    <p id="topBannerText" style="margin-bottom:10px;font-weight:bold;color:#10203f;font-size:13px;"></p>
+    <div style="display:flex;gap:8px;">
+      <button class="btn" id="topBannerActionBtn" style="margin:0;flex:1;">تثبيت التطبيق</button>
+      <button class="btn secondary" id="topBannerDismissBtn" style="margin:0;width:auto;padding:10px 16px;">إغلاق</button>
+    </div>
   </div>
 
   <div class="bottom-nav hidden" id="bottomNav">
@@ -2851,6 +2853,7 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
     saveDeliveryInfo({ name, province, district, landmark, phone, altPhone });
     cart = {}; saveCartToStorage();
     setMsg('checkoutMsg','تم إرسال طلبك بنجاح ✅', true);
+    setupCustomerNotifications(phone);
     setTimeout(() => showMyOrders(phone), 700);
   } catch(e) { setMsg('checkoutMsg', 'خطأ عند إرسال الطلب: ' + (e.message || 'خطأ غير معروف'), false); console.error(e); }
 };
@@ -2864,6 +2867,7 @@ async function checkReturningCustomer() {
     if (saved && saved.phone) phone = saved.phone;
   } catch(e) { console.error(e); }
   if (!phone) return;
+  setupCustomerNotifications(phone);
   try {
     await ensureAuthed();
     const snap = await db.collection('orders').where('studentPhone','==', phone).get();
@@ -3067,6 +3071,7 @@ function enterAdminPanel() {
   document.getElementById('loggedInAsText').textContent =
     currentStaffRole === 'admin' ? '👋 مسجّل دخول كـ: المشرف الرئيسي' : `👋 مسجّل دخول كـ: ${currentStaffName} (موظف)`;
   document.getElementById('adminMenu').classList.remove('hidden');
+  setupAdminNotifications();
 
   if (currentStaffRole === 'admin') {
     document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
@@ -5692,35 +5697,79 @@ async function loadStudentsAdmin() {
 // ---------- تثبيت التطبيق (PWA) ----------
 let deferredInstallPrompt = null;
 const isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+const isAndroid = /android/.test(navigator.userAgent.toLowerCase());
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredInstallPrompt = e;
-  if (!isStandalone && !localStorage.getItem('kawthar_install_dismissed')) {
-    document.getElementById('installText').textContent = 'ثبّت منصة الكوثر على شاشتك الرئيسية للوصول السريع 📲';
-    document.getElementById('installBanner').classList.remove('hidden');
-  }
-});
+// كشف المتصفح الداخلي لتطبيقات زي فيسبوك/إنستغرام/تيك توك (لا تسمح بتجربة تصفّح كاملة أو تثبيت حقيقي للتطبيق)
+function detectInAppBrowser() {
+  const ua = navigator.userAgent || '';
+  if (/FBAN|FBAV|FB_IAB/i.test(ua)) return 'facebook';
+  if (/Instagram/i.test(ua)) return 'instagram';
+  if (/musical_ly|TikTok/i.test(ua)) return 'tiktok';
+  if (/Line\//i.test(ua)) return 'line';
+  return null;
+}
+const inAppBrowser = detectInAppBrowser();
 
-if (isIOS && !isStandalone && !localStorage.getItem('kawthar_install_dismissed')) {
-  document.getElementById('installText').textContent = 'لتثبيت التطبيق: اضغط زر المشاركة ⬆️ ثم "إضافة إلى الشاشة الرئيسية"';
-  document.getElementById('installActionBtn').classList.add('hidden');
-  document.getElementById('installBanner').classList.remove('hidden');
+function showTopBanner(text, { showInstallBtn, onAction, dismissible } = {}) {
+  document.getElementById('topBannerText').textContent = text;
+  const actionBtn = document.getElementById('topBannerActionBtn');
+  if (showInstallBtn) {
+    actionBtn.classList.remove('hidden');
+    actionBtn.onclick = onAction;
+  } else {
+    actionBtn.classList.add('hidden');
+  }
+  const dismissBtn = document.getElementById('topBannerDismissBtn');
+  dismissBtn.classList.toggle('hidden', !dismissible);
+  document.getElementById('topBanner').classList.remove('hidden');
 }
 
-document.getElementById('installActionBtn').onclick = async () => {
-  if (deferredInstallPrompt) {
-    deferredInstallPrompt.prompt();
-    await deferredInstallPrompt.userChoice;
-    deferredInstallPrompt = null;
+if (inAppBrowser && !localStorage.getItem('kawthar_inapp_dismissed')) {
+  // على أندرويد: محاولة فتح كروم تلقائياً (تنجح بمعظم الحالات، مو مضمونة 100% حسب سياسات كل تطبيق)
+  if (isAndroid) {
+    try {
+      const target = location.href.replace(/^https?:\/\//, '');
+      const intentUrl = `intent://${target}#Intent;scheme=https;package=com.android.chrome;end`;
+      location.href = intentUrl;
+    } catch(e) { console.error(e); }
   }
-  document.getElementById('installBanner').classList.add('hidden');
-};
-document.getElementById('dismissInstallBtn').onclick = () => {
-  localStorage.setItem('kawthar_install_dismissed', '1');
-  document.getElementById('installBanner').classList.add('hidden');
-};
+  const platformName = { facebook:'فيسبوك', instagram:'إنستغرام', tiktok:'تيك توك', line:'لاين' }[inAppBrowser] || 'هذا التطبيق';
+  showTopBanner(`⚠️ أنت تتصفح من داخل ${platformName} — لتجربة أفضل، اضغط ⋮ فوق واختر "فتح في المتصفح" (كروم أو سفاري)`, { dismissible: true });
+  document.getElementById('topBannerDismissBtn').onclick = () => {
+    localStorage.setItem('kawthar_inapp_dismissed', '1');
+    document.getElementById('topBanner').classList.add('hidden');
+  };
+} else if (!isStandalone) {
+  // بنر تثبيت التطبيق: يبقى ظاهر دائماً بدون زر إغلاق، ولا يختفي إلا بعد التثبيت الفعلي
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    if (!isStandalone) {
+      showTopBanner('ثبّت منصة الكوثر على شاشتك الرئيسية للوصول السريع 📲', {
+        showInstallBtn: true,
+        dismissible: false,
+        onAction: async () => {
+          if (deferredInstallPrompt) {
+            deferredInstallPrompt.prompt();
+            await deferredInstallPrompt.userChoice;
+            deferredInstallPrompt = null;
+          }
+        }
+      });
+    }
+  });
+
+  if (isIOS) {
+    showTopBanner('لتثبيت التطبيق: اضغط زر المشاركة ⬆️ ثم "إضافة إلى الشاشة الرئيسية"', { dismissible: false });
+  }
+
+  window.addEventListener('appinstalled', () => {
+    document.getElementById('topBanner').classList.add('hidden');
+  });
+}
+
+
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -5869,6 +5918,96 @@ setInterval(checkSessionValidity, 30000); // تحقق كل 30 ثانية من ع
   loadAnnouncements();
   show('screen-welcome');
 })();
+
+// ---------- نظام الإشعارات (بدون صوت) ----------
+let adminOrdersListenerStarted = false;
+let adminMessagesListenerStarted = false;
+let customerOrdersListenerStarted = false;
+
+function requestNotificationPermissionQuietly() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().catch(e => console.error(e));
+  }
+}
+
+function fireNotification(title, body, onClickTarget) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    const n = new Notification(title, { body, icon: 'icon-192.png', silent: true });
+    n.onclick = () => {
+      window.focus();
+      if (onClickTarget) onClickTarget();
+      n.close();
+    };
+  } catch(e) { console.error(e); }
+}
+
+function setupAdminNotifications() {
+  requestNotificationPermissionQuietly();
+
+  if (!adminOrdersListenerStarted) {
+    adminOrdersListenerStarted = true;
+    let firstOrdersSnapshot = true;
+    db.collection('orders').where('status','==','pending').onSnapshot(snap => {
+      if (firstOrdersSnapshot) { firstOrdersSnapshot = false; return; } // نتجاهل الدفعة الأولى (طلبات موجودة أصلاً، مو جديدة فعلياً)
+      snap.docChanges().forEach(change => {
+        if (change.type === 'added') {
+          const o = change.doc.data();
+          fireNotification('🆕 طلب جديد بالمكتبة', `${o.studentName} — ${o.totalPrice} د.ع`, () => {
+            show('screen-admin'); openAdminSection('library-hub'); openAdminSection('library-orders'); switchOrdersTab('new');
+          });
+        }
+      });
+    }, e => console.error(e));
+  }
+
+  if (!adminMessagesListenerStarted) {
+    adminMessagesListenerStarted = true;
+    let firstMessagesSnapshot = true;
+    db.collection('messages').where('readByStaff','==', false).onSnapshot(snap => {
+      if (firstMessagesSnapshot) { firstMessagesSnapshot = false; return; }
+      snap.docChanges().forEach(change => {
+        if (change.type === 'added') {
+          const m = change.doc.data();
+          if (m.fromRole === 'staff') return; // ما نبلّغ الموظف برسالته هو نفسه
+          const isOrderMsg = (m.threadId||'').startsWith('order_');
+          const isSupportMsg = (m.threadId||'').startsWith('support_');
+          if (!isOrderMsg && !isSupportMsg) return;
+          fireNotification('💬 رسالة جديدة', `${m.fromName}: ${m.text}`, () => {
+            show('screen-admin');
+            if (isOrderMsg) { openAdminSection('library-hub'); openAdminSection('library-orders'); }
+            else { openAdminSection('support'); }
+          });
+        }
+      });
+    }, e => console.error(e));
+  }
+}
+
+function setupCustomerNotifications(phone) {
+  if (!phone || customerOrdersListenerStarted) return;
+  customerOrdersListenerStarted = true;
+  requestNotificationPermissionQuietly();
+  let firstSnapshot = true;
+  const knownStatus = {};
+  db.collection('orders').where('studentPhone','==', phone).onSnapshot(snap => {
+    snap.docChanges().forEach(change => {
+      const o = change.doc.data();
+      const effectiveStatus = computeEffectiveStatus(o);
+      const prevStatus = knownStatus[change.doc.id];
+      knownStatus[change.doc.id] = effectiveStatus;
+      if (firstSnapshot) return; // الدفعة الأولى: تسجيل الحالة الحالية بس بدون إشعار
+      if (prevStatus && prevStatus !== effectiveStatus) {
+        fireNotification('📦 تحديث طلبك', `طلبكم ${ORDER_STATUS_LABELS[effectiveStatus] || effectiveStatus}`, () => {
+          showMyOrders(phone);
+        });
+      }
+    });
+    firstSnapshot = false;
+  }, e => console.error(e));
+}
+
 </script>
 
 <script>
