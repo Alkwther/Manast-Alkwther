@@ -1972,7 +1972,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <h3 id="chatTitle"></h3>
       <p style="font-size:12px;color:#8a90a3;">الرسائل تُحذف تلقائياً بعد 7 أيام</p>
     </div>
-    <div id="chatMessagesList" style="margin-bottom:10px;"></div>
+    <div id="chatMessagesList" style="margin-bottom:10px;padding-bottom:90px;"></div>
     <div class="card" style="position:sticky;bottom:70px;">
       <div style="display:flex;gap:8px;">
         <input id="chatInput" placeholder="اكتب رسالتك..." style="margin-bottom:0;flex:1;">
@@ -4086,12 +4086,14 @@ async function loadOrdersAdmin() {
     allRows.push({ id: d.id, o });
   }
 
-  // شارة الطلبات الجديدة (لسا ما انسخت من قبل الموظف/المشرف)
+  // شارة موحّدة: عدد الطلبات الجديدة + عدد الرسائل غير المقروءة المرتبطة بالطلبات (تبقى ظاهرة لين يفتحها الموظف فعلياً)
   const newCount = allRows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed').length;
+  const totalUnreadMsgs = Object.values(unreadByOrderId).reduce((s,n) => s+n, 0);
+  const combinedBadgeCount = newCount + totalUnreadMsgs;
   ['ordersUnreadBadge','ordersUnreadBadge2'].forEach(bid => {
     const badge = document.getElementById(bid);
     if (!badge) return;
-    if (newCount > 0) { badge.textContent = newCount; badge.classList.remove('hidden'); }
+    if (combinedBadgeCount > 0) { badge.textContent = combinedBadgeCount; badge.classList.remove('hidden'); }
     else badge.classList.add('hidden');
   });
 
@@ -5980,14 +5982,17 @@ function setupAdminNotifications() {
     let firstOrdersSnapshot = true;
     db.collection('orders').where('status','==','pending').onSnapshot(snap => {
       if (firstOrdersSnapshot) { firstOrdersSnapshot = false; return; } // نتجاهل الدفعة الأولى (طلبات موجودة أصلاً، مو جديدة فعلياً)
+      let hasNew = false;
       snap.docChanges().forEach(change => {
         if (change.type === 'added') {
+          hasNew = true;
           const o = change.doc.data();
           fireNotification('🆕 طلب جديد بالمكتبة', `${o.studentName} — ${o.totalPrice} د.ع`, () => {
             show('screen-admin'); openAdminSection('library-hub'); openAdminSection('library-orders'); switchOrdersTab('new');
           });
         }
       });
+      if (hasNew && typeof loadOrdersAdmin === 'function') loadOrdersAdmin();
     }, e => console.error(e));
   }
 
@@ -5996,6 +6001,7 @@ function setupAdminNotifications() {
     let firstMessagesSnapshot = true;
     db.collection('messages').where('readByStaff','==', false).onSnapshot(snap => {
       if (firstMessagesSnapshot) { firstMessagesSnapshot = false; return; }
+      let hasNewOrderMsg = false;
       snap.docChanges().forEach(change => {
         if (change.type === 'added') {
           const m = change.doc.data();
@@ -6003,6 +6009,7 @@ function setupAdminNotifications() {
           const isOrderMsg = (m.threadId||'').startsWith('order_');
           const isSupportMsg = (m.threadId||'').startsWith('support_');
           if (!isOrderMsg && !isSupportMsg) return;
+          if (isOrderMsg) hasNewOrderMsg = true;
           fireNotification('💬 رسالة جديدة', `${m.fromName}: ${m.text}`, () => {
             show('screen-admin');
             if (isOrderMsg) { openAdminSection('library-hub'); openAdminSection('library-orders'); }
@@ -6010,6 +6017,7 @@ function setupAdminNotifications() {
           });
         }
       });
+      if (hasNewOrderMsg && typeof loadOrdersAdmin === 'function') loadOrdersAdmin();
     }, e => console.error(e));
   }
 }
