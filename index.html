@@ -2136,6 +2136,7 @@ try {
   auth = firebase.auth();
 } catch(e) { console.error("Firebase init error", e); }
 
+let isNavigatingViaBackButton = false;
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
@@ -2145,7 +2146,23 @@ function show(id) {
     if (id === 'screen-checkout') { const b = document.getElementById('cartBar'); if (b) b.remove(); }
     else renderCartBar();
   }
+  // دعم زر الرجوع بالهاتف: نسجّل كل تنقّل بسجل المتصفح حتى يقدر المستخدم يرجع بزر جهازه
+  if (!isNavigatingViaBackButton && id !== 'screen-welcome') {
+    history.pushState({ screen: id }, '', '');
+  }
+  isNavigatingViaBackButton = false;
 }
+window.addEventListener('popstate', (e) => {
+  isNavigatingViaBackButton = true;
+  if (e.state && e.state.screen) {
+    show(e.state.screen);
+  } else if (e.state && 'adminSection' in e.state) {
+    if (e.state.adminSection) openAdminSection(e.state.adminSection);
+    else showAdminMenu();
+  } else {
+    show('screen-welcome');
+  }
+});
 function setMsg(el, text, ok) {
   document.getElementById(el).innerHTML = `<div class="msg ${ok?'ok':'err'}">${text}</div>`;
 }
@@ -3094,10 +3111,18 @@ function enterAdminPanel() {
 function showAdminMenu() {
   document.getElementById('adminMenu').classList.remove('hidden');
   document.querySelectorAll('.admin-section').forEach(s => s.classList.add('hidden'));
+  if (!isNavigatingViaBackButton) {
+    history.pushState({ adminSection: null }, '', '');
+  }
+  isNavigatingViaBackButton = false;
 }
 function openAdminSection(section) {
   document.getElementById('adminMenu').classList.add('hidden');
   document.querySelectorAll('.admin-section').forEach(s => s.classList.toggle('hidden', s.dataset.section !== section));
+  if (!isNavigatingViaBackButton) {
+    history.pushState({ adminSection: section }, '', '');
+  }
+  isNavigatingViaBackButton = false;
 }
 
 document.querySelectorAll('.admin-menu-item').forEach(item => {
