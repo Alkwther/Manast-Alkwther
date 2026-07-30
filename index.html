@@ -2825,8 +2825,8 @@ function removeCartItem(id) {
   renderCartItems();
   renderCartBar();
 }
-document.getElementById('backToLibrary').onclick = () => show('screen-library-booklets');
-document.getElementById('backToLibrary2').onclick = () => show('screen-library-booklets');
+document.getElementById('backToLibrary').onclick = () => { editingOrderId = null; show('screen-library-booklets'); };
+document.getElementById('backToLibrary2').onclick = () => { editingOrderId = null; show('screen-library-booklets'); };
 
 document.getElementById('confirmOrderBtn').onclick = async () => {
   const name = document.getElementById('ckName').value.trim();
@@ -2844,6 +2844,21 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
   const totalPrice = subtotal + deliveryFee;
   try {
     await ensureAuthed();
+    if (editingOrderId) {
+      // تعديل ذاتي من الزبون لطلبه خلال أول 15 دقيقة (بدل إنشاء طلب جديد)
+      await db.collection('orders').doc(editingOrderId).update({
+        studentName: name, studentPhone: phone, phone, altPhone, province, district, landmark,
+        items, subtotal, deliveryFee, totalPrice, edited: true, editedAt: Date.now()
+      });
+      saveDeliveryInfo({ name, province, district, landmark, phone, altPhone });
+      cart = {}; saveCartToStorage();
+      const editedId = editingOrderId;
+      editingOrderId = null;
+      setMsg('checkoutMsg','تم تعديل طلبك بنجاح ✅', true);
+      setupCustomerNotifications(phone);
+      setTimeout(() => showMyOrders(phone), 700);
+      return;
+    }
     await db.collection('orders').add({
       studentPhone: currentStudent ? currentStudent.phone : phone,
       studentName: name,
@@ -2901,6 +2916,8 @@ async function ensureAuthed() {
   });
 }
 
+let editingOrderId = null; // يبقى null دائماً الآن (التعديل الذاتي أُلغي بناءً على طلب المستخدم، التعديل يصير عبر مراسلة المكتبة فقط)
+
 async function showMyOrders(phoneOverride) {
   let phone = phoneOverride || (currentStudent ? currentStudent.phone : null);
   if (!phone) {
@@ -2932,12 +2949,18 @@ async function showMyOrders(phoneOverride) {
     rows.sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
     list.innerHTML = rows.map(({id, o}) => {
       const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
-      return `<div class="card">
-        <h3>${ORDER_STATUS_LABELS[o.status] || o.status} ${o.edited ? '<span style="background:#cda44e;color:#10203f;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">✏️ تم التعديل</span>' : ''}</h3>
-        <p>${itemsText}</p>
-        <p style="color:#8a90a3;">مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع</p>
-        <p><b>المجموع: ${o.totalPrice} د.ع</b></p>
-        <p style="color:#888;">${o.province} - ${o.district}</p>
+      const isCopied = !!o.processingAt;
+      let cardStyle;
+      if (o.status === 'cancelled') cardStyle = 'background:#1f2937;border:2px solid #000;color:#fff;';
+      else if (isCopied) cardStyle = 'background:#ecfdf3;border:2px solid #16a34a;';
+      else cardStyle = 'background:#fef2f2;border:2px solid #dc2626;';
+      const textColor = o.status === 'cancelled' ? 'style="color:#fff;"' : '';
+      return `<div class="card" style="${cardStyle}">
+        <h3 ${textColor}>${ORDER_STATUS_LABELS[o.status] || o.status} ${o.edited ? '<span style="background:#cda44e;color:#10203f;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">✏️ تم التعديل</span>' : ''}</h3>
+        <p ${textColor}>${itemsText}</p>
+        <p style="color:${o.status==='cancelled'?'#d1d5db':'#8a90a3'};">مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع</p>
+        <p ${textColor}><b>المجموع: ${o.totalPrice} د.ع</b></p>
+        <p style="color:${o.status==='cancelled'?'#d1d5db':'#888'};">${o.province} - ${o.district}</p>
         ${o.status !== 'completed' && o.status !== 'cancelled' ? `<button class="small-btn" onclick="openChat('order_${id}','💬 طلبك — تعديل أو استفسار')">💬 مراسلة المكتبة بخصوص هذا الطلب</button>` : ''}
       </div>`;
     }).join('');
@@ -5010,15 +5033,17 @@ function currentIdentity() {
   return null;
 }
 
+let currentChatUnsubscribe = null;
 async function openChat(threadId, title) {
   const me = currentIdentity();
   if (!me) { alert('لازم تسجّل دخول أولاً'); return; }
+  if (currentChatUnsubscribe) { currentChatUnsubscribe(); currentChatUnsubscribe = null; }
   currentChatThread = { threadId, ...me };
   document.getElementById('chatTitle').textContent = title;
   document.getElementById('chatMessagesList').innerHTML = '<p>جاري التحميل...</p>';
   show('screen-chat'); // نعرض الشاشة فوراً حتى لو صار خطأ بتحميل الرسائل القديمة
   try { await purgeOldChatMessages(threadId); } catch(e) { console.error(e); }
-  try { await renderChatMessages(); } catch(e) { console.error(e); document.getElementById('chatMessagesList').innerHTML = '<div class="card"><p>تعذّر تحميل الرسائل، حاول مرة ثانية.</p></div>'; }
+  startChatMessagesListener(threadId);
   if (me.role === 'staff' && threadId.startsWith('support_')) {
     try {
       const snap = await db.collection('messages').where('threadId','==', threadId).where('readByStaff','==', false).get();
@@ -5042,6 +5067,7 @@ async function openChat(threadId, title) {
   }
 }
 document.getElementById('chatBackBtn').onclick = () => {
+  if (currentChatUnsubscribe) { currentChatUnsubscribe(); currentChatUnsubscribe = null; }
   if (currentStudent) show('screen-home');
   else if (currentTeacher) show('screen-teacher-dashboard');
   else show('screen-admin');
@@ -5056,20 +5082,23 @@ async function purgeOldChatMessages(threadId) {
   await Promise.all(oldDocs.map(d => d.ref.delete()));
 }
 
-async function renderChatMessages() {
-  // فلتر مساواة وحيد بلا orderBy بالاستعلام نفسه (يتجنب الحاجة لفهرس مركّب)، والترتيب يصير محلياً بالجافاسكربت
-  const snap = await db.collection('messages')
-    .where('threadId','==', currentChatThread.threadId).get();
-  const list = document.getElementById('chatMessagesList');
-  if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد رسائل بعد. ابدأ المحادثة!</p></div>'; return; }
-  const messages = snap.docs.map(d => d.data()).sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
-  list.innerHTML = messages.map(m => {
-    const mine = m.fromId === currentChatThread.id && m.fromRole === currentChatThread.role;
-    return `<div class="card" style="margin-bottom:8px;${mine ? 'border-inline-end:4px solid #cda44e;' : 'border-inline-start:4px solid #0e8fa8;'}">
-      <p style="font-size:12px;color:#8a90a3;margin-bottom:4px;">${m.fromName} — ${new Date(m.createdAt).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'})}</p>
-      <p style="margin:0;">${m.text}</p>
-    </div>`;
-  }).join('');
+function startChatMessagesListener(threadId) {
+  // استماع لحظي (Realtime) للرسائل بدل تحميلها مرة وحدة، حتى توصل الرسائل الجديدة فوراً بدون أي تحديث يدوي
+  currentChatUnsubscribe = db.collection('messages')
+    .where('threadId','==', threadId)
+    .onSnapshot(snap => {
+      const list = document.getElementById('chatMessagesList');
+      if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد رسائل بعد. ابدأ المحادثة!</p></div>'; return; }
+      const messages = snap.docs.map(d => d.data()).sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
+      list.innerHTML = messages.map(m => {
+        const mine = m.fromId === currentChatThread.id && m.fromRole === currentChatThread.role;
+        return `<div class="card" style="margin-bottom:8px;${mine ? 'border-inline-end:4px solid #cda44e;' : 'border-inline-start:4px solid #0e8fa8;'}">
+          <p style="font-size:12px;color:#8a90a3;margin-bottom:4px;">${m.fromName} — ${new Date(m.createdAt).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'})}</p>
+          <p style="margin:0;">${m.text}</p>
+        </div>`;
+      }).join('');
+      list.scrollTop = list.scrollHeight;
+    }, e => console.error(e));
 }
 document.getElementById('chatSendBtn').onclick = async () => {
   const text = document.getElementById('chatInput').value.trim();
@@ -5090,7 +5119,7 @@ document.getElementById('chatSendBtn').onclick = async () => {
     ...extraFields
   });
   document.getElementById('chatInput').value = '';
-  await renderChatMessages();
+  // ملاحظة: ما نحتاج نعيد رسم الرسائل يدوياً هنا — المستمع اللحظي (onSnapshot) بيلتقط الرسالة الجديدة فوراً بنفسه
   if (isSupportThread && currentChatThread.role !== 'staff') {
     // رسالة جديدة من طالب/أستاذ: نحدّث شارة العدد غير المقروء لو المشرف فاتح القائمة بنفس اللحظة
     loadSupportChats();
