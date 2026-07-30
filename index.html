@@ -736,6 +736,26 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <div id="carouselDots" style="display:flex;justify-content:center;gap:6px;padding:10px 0;background:#fff;min-height:32px;align-items:center;"></div>
     </div>
 
+    <div class="subject-tile" onclick="show('screen-edu-platform')">
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🎓</span><div><b>المنصة التعليمية</b><br><span style="font-size:12px;color:#8a90a3;">دخول الأساتذة والطلاب، والدروس المجانية</span></div></div>
+      <div class="badge">دخول</div>
+    </div>
+
+    <div class="subject-tile" onclick="show('screen-library'); checkReturningCustomer();">
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📚</span><div><b>المكتبة</b><br><span style="font-size:12px;color:#8a90a3;">تصفح واطلب الكتب والملازم</span></div></div>
+      <div class="badge">تصفح</div>
+    </div>
+
+    <div class="subject-tile" onclick="show('screen-print-shop')">
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🖨️</span><div><b>المطبعة</b><br><span style="font-size:12px;color:#8a90a3;">احسب سعر طباعة ملزمتك</span></div></div>
+      <div class="badge">فتح</div>
+    </div>
+  </div>
+
+  <!-- المنصة التعليمية -->
+  <div class="screen hidden" id="screen-edu-platform">
+    <button class="btn secondary" onclick="show('screen-welcome')">← رجوع</button>
+
     <div class="subject-tile" onclick="openTeacherLoginScreen()">
       <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🧑‍🏫</span><div><b>الدخول كأستاذ</b><br><span style="font-size:12px;color:#8a90a3;">دخول خاص بالمدرسين لمتابعة طلابهم</span></div></div>
       <div class="badge">دخول</div>
@@ -746,19 +766,9 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <div class="badge">دخول</div>
     </div>
 
-    <div class="subject-tile" onclick="show('screen-library'); checkReturningCustomer();">
-      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📚</span><div><b>المكتبة</b><br><span style="font-size:12px;color:#8a90a3;">تصفح واطلب الكتب والملازم</span></div></div>
-      <div class="badge">تصفح</div>
-    </div>
-
     <div class="subject-tile" onclick="startFreeLessons()">
       <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📖</span><div><b>الدروس المجانية</b><br><span style="font-size:12px;color:#8a90a3;">تصفح دروس تجريبية بدون تسجيل كامل</span></div></div>
       <div class="badge">تصفح</div>
-    </div>
-
-    <div class="subject-tile" onclick="show('screen-print-shop')">
-      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🖨️</span><div><b>المطبعة</b><br><span style="font-size:12px;color:#8a90a3;">احسب سعر طباعة ملزمتك</span></div></div>
-      <div class="badge">فتح</div>
     </div>
   </div>
 
@@ -1613,6 +1623,15 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <input id="libraryPhoneInput" placeholder="07xxxxxxxxx">
           <button class="btn secondary" id="saveLibraryPhoneBtn">حفظ الرقم</button>
           <button class="btn" id="copyAllOrdersBtn" style="margin-top:10px;">📋 نسخ كل الطلبات الجديدة</button>
+
+          <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;">
+            <button class="small-btn" id="ordersTabNew" style="flex:1;background:#dc2626;color:#fff;">🆕 جديدة</button>
+            <button class="small-btn" id="ordersTabProcessing" style="flex:1;">⚙️ قيد التنفيذ</button>
+            <button class="small-btn" id="ordersTabDelivering" style="flex:1;">🚚 قيد التوصيل</button>
+            <button class="small-btn" id="ordersTabArrived" style="flex:1;">📬 الطلبات الواصلة</button>
+          </div>
+          <button class="btn secondary hidden" id="convertAllToDeliveringBtn" style="margin-top:10px;">🔄 اضغط لتحويل جميع الطلبات قيد التنفيذ إلى قيد التوصيل</button>
+          <input id="ordersSearchPhone" placeholder="🔍 ابحث برقم الهاتف..." class="hidden" style="margin-top:10px;">
           <div id="ordersAdminList" style="margin-top:10px;"></div>
         </div>
       </div>
@@ -1829,6 +1848,8 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <input type="file" id="annImageInput" accept="image/*">
           <div id="annImagePreview" style="margin-bottom:10px;"></div>
           <textarea id="annCaption" rows="2" placeholder="نص الشرح اللي يظهر تحت الصورة"></textarea>
+          <label>مدة عرض الصورة (بالثواني) قبل الانتقال للإعلان التالي</label>
+          <input id="annDuration" type="number" value="4.5" step="0.5" min="1" placeholder="مثال: 4.5">
           <button class="btn" id="addAnnouncementBtn">إضافة الإعلان</button>
         </div>
         <div class="card">
@@ -3832,6 +3853,7 @@ async function deleteBook(id) {
   loadBooksAdmin();
 }
 
+document.getElementById('convertAllToDeliveringBtn').onclick = () => convertAllProcessingToDelivering();
 document.getElementById('saveLibraryPhoneBtn').onclick = async () => {
   const phone = document.getElementById('libraryPhoneInput').value.trim();
   if (!phone) { alert('أدخل رقم الهاتف'); return; }
@@ -3928,11 +3950,13 @@ async function robustCopy(text) {
   return false;
 }
 
+let currentOrdersTab = 'new';
+
 async function loadOrdersAdmin() {
-  const snap = await db.collection('orders').orderBy('createdAt','desc').limit(50).get();
+  const snap = await db.collection('orders').orderBy('createdAt','desc').limit(200).get();
   const list = document.getElementById('ordersAdminList');
 
-  // إحصائية الطلبات (يومي/شهري/سنوي) — نحسبها من كل الطلبات وليس فقط آخر 50
+  // إحصائية الطلبات (يومي/شهري/سنوي) — نحسبها من كل الطلبات وليس فقط آخر 200
   try {
     const allSnap = await db.collection('orders').get();
     const now = new Date();
@@ -3954,8 +3978,53 @@ async function loadOrdersAdmin() {
     if (elYear) elYear.textContent = yearCount;
   } catch(e) { console.error(e); }
 
+  // عدّ رسائل طلبات التعديل غير المقروءة لكل طلب (استعلام واحد بدل استعلام لكل طلب)
+  const unreadByOrderId = {};
+  try {
+    const unreadMsgsSnap = await db.collection('messages').where('readByStaff','==', false).get();
+    unreadMsgsSnap.docs.forEach(d => {
+      const tid = d.data().threadId || '';
+      if (tid.startsWith('order_')) {
+        const oid = tid.slice('order_'.length);
+        unreadByOrderId[oid] = (unreadByOrderId[oid] || 0) + 1;
+      }
+    });
+  } catch(e) { console.error(e); }
+
+  // ترقية تلقائية للحالة، + حذف الطلبات الملغاة بعد 48 ساعة، + إتمام الطلبات قيد التوصيل تلقائياً بعد 48 ساعة
+  const allRows = [];
+  const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000;
+  for (const d of snap.docs) {
+    const o = d.data();
+
+    // حذف تلقائي للطلبات الملغاة بعد 48 ساعة من الإلغاء
+    if (o.status === 'cancelled' && o.cancelledAt && (Date.now() - o.cancelledAt) >= FORTY_EIGHT_HOURS) {
+      await db.collection('orders').doc(d.id).delete();
+      continue;
+    }
+
+    let effectiveStatus = computeEffectiveStatus(o);
+
+    // إتمام تلقائي للطلبات "قيد التوصيل" بعد 48 ساعة من دخولها هذي المرحلة
+    if (o.status === 'delivering' && o.deliveringAt && (Date.now() - o.deliveringAt) >= FORTY_EIGHT_HOURS) {
+      effectiveStatus = 'completed';
+    }
+
+    if (effectiveStatus !== o.status && (o.status === 'pending' || o.status === 'processing' || o.status === 'delivering')) {
+      const update = { status: effectiveStatus };
+      if (effectiveStatus === 'completed' && !o.teacherPayoutsComputed) {
+        update.teacherPayouts = await computeTeacherPayoutsForOrder(o);
+        update.teacherPayoutsSettled = {};
+        update.teacherPayoutsComputed = true;
+      }
+      await db.collection('orders').doc(d.id).update(update);
+    }
+    o.status = effectiveStatus;
+    allRows.push({ id: d.id, o });
+  }
+
   // شارة الطلبات الجديدة (لسا ما انسخت من قبل الموظف/المشرف)
-  const newCount = snap.docs.filter(d => !d.data().processingAt && d.data().status !== 'cancelled' && d.data().status !== 'completed').length;
+  const newCount = allRows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed').length;
   ['ordersUnreadBadge','ordersUnreadBadge2'].forEach(bid => {
     const badge = document.getElementById(bid);
     if (!badge) return;
@@ -3963,47 +4032,115 @@ async function loadOrdersAdmin() {
     else badge.classList.add('hidden');
   });
 
-  if (snap.empty) { list.innerHTML = '<p>لا توجد طلبات بعد.</p>'; return; }
+  if (allRows.length === 0) { list.innerHTML = '<p>لا توجد طلبات بعد.</p>'; return; }
 
-  // ترقية تلقائية للحالة حسب قاعدة الساعة 6 عصراً (نسخ الطلب قبل/بعد هذا الوقت)
-  const rows = [];
-  for (const d of snap.docs) {
-    const o = d.data();
-    const effectiveStatus = computeEffectiveStatus(o);
-    if (effectiveStatus !== o.status && (o.status === 'pending' || o.status === 'processing' || o.status === 'delivering')) {
-      await db.collection('orders').doc(d.id).update({ status: effectiveStatus });
-    }
-    o.status = effectiveStatus;
-    rows.push({ id: d.id, o });
+  // تصنيف الطلبات للتبويبات الأربع
+  let rows;
+  if (currentOrdersTab === 'new') {
+    rows = allRows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed');
+  } else if (currentOrdersTab === 'processing') {
+    rows = allRows.filter(({o}) => !!o.processingAt && o.status === 'processing');
+    const searchPhone = (document.getElementById('ordersSearchPhone').value || '').trim();
+    if (searchPhone) rows = rows.filter(({o}) => (o.phone||'').includes(searchPhone) || (o.altPhone||'').includes(searchPhone));
+  } else if (currentOrdersTab === 'delivering') {
+    rows = allRows.filter(({o}) => o.status === 'delivering');
+  } else { // arrived (completed)
+    rows = allRows.filter(({o}) => o.status === 'completed');
+    const searchPhone = (document.getElementById('ordersSearchPhone').value || '').trim();
+    if (searchPhone) rows = rows.filter(({o}) => (o.phone||'').includes(searchPhone) || (o.altPhone||'').includes(searchPhone));
   }
 
-  list.innerHTML = rows.map(({id, o}) => {
-    const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
-    const isCopied = !!o.processingAt;
-    const cardStyle = isCopied
-      ? 'background:#ecfdf3;border:2px solid #16a34a;'
-      : 'background:#fef2f2;border:2px solid #dc2626;';
-    const isNew = !isCopied && o.status !== 'cancelled' && o.status !== 'completed';
-    return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;${cardStyle}">
-      <div style="margin-bottom:6px;">
+  if (rows.length === 0) { list.innerHTML = '<p>لا توجد طلبات بهذا التصنيف.</p>'; return; }
+
+  if (currentOrdersTab === 'delivering' || currentOrdersTab === 'arrived') {
+    renderOrdersGroupedByDate(rows, list, unreadByOrderId, currentOrdersTab === 'delivering');
+    return;
+  }
+
+  list.innerHTML = rows.map(({id, o}) => renderOrderCard(id, o, unreadByOrderId[id] || 0)).join('');
+}
+
+document.getElementById('ordersTabNew').onclick = () => switchOrdersTab('new');
+document.getElementById('ordersTabProcessing').onclick = () => switchOrdersTab('processing');
+document.getElementById('ordersTabDelivering').onclick = () => switchOrdersTab('delivering');
+document.getElementById('ordersTabArrived').onclick = () => switchOrdersTab('arrived');
+document.getElementById('ordersSearchPhone').addEventListener('input', () => { if (currentOrdersTab === 'processing' || currentOrdersTab === 'arrived') loadOrdersAdmin(); });
+
+function switchOrdersTab(tab) {
+  currentOrdersTab = tab;
+  const colors = { new:'#dc2626', processing:'#0e6fa8', delivering:'#16a34a', arrived:'#6b21a8' };
+  ['ordersTabNew','ordersTabProcessing','ordersTabDelivering','ordersTabArrived'].forEach(bid => {
+    const btn = document.getElementById(bid);
+    btn.style.background = ''; btn.style.color = '';
+  });
+  const activeBtnId = { new:'ordersTabNew', processing:'ordersTabProcessing', delivering:'ordersTabDelivering', arrived:'ordersTabArrived' }[tab];
+  document.getElementById(activeBtnId).style.background = colors[tab];
+  document.getElementById(activeBtnId).style.color = '#fff';
+  document.getElementById('ordersSearchPhone').classList.toggle('hidden', tab !== 'processing' && tab !== 'arrived');
+  document.getElementById('convertAllToDeliveringBtn').classList.toggle('hidden', tab !== 'processing');
+  loadOrdersAdmin();
+}
+
+function renderOrdersGroupedByDate(rows, list, unreadByOrderId, allowReject) {
+  const groups = {}; // 'YYYY-MM-DD' => rows[]
+  rows.forEach(r => {
+    const d = new Date(r.o.createdAt);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  });
+  const sortedKeys = Object.keys(groups).sort((a,b) => b.localeCompare(a));
+  list.innerHTML = sortedKeys.map(key => {
+    const dateLabel = new Date(key).toLocaleDateString('ar-EG', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+    const itemsHtml = groups[key].map(({id, o}) => renderOrderCard(id, o, unreadByOrderId[id] || 0, allowReject ? 'delivering' : 'arrived')).join('');
+    return `<div style="margin-bottom:16px;">
+      <p style="font-weight:bold;color:#10203f;background:#eef1f8;border-radius:8px;padding:8px 12px;margin-bottom:8px;">📅 ${dateLabel} (${groups[key].length} طلب)</p>
+      ${itemsHtml}
+    </div>`;
+  }).join('');
+}
+
+function renderOrderCard(id, o, unreadCount, mode) {
+  // mode: undefined = وضع كامل (جديدة/قيد التنفيذ)، 'delivering' = مراسلة + رفض، 'arrived' = مراسلة فقط
+  const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
+  const isCopied = !!o.processingAt;
+  let cardStyle;
+  if (o.status === 'cancelled') cardStyle = 'background:#1f2937;border:2px solid #000;color:#fff;';
+  else if (isCopied) cardStyle = 'background:#ecfdf3;border:2px solid #16a34a;';
+  else cardStyle = 'background:#fef2f2;border:2px solid #dc2626;';
+  const isNew = !isCopied && o.status !== 'cancelled' && o.status !== 'completed';
+  const textColor = o.status === 'cancelled' ? 'color:#fff;' : '';
+  let actionsHtml;
+  if (mode === 'arrived') {
+    actionsHtml = `<button class="small-btn" onclick="openChat('order_${id}','💬 طلب ${o.studentName}')">💬 مراسلة الزبون</button>`;
+  } else if (mode === 'delivering') {
+    actionsHtml = `<button class="small-btn" onclick="openChat('order_${id}','💬 طلب ${o.studentName}')">💬 مراسلة الزبون</button>
+       ${o.status !== 'cancelled' ? `<button class="small-btn" onclick="setOrderStatus('${id}','cancelled')" style="background:#000;color:#fff;">❌ تم رفض الطلب</button>` : ''}`;
+  } else {
+    actionsHtml = `<button class="small-btn" onclick="copySingleOrder('${id}')" style="${isCopied?'background:#16a34a;color:#fff;':''}">${isCopied ? '✅ تم النسخ' : '📋 نسخ'}</button>
+       <button class="small-btn" onclick="toggleEditOrder('${id}')">✏️ تعديل الطلب</button>
+       <button class="small-btn" onclick="openChat('order_${id}','💬 طلب ${o.studentName}')">💬 مراسلة الزبون</button>
+       <button class="small-btn" onclick="setOrderStatus('${id}','delivering')">🚚 قيد التوصيل</button>
+       <button class="small-btn" onclick="setOrderStatus('${id}','completed')">✅ تم التسليم</button>
+       <button class="small-btn" onclick="setOrderStatus('${id}','cancelled')" style="background:#000;color:#fff;">❌ إلغاء الطلب</button>
+       <button class="small-btn" onclick="deleteOrder('${id}')">🗑️ حذف الطلب</button>`;
+  }
+  return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;${cardStyle}">
+      <div style="margin-bottom:6px;${textColor}">
         ${isNew ? '<span style="background:#dc2626;color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">🆕 جديد</span> ' : ''}
-        <span style="color:#8a90a3;font-size:12px;">🕒 ${formatOrderTime(o.createdAt)}</span><br>
+        ${o.status === 'cancelled' ? '<span style="background:#000;color:#fff;border:1px solid #fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">❌ إلغاء الطلب — يُحذف تلقائياً خلال 48 ساعة</span> ' : ''}
+        ${unreadCount > 0 ? `<span style="background:#ec4899;color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">💬 طلب تعديل (${unreadCount})</span> ` : ''}
+        <span style="color:${o.status==='cancelled'?'#d1d5db':'#8a90a3'};font-size:12px;">🕒 ${formatOrderTime(o.createdAt)}</span><br>
         <b>${o.studentName}</b> — ${o.phone}${o.altPhone ? ' / '+o.altPhone : ''}<br>
-        <span style="color:#888;">${o.province} - ${o.district}</span><br>
+        <span style="color:${o.status==='cancelled'?'#d1d5db':'#888'};">${o.province} - ${o.district}</span><br>
         ${itemsText}<br>
         مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع = <b style="color:#b8903c;">${o.totalPrice} د.ع</b><br>
         الحالة: <b>${ORDER_STATUS_LABELS[o.status]||o.status}</b>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="small-btn" onclick="copySingleOrder('${id}')" style="${isCopied?'background:#16a34a;color:#fff;':''}">${isCopied ? '✅ تم النسخ' : '📋 نسخ'}</button>
-        <button class="small-btn" onclick="toggleEditOrder('${id}')">✏️ تعديل الطلب</button>
-        <button class="small-btn" onclick="openChat('order_${id}','💬 طلب ${o.studentName}')">💬 مراسلة الزبون</button>
-        <button class="small-btn" onclick="setOrderStatus('${id}','delivering')">🚚 قيد التوصيل</button>
-        <button class="small-btn" onclick="setOrderStatus('${id}','completed')">✅ تم التسليم</button>
-        <button class="small-btn" onclick="setOrderStatus('${id}','cancelled')">❌ إلغاء</button>
-        <button class="small-btn" onclick="deleteOrder('${id}')">🗑️ حذف الطلب</button>
+        ${actionsHtml}
       </div>
-      <div id="editOrderPanel-${id}" class="hidden" style="background:#f6f7fb;border-radius:10px;padding:10px;margin-top:8px;">
+      ${mode ? '' : `<div id="editOrderPanel-${id}" class="hidden" style="background:#f6f7fb;border-radius:10px;padding:10px;margin-top:8px;">
         <label>اسم الزبون</label>
         <input id="eoName-${id}" value="${o.studentName.replace(/"/g,'&quot;')}">
         <label>رقم الهاتف</label>
@@ -4036,9 +4173,8 @@ async function loadOrdersAdmin() {
         <label>أجور التوصيل</label>
         <input id="eoDelivery-${id}" type="number" value="${o.deliveryFee||0}">
         <button class="btn" onclick="saveOrderEdit('${id}')">💾 حفظ التعديلات</button>
-      </div>
+      </div>`}
     </div>`;
-  }).join('');
 }
 
 function toggleEditOrder(id) {
@@ -4103,24 +4239,29 @@ async function copySingleOrder(id) {
   loadOrdersAdmin();
 }
 
+async function computeTeacherPayoutsForOrder(order) {
+  const teacherPayouts = {};
+  for (const item of (order.items || [])) {
+    if (!item.bookId) continue;
+    const bookDoc = await db.collection('books').doc(item.bookId).get();
+    if (!bookDoc.exists) continue;
+    const book = bookDoc.data();
+    if (book.teacherName && book.teacherShare) {
+      teacherPayouts[book.teacherName] = (teacherPayouts[book.teacherName] || 0) + book.teacherShare * item.qty;
+    }
+  }
+  return teacherPayouts;
+}
 async function setOrderStatus(id, status) {
   const update = { status };
   if (status === 'processing') update.processingAt = Date.now();
+  if (status === 'delivering') update.deliveringAt = Date.now();
+  if (status === 'cancelled') update.cancelledAt = Date.now();
   if (status === 'completed') {
     const orderDoc = await db.collection('orders').doc(id).get();
     const order = orderDoc.data();
     if (!order.teacherPayoutsComputed) {
-      const teacherPayouts = {};
-      for (const item of (order.items || [])) {
-        if (!item.bookId) continue;
-        const bookDoc = await db.collection('books').doc(item.bookId).get();
-        if (!bookDoc.exists) continue;
-        const book = bookDoc.data();
-        if (book.teacherName && book.teacherShare) {
-          teacherPayouts[book.teacherName] = (teacherPayouts[book.teacherName] || 0) + book.teacherShare * item.qty;
-        }
-      }
-      update.teacherPayouts = teacherPayouts;
+      update.teacherPayouts = await computeTeacherPayoutsForOrder(order);
       update.teacherPayoutsSettled = {};
       update.teacherPayoutsComputed = true;
     }
@@ -4128,6 +4269,15 @@ async function setOrderStatus(id, status) {
   await db.collection('orders').doc(id).update(update);
   loadOrdersAdmin();
   loadTeacherEarningsAdmin();
+}
+async function convertAllProcessingToDelivering() {
+  if (!confirm('تحويل كل الطلبات "قيد التنفيذ" إلى "قيد التوصيل" الآن؟ (ما عدا الطلبات الملغاة)')) return;
+  const snap = await db.collection('orders').where('status','==','processing').get();
+  if (snap.empty) { alert('لا توجد طلبات قيد التنفيذ حالياً.'); return; }
+  const now = Date.now();
+  await Promise.all(snap.docs.map(d => d.ref.update({ status: 'delivering', deliveringAt: now })));
+  alert(`تم تحويل ${snap.size} طلب إلى قيد التوصيل ✅`);
+  loadOrdersAdmin();
 }
 async function deleteOrder(id) {
   if (!confirm('حذف هذا الطلب بالكامل؟')) return;
@@ -4836,6 +4986,12 @@ async function openChat(threadId, title) {
       loadSupportChats();
     } catch(e) { console.error(e); }
   }
+  if (me.role === 'staff' && threadId.startsWith('order_')) {
+    try {
+      const snap = await db.collection('messages').where('threadId','==', threadId).where('readByStaff','==', false).get();
+      await Promise.all(snap.docs.map(d => d.ref.update({ readByStaff: true })));
+    } catch(e) { console.error(e); }
+  }
   if (threadId.startsWith('staffteacher_')) {
     const flagToMark = me.role === 'staff' ? 'readByStaff' : 'readByTeacher';
     try {
@@ -4880,8 +5036,9 @@ document.getElementById('chatSendBtn').onclick = async () => {
   if (!text || !currentChatThread) return;
   const isSupportThread = currentChatThread.threadId.startsWith('support_');
   const isStaffTeacherThread = currentChatThread.threadId.startsWith('staffteacher_');
+  const isOrderThread = currentChatThread.threadId.startsWith('order_');
   const extraFields = {};
-  if (isSupportThread) extraFields.readByStaff = currentChatThread.role === 'staff';
+  if (isSupportThread || isOrderThread) extraFields.readByStaff = currentChatThread.role === 'staff';
   if (isStaffTeacherThread) {
     extraFields.readByStaff = currentChatThread.role === 'staff';
     extraFields.readByTeacher = currentChatThread.role === 'teacher';
@@ -5293,13 +5450,15 @@ document.getElementById('annImageInput').addEventListener('change', async (e) =>
 document.getElementById('addAnnouncementBtn').onclick = async () => {
   const image = document.getElementById('annImagePreview').dataset.image;
   const caption = document.getElementById('annCaption').value.trim();
+  const duration = Math.max(1, +document.getElementById('annDuration').value || 4.5);
   if (!image) { alert('اختر صورة للإعلان'); return; }
   try {
-    await db.collection('announcements').add({ image, caption, createdAt: Date.now() });
+    await db.collection('announcements').add({ image, caption, duration, createdAt: Date.now() });
     alert('تمت إضافة الإعلان ✅');
     document.getElementById('annImageInput').value = '';
     document.getElementById('annImagePreview').innerHTML = ''; delete document.getElementById('annImagePreview').dataset.image;
     document.getElementById('annCaption').value = '';
+    document.getElementById('annDuration').value = '4.5';
     loadAnnouncementsAdmin();
     loadAnnouncements();
   } catch(e) {
@@ -5356,7 +5515,7 @@ async function loadAnnouncements() {
   } catch(e) { console.error(e); announcementsList = []; }
   const container = document.getElementById('announcementsCarousel');
   const fallback = document.getElementById('welcomeFallbackCard');
-  if (carouselInterval) clearInterval(carouselInterval);
+  if (carouselInterval) clearTimeout(carouselInterval);
   if (announcementsList.length === 0) {
     container.classList.add('hidden');
     if (fallback) fallback.classList.remove('hidden');
@@ -5366,12 +5525,18 @@ async function loadAnnouncements() {
   container.classList.remove('hidden');
   carouselIndex = 0;
   renderCarouselSlide();
-  if (announcementsList.length > 1) {
-    carouselInterval = setInterval(() => {
-      carouselIndex = (carouselIndex + 1) % announcementsList.length;
-      renderCarouselSlide();
-    }, 4500);
-  }
+  scheduleNextCarouselSlide();
+}
+function scheduleNextCarouselSlide() {
+  if (carouselInterval) clearTimeout(carouselInterval);
+  if (announcementsList.length <= 1) return;
+  const current = announcementsList[carouselIndex];
+  const seconds = (current && current.duration) ? current.duration : 4.5;
+  carouselInterval = setTimeout(() => {
+    carouselIndex = (carouselIndex + 1) % announcementsList.length;
+    renderCarouselSlide();
+    scheduleNextCarouselSlide();
+  }, seconds * 1000);
 }
 function renderCarouselSlide() {
   const a = announcementsList[carouselIndex];
@@ -5390,6 +5555,7 @@ function renderCarouselSlide() {
 function goToCarouselSlide(i) {
   carouselIndex = i;
   renderCarouselSlide();
+  scheduleNextCarouselSlide();
 }
 
 // ---------- إحصائية إجمالي المشتركين (للمالك فقط) ----------
