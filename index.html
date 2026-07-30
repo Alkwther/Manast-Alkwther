@@ -2867,13 +2867,18 @@ async function checkReturningCustomer() {
   try {
     await ensureAuthed();
     const snap = await db.collection('orders').where('studentPhone','==', phone).get();
-    const activeCount = snap.docs.filter(d => {
-      const s = d.data().status;
-      return s !== 'completed' && s !== 'cancelled';
-    }).length;
-    if (activeCount > 0) {
+    const activeOrders = snap.docs
+      .map(d => d.data())
+      .map(o => ({ ...o, status: computeEffectiveStatus(o) }))
+      .filter(o => o.status !== 'completed' && o.status !== 'cancelled');
+    if (activeOrders.length > 0) {
+      // نعد كل حالة على حدة عشان الرسالة تعكس الوضع الفعلي بالضبط، حتى لو الطلبات بحالات مختلفة
+      const countsByStatus = {};
+      activeOrders.forEach(o => { countsByStatus[o.status] = (countsByStatus[o.status] || 0) + 1; });
+      const statusParts = Object.entries(countsByStatus).map(([status, count]) => `${count} ${ORDER_STATUS_LABELS[status] || status}`);
+      const summary = statusParts.join('، ');
       notice.innerHTML = `<div class="card" style="background:#ecfdf3;border:1px solid #86efac;cursor:pointer;" onclick="showMyOrders()">
-        <p style="margin:0;color:#15803d;font-weight:bold;">👋 أهلاً بعودتك! عندك ${activeCount} طلب قيد التنفيذ — اضغط هنا لعرض حالته</p>
+        <p style="margin:0;color:#15803d;font-weight:bold;">👋 أهلاً بعودتك! عندك ${summary} — اضغط هنا لعرض التفاصيل</p>
       </div>`;
     }
   } catch(e) { console.error(e); }
