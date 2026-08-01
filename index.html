@@ -737,6 +737,10 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       </div>
     </div>
 
+    <button onclick="shareThePlatform()" class="btn secondary" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;">
+      📤 شارك البرنامج مع الأصدقاء
+    </button>
+
     <div class="subject-tile" onclick="show('screen-edu-platform')">
       <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🎓</span><div><b>المنصة التعليمية</b><br><span style="font-size:12px;color:#8a90a3;">دخول الأساتذة والطلاب، والدروس المجانية</span></div></div>
       <div class="badge">دخول</div>
@@ -2161,6 +2165,19 @@ try {
 } catch(e) { console.error("Firebase init error", e); }
 
 let isNavigatingViaBackButton = false;
+function shareThePlatform() {
+  const shareText = '📚 منصة الكوثر — كل ما تحتاجه من كتب، ملازم، ودروس بمكان واحد!';
+  const shareUrl = location.href.split('#')[0].split('?')[0];
+  if (navigator.share) {
+    // المشاركة عبر نظام الهاتف نفسه — يخلي المستخدم يختار أي تطبيق يريده (واتساب، فيسبوك، تيليكرام...)
+    navigator.share({ title: 'منصة الكوثر', text: shareText, url: shareUrl }).catch(() => {});
+  } else {
+    // بديل لو المتصفح ما يدعم المشاركة الأصلية: نفتح واتساب مباشرة برسالة جاهزة
+    const msg = `${shareText}\n${shareUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  }
+}
+
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
