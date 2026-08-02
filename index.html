@@ -3655,7 +3655,9 @@ document.getElementById('addTbGradeBtn').onclick = async () => {
   const stage = document.getElementById('tbGradeStage').value;
   if (!name) { alert('اكتب اسم الصف'); return; }
   const countSnap = await db.collection('textbookGrades').get();
-  await db.collection('textbookGrades').add({ name, stage, order: countSnap.size, createdAt: Date.now() });
+  if (countSnap.docs.some(d => d.data().name === name)) { alert('هذا الصف موجود مسبقاً'); return; }
+  const id = tbSafeId(name);
+  await db.collection('textbookGrades').doc(id).set({ name, stage, order: countSnap.size, createdAt: Date.now() }, { merge: true });
   document.getElementById('tbGradeName').value = '';
   alert('تمت إضافة الصف ✅');
   loadTbGradesAdmin();
@@ -3666,6 +3668,11 @@ const DEFAULT_TB_GRADES = {
   middle: ["الأول متوسط","الثاني متوسط","الثالث متوسط"],
   secondary: ["الرابع علمي","الرابع أدبي","الخامس علمي","الخامس أدبي","السادس علمي","السادس أدبي"]
 };
+// معرّف ثابت من اسم الصف/المادة، حتى لو انسحب الزرع مرتين بنفس اللحظة (نت ضعيف مثلاً) ما ينضاف صف مكرر أبداً
+function tbSafeId(str) {
+  return (str || '').trim().replace(/[\/\.\#\$\[\]]/g, '_');
+}
+
 async function seedDefaultTbGradesIfNeeded() {
   const snap = await db.collection('textbookGrades').get();
   const existingNames = new Set(snap.docs.map(d => d.data().name));
@@ -3675,7 +3682,8 @@ async function seedDefaultTbGradesIfNeeded() {
     for (const name of names) {
       if (existingNames.has(name)) continue;
       existingNames.add(name); // نضيفه فوراً للمجموعة المحلية حتى ما ينضاف مرتين بنفس الاستدعاء
-      batchPromises.push(db.collection('textbookGrades').add({ name, stage, order: order++, createdAt: Date.now() }));
+      const id = tbSafeId(name);
+      batchPromises.push(db.collection('textbookGrades').doc(id).set({ name, stage, order: order++, createdAt: Date.now() }, { merge: true }));
     }
   }
   if (batchPromises.length) await Promise.all(batchPromises);
@@ -3718,7 +3726,8 @@ async function seedDefaultTbSubjectsIfNeeded() {
     for (const name of subjects) {
       if (existingNames.has(name)) continue;
       existingNames.add(name);
-      batchPromises.push(db.collection('textbookSubjects').add({ gradeId, name, price:0, image:null, createdAt: Date.now() }));
+      const id = tbSafeId(gradeId) + '__' + tbSafeId(name);
+      batchPromises.push(db.collection('textbookSubjects').doc(id).set({ gradeId, name, price:0, image:null, createdAt: Date.now() }, { merge: true }));
     }
   }
   if (batchPromises.length) await Promise.all(batchPromises);
@@ -3864,7 +3873,10 @@ async function addTbSubject(gradeId) {
   const price = +document.getElementById(`tbSubjPrice-${gradeId}`).value || 0;
   const image = document.getElementById(`tbSubjImagePreview-${gradeId}`).dataset.image || null;
   if (!name || !price) { alert('اكتب اسم المادة والسعر'); return; }
-  await db.collection('textbookSubjects').add({ gradeId, name, price, image, createdAt: Date.now() });
+  const existingSnap = await db.collection('textbookSubjects').where('gradeId','==',gradeId).get();
+  if (existingSnap.docs.some(d => d.data().name === name)) { alert('هذه المادة موجودة مسبقاً بهذا الصف'); return; }
+  const id = tbSafeId(gradeId) + '__' + tbSafeId(name);
+  await db.collection('textbookSubjects').doc(id).set({ gradeId, name, price, image, createdAt: Date.now() }, { merge: true });
   loadTbGradesAdmin();
 }
 async function deleteTbSubject(id) {
@@ -5760,12 +5772,39 @@ let announcementsList = [];
 let carouselIndex = 0;
 let carouselInterval = null;
 async function loadAnnouncements() {
-  try {
-    const snap = await db.collection('announcements').orderBy('createdAt','desc').get();
-    announcementsList = snap.docs.map(d => d.data());
-  } catch(e) { console.error(e); announcementsList = []; }
   const container = document.getElementById('announcementsCarousel');
   const fallback = document.getElementById('welcomeFallbackCard');
+
+  // نعرض فوراً آخر نسخة محفوظة محلياً (إن وجدت) حتى لا تظهر الشاشة فارغة أثناء انتظار الشبكة
+  try {
+    const cached = JSON.parse(localStorage.getItem('kawthar_announcements_cache') || 'null');
+    if (Array.isArray(cached) && cached.length > 0) {
+      announcementsList = cached;
+      if (fallback) fallback.classList.add('hidden');
+      container.classList.remove('hidden');
+      carouselIndex = 0;
+      renderCarouselSlide();
+      scheduleNextCarouselSlide();
+    }
+  } catch(e) { console.error(e); }
+
+  // مهلة قصوى 5 ثواني: لو النت ضعيف جداً وما وصل رد، نكتفي بالمعروض حالياً (المخزّن أو الشعار الافتراضي) بدل الانتظار للأبد
+  const withTimeout = (p, ms) => Promise.race([
+    p,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+  ]);
+
+  try {
+    const snap = await withTimeout(db.collection('announcements').orderBy('createdAt','desc').get(), 5000);
+    const fresh = snap.docs.map(d => d.data());
+    announcementsList = fresh;
+    try { localStorage.setItem('kawthar_announcements_cache', JSON.stringify(fresh)); } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error(e);
+    if (announcementsList.length > 0) return; // عندنا نسخة محفوظة ظاهرة أصلاً، نكتفي بها
+    announcementsList = [];
+  }
+
   if (carouselInterval) clearTimeout(carouselInterval);
   if (announcementsList.length === 0) {
     container.classList.add('hidden');
