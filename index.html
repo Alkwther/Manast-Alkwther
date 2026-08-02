@@ -2905,7 +2905,9 @@ async function getOrAssignCustomerId(phone) {
   } catch(e) { console.error('getOrAssignCustomerId failed', e); return null; }
 }
 
+let isSubmittingOrder = false;
 document.getElementById('confirmOrderBtn').onclick = async () => {
+  if (isSubmittingOrder) return; // منع تكرار الطلب لو ضغط الزبون على الزر أكثر من مرة بسرعة
   const name = document.getElementById('ckName').value.trim();
   const province = document.getElementById('ckProvince').value;
   const district = document.getElementById('ckDistrict').value.trim();
@@ -2915,6 +2917,12 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
   if (!name || !province || !district || !phone) { setMsg('checkoutMsg','الرجاء تعبئة الاسم والمحافظة والقضاء/الناحية ورقم الهاتف', false); return; }
   const ids = Object.keys(cart);
   if (ids.length === 0) { setMsg('checkoutMsg','سلتك فارغة', false); return; }
+  isSubmittingOrder = true;
+  const btn = document.getElementById('confirmOrderBtn');
+  const originalBtnText = btn.textContent;
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  btn.textContent = '⏳ جاري الإرسال...';
   const items = ids.map(id => ({ bookId: id, title: cart[id].title, price: cart[id].price, qty: cart[id].qty }));
   const subtotal = items.reduce((s,it)=>s+it.price*it.qty,0);
   const deliveryFee = calcCartDeliveryFee();
@@ -2950,6 +2958,12 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
     setupCustomerNotifications(phone);
     setTimeout(() => showMyOrders(phone), 700);
   } catch(e) { setMsg('checkoutMsg', 'خطأ عند إرسال الطلب: ' + (e.message || 'خطأ غير معروف'), false); console.error(e); }
+  finally {
+    isSubmittingOrder = false;
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.textContent = originalBtnText;
+  }
 };
 
 async function checkReturningCustomer() {
@@ -4125,9 +4139,14 @@ async function robustCopy(text) {
 
 let currentOrdersTab = 'new';
 
-async function loadOrdersAdmin() {
-  const snap = await db.collection('orders').orderBy('createdAt','desc').limit(200).get();
+let ordersAdminUnsubscribe = null;
+function loadOrdersAdmin() {
+  // نلغي أي مستمع لحظي سابق قبل ما نفتح وحد جديد (تبديل تبويب مثلاً)
+  if (ordersAdminUnsubscribe) { ordersAdminUnsubscribe(); ordersAdminUnsubscribe = null; }
   const list = document.getElementById('ordersAdminList');
+
+  ordersAdminUnsubscribe = db.collection('orders').orderBy('createdAt','desc').limit(200)
+    .onSnapshot(async (snap) => {
 
   // إحصائية الطلبات (يومي/شهري/سنوي) — نحسبها من كل الطلبات وليس فقط آخر 200
   try {
@@ -4219,6 +4238,7 @@ async function loadOrdersAdmin() {
   }
 
   list.innerHTML = rows.map(({id, o}) => renderOrderCard(id, o, unreadByOrderId[id] || 0)).join('');
+    }, (err) => console.error('orders live listener failed', err));
 }
 
 document.getElementById('ordersTabNew').onclick = () => switchOrdersTab('new');
