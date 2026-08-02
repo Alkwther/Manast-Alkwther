@@ -6021,9 +6021,28 @@ if (inAppBrowser && !localStorage.getItem('kawthar_inapp_dismissed')) {
 
 
 if ('serviceWorker' in navigator) {
+  let swRegistration = null;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(e => console.log('SW registration failed', e));
+    // updateViaCache:'none' يجبر المتصفح يتأكد من نسخة sw.js الفعلية من السيرفر
+    // بدل الاكتفاء بنسخة قديمة محفوظة بذاكرة التخزين المؤقت للمتصفح نفسه
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+      .then(reg => {
+        swRegistration = reg;
+        // نتأكد فوراً من وجود تحديث عند فتح البرنامج، وما ننتظر فحص المتصفح التلقائي (يوصل لـ 24 ساعة أحياناً)
+        reg.update().catch(() => {});
+      })
+      .catch(e => console.log('SW registration failed', e));
   });
+
+  // فحص دوري لوجود تحديث كل ما رجع المستخدم للبرنامج (تبديل تطبيقات، فتح الشاشة، إلخ)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && swRegistration) {
+      swRegistration.update().catch(() => {});
+    }
+  });
+  // وفحص دوري إضافي كل 5 دقائق طالما البرنامج مفتوح
+  setInterval(() => { if (swRegistration) swRegistration.update().catch(() => {}); }, 5 * 60 * 1000);
+
   // إعادة تحميل الصفحة تلقائياً عند توفر نسخة محدثة من المنصة
   let refreshedOnce = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
