@@ -3,14 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>منصة الكوثر التعليمية</title>
+<title>مكتبة الكوثر</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#10203f">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="منصة الكوثر">
+<meta name="apple-mobile-web-app-title" content="مكتبة الكوثر">
 <link rel="icon" href="icon-192.png">
+<meta property="og:title" content="مكتبة الكوثر">
+<meta property="og:description" content="مكتبة تعليمية للكتب والملازم والدفاتر، مطبعة لطباعة الكتب والملازم، ومنصة تعليمية للطلاب">
+<meta property="og:image" content="https://alkwther.github.io/Manast-Alkwther/icon-512.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="مكتبة الكوثر">
+<meta name="twitter:description" content="مكتبة تعليمية للكتب والملازم والدفاتر، مطبعة لطباعة الكتب والملازم، ومنصة تعليمية للطلاب">
+<meta name="twitter:image" content="https://alkwther.github.io/Manast-Alkwther/icon-512.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
@@ -717,7 +725,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 <div id="app">
 
   <div class="topbar">
-    <div class="brand"><img src="icon-192.png" alt="شعار منصة الكوثر"><h1>منصة الكوثر</h1></div>
+    <div class="brand"><img src="icon-192.png" alt="شعار مكتبة الكوثر"><h1>مكتبة الكوثر</h1></div>
     <div style="display:flex;gap:14px;align-items:center;">
       <button class="icon-btn" onclick="shareThePlatform()" title="شارك البرنامج">📤</button>
       <button class="icon-btn" id="settingsBtn" title="دخول المشرف / الموظف">⚙️</button>
@@ -728,7 +736,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
   <!-- الشاشة الترحيبية الأولى -->
   <div class="screen" id="screen-welcome">
     <div id="welcomeFallbackCard" class="card" style="text-align:center;">
-      <img src="icon-192.png" alt="شعار منصة الكوثر" style="width:64px;height:64px;border-radius:16px;margin:0 auto;box-shadow:0 4px 14px rgba(16,32,63,.25);">
+      <img src="icon-192.png" alt="شعار مكتبة الكوثر" style="width:64px;height:64px;border-radius:16px;margin:0 auto;box-shadow:0 4px 14px rgba(16,32,63,.25);">
     </div>
 
     <div id="announcementsCarousel" class="hidden" style="margin-bottom:12px;border-radius:18px;overflow:hidden;box-shadow:0 8px 26px rgba(16,32,63,.18);background:#000;position:relative;line-height:0;">
@@ -738,19 +746,19 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       </div>
     </div>
 
-    <div class="subject-tile" onclick="show('screen-edu-platform')">
-      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🎓</span><div><b>المنصة التعليمية</b><br><span style="font-size:12px;color:#8a90a3;">دخول الأساتذة والطلاب، والدروس المجانية</span></div></div>
-      <div class="badge">دخول</div>
-    </div>
-
     <div class="subject-tile" onclick="show('screen-library'); checkReturningCustomer();">
-      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📚</span><div><b>المكتبة</b><br><span style="font-size:12px;color:#8a90a3;">تصفح واطلب الكتب والملازم</span></div></div>
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📚</span><div><b>مكتبة الكوثر</b><br><span style="font-size:12px;color:#8a90a3;">كتب و ملازم و دفاتر</span></div></div>
       <div class="badge">تصفح</div>
     </div>
 
     <div class="subject-tile" onclick="show('screen-print-shop')">
-      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🖨️</span><div><b>المطبعة</b><br><span style="font-size:12px;color:#8a90a3;">احسب سعر طباعة ملزمتك</span></div></div>
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🖨️</span><div><b>المطبعة</b><br><span style="font-size:12px;color:#8a90a3;">طباعة الكتب والملازم</span></div></div>
       <div class="badge">فتح</div>
+    </div>
+
+    <div class="subject-tile" onclick="show('screen-edu-platform')">
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🎓</span><div><b>منصة الكوثر التعليمية</b><br><span style="font-size:12px;color:#8a90a3;">اشترك الان</span></div></div>
+      <div class="badge">دخول</div>
     </div>
   </div>
 
@@ -2109,10 +2117,10 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     <div id="teacherActivitiesList"></div>
   </div>
 
-  <div class="card hidden" id="topBanner" style="position:fixed;top:0;left:0;right:0;max-width:480px;margin:0 auto;z-index:70;border-radius:0;border-bottom:2px solid #cda44e;">
+  <div class="card hidden" id="topBanner" style="position:fixed;top:50%;left:0;right:0;transform:translateY(-50%);max-width:420px;margin:0 auto;z-index:70;border-radius:16px;box-shadow:0 10px 34px rgba(0,0,0,.35);">
     <p id="topBannerText" style="margin-bottom:10px;font-weight:bold;color:#10203f;font-size:13px;"></p>
     <div style="display:flex;gap:8px;">
-      <button class="btn" id="topBannerActionBtn" style="margin:0;flex:1;">تثبيت التطبيق</button>
+      <button class="btn" id="topBannerActionBtn" style="margin:0;flex:1;">تنزيل</button>
       <button class="btn secondary" id="topBannerDismissBtn" style="margin:0;width:auto;padding:10px 16px;">إغلاق</button>
     </div>
   </div>
@@ -2160,7 +2168,7 @@ function getSecondaryAuth() {
   if (!secondaryApp) secondaryApp = firebase.initializeApp(firebaseConfig, 'Secondary');
   return secondaryApp.auth();
 }
-const WHATSAPP_NUMBER = "9647809677257"; // رقم واتساب منصة الكوثر (بالصيغة الدولية بدون + أو صفر بالبداية)
+const WHATSAPP_NUMBER = "9647809677257"; // رقم واتساب مكتبة الكوثر (بالصيغة الدولية بدون + أو صفر بالبداية)
 const DELIVERY_FEE = 5000; // أجور التوصيل الثابتة بالدينار العراقي، تُضاف تلقائياً لكل طلب مكتبة
 
 let db, auth, currentStudent = null;
@@ -2180,7 +2188,7 @@ function shareThePlatform() {
   const shareUrl = location.href.split('#')[0].split('?')[0];
   if (navigator.share) {
     // المشاركة عبر نظام الهاتف نفسه — يخلي المستخدم يختار أي تطبيق يريده (واتساب، فيسبوك، تيليكرام...)
-    navigator.share({ title: 'منصة الكوثر', text: shareText, url: shareUrl }).catch(() => {});
+    navigator.share({ title: 'مكتبة الكوثر', text: shareText, url: shareUrl }).catch(() => {});
   } else {
     // بديل لو المتصفح ما يدعم المشاركة الأصلية: نفتح واتساب مباشرة برسالة جاهزة
     const msg = `${shareText}\n${shareUrl}`;
@@ -2312,7 +2320,7 @@ document.getElementById('loginBtn').onclick = async () => {
       requestedSubjects: [subject], teacherPreference: teacherName,
       status: 'pending', seenByStaff: false, createdAt: Date.now()
     });
-    const text = encodeURIComponent(`طلب تسجيل جديد - منصة الكوثر\nاسم الطالب الثلاثي: ${name}\nرقم الهاتف: ${phone}\nالصف: ${grade}\nالمادة: ${subject}\nالأستاذ: ${teacherName}`);
+    const text = encodeURIComponent(`طلب تسجيل جديد - منصة الكوثر التعليمية\nاسم الطالب الثلاثي: ${name}\nرقم الهاتف: ${phone}\nالصف: ${grade}\nالمادة: ${subject}\nالأستاذ: ${teacherName}`);
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
     show('screen-registration-done');
   } catch(e) {
@@ -2410,7 +2418,7 @@ document.getElementById('sendPaymentRequestBtn').onclick = async () => {
       createdAt: Date.now()
     });
     setMsg('requestMsg','تم تسجيل طلبك، سيتم فتح واتساب لإرسال صورة الإيصال ✅', true);
-    const text = encodeURIComponent(`طلب تفعيل اشتراك - منصة الكوثر\nالاسم: ${currentStudent.name}\nالرقم: ${currentStudent.phone}\nالمرحلة: ${currentStudent.grade}\nالمواد المطلوبة: ${requestedSubjects.join('، ')}\n(مرفق صورة إيصال الدفع)`);
+    const text = encodeURIComponent(`طلب تفعيل اشتراك - منصة الكوثر التعليمية\nالاسم: ${currentStudent.name}\nالرقم: ${currentStudent.phone}\nالمرحلة: ${currentStudent.grade}\nالمواد المطلوبة: ${requestedSubjects.join('، ')}\n(مرفق صورة إيصال الدفع)`);
     setTimeout(() => { window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank'); }, 500);
   } catch(e) { setMsg('requestMsg','خطأ بالاتصال', false); console.error(e); }
 };
@@ -2733,7 +2741,7 @@ async function loadLibrary() {
 
 function renderLibraryNav() {
   const list = document.getElementById('libraryList');
-  if (libraryAllBooks.length === 0) { list.innerHTML = '<div class="card"><p>لا توجد كتب أو ملازم مضافة بعد.</p></div>'; return; }
+  if (libraryAllBooks.length === 0) { list.innerHTML = '<div class="card" style="text-align:center;"><p style="font-size:15px;font-weight:bold;color:#10203f;">📦 سوف تتوفر الملازم قريباً</p></div>'; return; }
 
   if (!libraryNavStage) {
     // مستوى 1: المراحل
@@ -3533,8 +3541,8 @@ document.getElementById('teacherPhotoInput').addEventListener('change', async (e
       const classesSnap = await db.collection('teacherClasses').where('teacherPhone','==', currentTeacher.phone).limit(1).get();
       const cls = classesSnap.empty ? null : classesSnap.docs[0].data();
       const caption = cls
-        ? `🎉 انضم الأستاذ ${currentTeacher.name} لمنصة الكوثر — يدرّس ${cls.subject} لصف ${cls.grade}`
-        : `🎉 انضم الأستاذ ${currentTeacher.name} لمنصة الكوثر`;
+        ? `🎉 انضم الأستاذ ${currentTeacher.name} لمنصة الكوثر التعليمية — يدرّس ${cls.subject} لصف ${cls.grade}`
+        : `🎉 انضم الأستاذ ${currentTeacher.name} لمنصة الكوثر التعليمية`;
       await db.collection('announcements').add({
         image: dataUrl, caption, teacherPhone: currentTeacher.phone, autoGenerated: true, createdAt: Date.now()
       });
@@ -3937,7 +3945,7 @@ async function openNotebooksScreen() {
   list.innerHTML = '<p>جاري التحميل...</p>';
   try {
     const snap = await db.collection('notebooks').orderBy('createdAt','desc').get();
-    if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد دفاتر مضافة بعد.</p></div>'; return; }
+    if (snap.empty) { list.innerHTML = '<div class="card" style="text-align:center;"><p style="font-size:15px;font-weight:bold;color:#10203f;">📓 سوف تتوفر الدفاتر قريباً</p></div>'; return; }
     list.innerHTML = snap.docs.map(d => {
       const n = d.data();
       const thumb = n.image
@@ -4059,7 +4067,7 @@ function buildOrderBlock(o) {
   const notebooks = o.items.filter(it => it.bookId && it.bookId.startsWith('nb_'));
   const booklets = o.items.filter(it => !it.bookId || (!it.bookId.startsWith('pkg_') && !it.bookId.startsWith('subj_') && !it.bookId.startsWith('nb_')));
 
-  const lines = ['📚 منصة الكوثر', '————————————————', `👤 ${o.studentName}`, ''];
+  const lines = ['📚 مكتبة الكوثر', '————————————————', `👤 ${o.studentName}`, ''];
 
   if (packages.length) {
     packages.forEach(it => lines.push(`📦 ${it.qty} × ${it.title} — ${(it.price*it.qty).toLocaleString()} د.ع`));
@@ -5321,7 +5329,7 @@ function forgotPassword(phoneFieldId, userType) {
   }
   const name = prompt('أدخل اسمك الكامل للتأكد من هويتك:');
   if (!name) return;
-  const text = encodeURIComponent(`طلب إعادة تعيين كلمة السر - منصة الكوثر\nالنوع: ${userType}\nالاسم: ${name}\nرقم الهاتف: ${phone}\n\nالرجاء التحقق من هويتي وإعادة تعيين حسابي لأتمكن من التسجيل بكلمة سر جديدة.`);
+  const text = encodeURIComponent(`طلب إعادة تعيين كلمة السر - مكتبة الكوثر\nالنوع: ${userType}\nالاسم: ${name}\nرقم الهاتف: ${phone}\n\nالرجاء التحقق من هويتي وإعادة تعيين حسابي لأتمكن من التسجيل بكلمة سر جديدة.`);
   window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
 }
 
@@ -5987,7 +5995,7 @@ if (inAppBrowser && !localStorage.getItem('kawthar_inapp_dismissed')) {
     e.preventDefault();
     deferredInstallPrompt = e;
     if (!isStandalone) {
-      showTopBanner('ثبّت منصة الكوثر على شاشتك الرئيسية للوصول السريع 📲', {
+      showTopBanner('قم بتنزيل البرنامج الآن 📲', {
         showInstallBtn: true,
         dismissible: false,
         onAction: async () => {

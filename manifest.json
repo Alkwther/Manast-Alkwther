@@ -1,6 +1,6 @@
 {
-  "name": "منصة الكوثر التعليمية",
-  "short_name": "منصة الكوثر",
+  "name": "مكتبة الكوثر",
+  "short_name": "مكتبة الكوثر",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#10203f",
