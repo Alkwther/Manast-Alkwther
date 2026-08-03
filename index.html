@@ -2016,6 +2016,10 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <input type="file" id="teacherPhotoInput" accept="image/*" style="display:none;">
         </label>
       </div>
+      <button onclick="openTeacherNotificationCenter()" style="position:relative;background:none;border:none;font-size:24px;cursor:pointer;padding:4px;flex-shrink:0;">
+        🔔
+        <span id="teacherBellUnreadBadge" class="hidden" style="position:absolute;top:0;left:0;background:#dc2626;color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:bold;">0</span>
+      </button>
     </div>
     <div class="card">
       <p>أضف صفوفك وتابع طلابك وملفاتك من هنا</p>
@@ -2214,6 +2218,16 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <button class="small-btn" id="tchOrdersPeriodYear" style="flex:1;">السنة</button>
     </div>
     <div id="teacherOrdersPeriodList"></div>
+  </div>
+
+  <!-- مركز إشعارات الأستاذ -->
+  <div class="screen hidden" id="screen-teacher-notifications">
+    <button class="btn secondary" onclick="show('screen-teacher-dashboard')">← رجوع</button>
+    <div class="card">
+      <h3 style="margin:0;">🔔 إشعاراتي</h3>
+      <button class="btn secondary" style="margin-top:10px;" onclick="markAllTeacherNotificationsReadNow()">✅ تحديد الكل كمقروء الآن</button>
+    </div>
+    <div id="teacherNotificationCenterList"></div>
   </div>
 
   <!-- تفاصيل صف الأستاذ -->
@@ -5391,6 +5405,7 @@ document.getElementById('teacherLoginBtn').onclick = async () => {
     db.collection('teacherPhoneIndex').doc(t.phone).set({ name: t.name }).catch(e => console.error(e));
     applyTeacherModeUI();
     setupTeacherOrderMessageNotifications();
+    refreshTeacherBellBadge();
     const activeList = await getActiveGradesList();
     document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
     await refreshTeacherClassSubjectOptions();
@@ -7192,6 +7207,7 @@ async function autoEscalateOrderStatuses() {
           db.collection('teacherPhoneIndex').doc(t.phone).set({ name: t.name }).catch(e => console.error(e));
           applyTeacherModeUI();
           setupTeacherOrderMessageNotifications();
+    refreshTeacherBellBadge();
           const activeList = await getActiveGradesList();
           document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
           await refreshTeacherClassSubjectOptions();
@@ -7442,35 +7458,169 @@ function setupAdminNotifications() {
   }
 }
 
-// إشعار الأستاذ برسائل الزبائن بخصوص طلبات متجره الخاص (توصيله الذاتي)
+// إشعارات الأستاذ: طلبات جديدة على متجره + رسائل الزبائن + رسائل الإدارة
 let teacherOrderMsgListenerStarted = false;
 function setupTeacherOrderMessageNotifications() {
   if (teacherOrderMsgListenerStarted || !currentTeacher) return;
   teacherOrderMsgListenerStarted = true;
   requestNotificationPermissionQuietly();
   const myOrderIds = new Set();
-  db.collection('orders').where('fulfillmentTeacherName','==', currentTeacher.name).onSnapshot(snap => {
+
+  let firstOrdersSnapshot = true;
+  db.collection('orders').where('fulfillmentTeacherName','==', currentTeacher.name).where('fulfillment','==','teacher').onSnapshot(snap => {
     snap.docs.forEach(d => myOrderIds.add(d.id));
+    if (!firstOrdersSnapshot) {
+      snap.docChanges().forEach(change => {
+        if (change.type !== 'added') return;
+        const o = change.doc.data();
+        if (isNotificationSoundEnabled()) playNotificationBeep();
+        fireNotification('🆕 طلب جديد بمتجرك', `${o.studentName} — ${o.totalPrice} د.ع`, () => {
+          show('screen-teacher-orders'); switchTeacherOrdersTab('new');
+        });
+      });
+    }
+    firstOrdersSnapshot = false;
+    refreshTeacherBellBadge();
   }, e => console.error(e));
 
   let firstMsgSnapshot = true;
   db.collection('messages').where('readByStaff','==', false).onSnapshot(snap => {
-    if (firstMsgSnapshot) { firstMsgSnapshot = false; return; }
-    snap.docChanges().forEach(change => {
-      if (change.type !== 'added') return;
-      const m = change.doc.data();
-      if (m.fromRole === 'teacher') return; // ما نبلّغه برسالته هو نفسه
-      const tid = m.threadId || '';
-      if (!tid.startsWith('order_')) return;
-      const orderId = tid.slice('order_'.length);
-      if (!myOrderIds.has(orderId)) return; // طلب مو تابع لمتجره
-      if (isNotificationSoundEnabled()) playNotificationBeep();
-      fireNotification(`💬 رسالة من زبون — ${m.fromName||''}`, m.text, () => {
-        show('screen-teacher-orders'); switchTeacherOrdersTab(currentTeacherOrdersTab || 'new');
-        openChat(tid, `💬 طلب ${m.fromName||''}`);
+    if (!firstMsgSnapshot) {
+      snap.docChanges().forEach(change => {
+        if (change.type !== 'added') return;
+        const m = change.doc.data();
+        if (m.fromRole === 'teacher') return; // ما نبلّغه برسالته هو نفسه
+        const tid = m.threadId || '';
+        if (!tid.startsWith('order_')) return;
+        const orderId = tid.slice('order_'.length);
+        if (!myOrderIds.has(orderId)) return; // طلب مو تابع لمتجره
+        if (isNotificationSoundEnabled()) playNotificationBeep();
+        fireNotification(`💬 رسالة من زبون — ${m.fromName||''}`, m.text, () => {
+          show('screen-teacher-orders'); switchTeacherOrdersTab(currentTeacherOrdersTab || 'new');
+          openChat(tid, `💬 طلب ${m.fromName||''}`);
+        });
       });
-    });
+    }
+    firstMsgSnapshot = false;
+    refreshTeacherBellBadge();
   }, e => console.error(e));
+
+  let firstStaffMsgSnapshot = true;
+  db.collection('messages').where('readByTeacher','==', false).onSnapshot(snap => {
+    if (!firstStaffMsgSnapshot) {
+      snap.docChanges().forEach(change => {
+        if (change.type !== 'added') return;
+        const m = change.doc.data();
+        if (m.fromRole === 'teacher') return;
+        const tid = m.threadId || '';
+        if (tid !== `staffteacher_${currentTeacher.phone}`) return;
+        if (isNotificationSoundEnabled()) playNotificationBeep();
+        fireNotification(`💬 رسالة من الإدارة`, m.text, () => { openStaffTeacherChatFromTeacher(); });
+      });
+    }
+    firstStaffMsgSnapshot = false;
+    refreshTeacherBellBadge();
+  }, e => console.error(e));
+}
+
+async function refreshTeacherBellBadge() {
+  if (!currentTeacher) return;
+  try {
+    const ordersSnap = await db.collection('orders').where('fulfillmentTeacherName','==', currentTeacher.name).where('fulfillment','==','teacher').get();
+    const unseenOrders = ordersSnap.docs.filter(d => d.data().seenByStaff !== true).length;
+    const orderIds = new Set(ordersSnap.docs.map(d => d.id));
+    const msgsSnap = await db.collection('messages').where('readByStaff','==', false).get();
+    const customerMsgs = msgsSnap.docs.filter(d => {
+      const tid = d.data().threadId || '';
+      return tid.startsWith('order_') && orderIds.has(tid.slice('order_'.length)) && d.data().fromRole !== 'teacher';
+    }).length;
+    const staffMsgsSnap = await db.collection('messages').where('readByTeacher','==', false).where('threadId','==', `staffteacher_${currentTeacher.phone}`).get();
+    const staffMsgs = staffMsgsSnap.docs.filter(d => d.data().fromRole !== 'teacher').length;
+    const total = unseenOrders + customerMsgs + staffMsgs;
+    const badge = document.getElementById('teacherBellUnreadBadge');
+    if (badge) {
+      if (total > 0) { badge.textContent = total; badge.classList.remove('hidden'); }
+      else badge.classList.add('hidden');
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function openTeacherNotificationCenter() {
+  show('screen-teacher-notifications');
+  const list = document.getElementById('teacherNotificationCenterList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const ordersSnap = await db.collection('orders').where('fulfillmentTeacherName','==', currentTeacher.name).where('fulfillment','==','teacher').get();
+    const unseenOrders = ordersSnap.docs.filter(d => d.data().seenByStaff !== true);
+    const orderIds = new Set(ordersSnap.docs.map(d => d.id));
+    const msgsSnap = await db.collection('messages').where('readByStaff','==', false).get();
+    const customerMsgs = msgsSnap.docs.filter(d => {
+      const tid = d.data().threadId || '';
+      return tid.startsWith('order_') && orderIds.has(tid.slice('order_'.length)) && d.data().fromRole !== 'teacher';
+    });
+    const staffMsgsSnap = await db.collection('messages').where('readByTeacher','==', false).where('threadId','==', `staffteacher_${currentTeacher.phone}`).get();
+    const staffMsgs = staffMsgsSnap.docs.filter(d => d.data().fromRole !== 'teacher');
+
+    const items = [];
+    unseenOrders.forEach(d => {
+      const o = d.data();
+      items.push({ type:'order', id: d.id, createdAt: o.createdAt, title: `🆕 طلب جديد من ${o.studentName}`, body: `${o.totalPrice} د.ع` });
+    });
+    customerMsgs.forEach(d => {
+      const m = d.data();
+      items.push({ type:'ordermsg', id: d.id, threadId: m.threadId, createdAt: m.createdAt, title: `💬 رسالة من ${m.fromName}`, body: m.text });
+    });
+    staffMsgs.forEach(d => {
+      const m = d.data();
+      items.push({ type:'staffmsg', id: d.id, threadId: m.threadId, createdAt: m.createdAt, title: `💬 رسالة من الإدارة`, body: m.text });
+    });
+    items.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+
+    if (items.length === 0) { list.innerHTML = '<div class="card"><p>لا توجد إشعارات جديدة.</p></div>'; refreshTeacherBellBadge(); return; }
+
+    list.innerHTML = items.map(item => `
+      <div class="admin-list-item" style="flex-direction:column;align-items:stretch;cursor:pointer;" onclick="openTeacherNotificationItem('${item.type}','${item.id}','${(item.threadId||'').replace(/'/g,"\\'")}')">
+        <b>${item.title}</b>
+        <span style="color:#8a90a3;font-size:13px;">${item.body}</span>
+        <span style="color:#c4c8d3;font-size:11px;">${formatOrderTime(item.createdAt)}</span>
+      </div>`).join('');
+    refreshTeacherBellBadge();
+  } catch(e) { console.error(e); list.innerHTML = '<div class="card"><p>تعذّر تحميل الإشعارات.</p></div>'; }
+}
+async function openTeacherNotificationItem(type, id, threadId) {
+  try {
+    if (type === 'order') {
+      await db.collection('orders').doc(id).update({ seenByStaff: true });
+      show('screen-teacher-orders'); switchTeacherOrdersTab('new');
+    } else if (type === 'ordermsg') {
+      await db.collection('messages').doc(id).update({ readByStaff: true });
+      openChat(threadId, '💬 محادثة الطلب');
+    } else if (type === 'staffmsg') {
+      await db.collection('messages').doc(id).update({ readByTeacher: true });
+      openChat(threadId, '💬 الدردشة مع الإدارة');
+    }
+    refreshTeacherBellBadge();
+  } catch(e) { console.error(e); }
+}
+async function markAllTeacherNotificationsReadNow() {
+  try {
+    const ordersSnap = await db.collection('orders').where('fulfillmentTeacherName','==', currentTeacher.name).where('fulfillment','==','teacher').get();
+    const unseenOrders = ordersSnap.docs.filter(d => d.data().seenByStaff !== true);
+    const orderIds = new Set(ordersSnap.docs.map(d => d.id));
+    const msgsSnap = await db.collection('messages').where('readByStaff','==', false).get();
+    const customerMsgs = msgsSnap.docs.filter(d => {
+      const tid = d.data().threadId || '';
+      return tid.startsWith('order_') && orderIds.has(tid.slice('order_'.length));
+    });
+    const staffMsgsSnap = await db.collection('messages').where('readByTeacher','==', false).where('threadId','==', `staffteacher_${currentTeacher.phone}`).get();
+    await Promise.all([
+      ...unseenOrders.map(d => d.ref.update({ seenByStaff: true })),
+      ...customerMsgs.map(d => d.ref.update({ readByStaff: true })),
+      ...staffMsgsSnap.docs.map(d => d.ref.update({ readByTeacher: true }))
+    ]);
+    refreshTeacherBellBadge();
+    document.getElementById('teacherNotificationCenterList').innerHTML = '<div class="card"><p>لا توجد إشعارات جديدة.</p></div>';
+  } catch(e) { console.error(e); }
 }
 
 function setupCustomerNotifications(phone) {
