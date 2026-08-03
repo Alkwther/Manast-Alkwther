@@ -3008,6 +3008,8 @@ function saveDeliveryInfo(info) {
 function calcCartDeliveryFee() {
   const ids = Object.keys(cart);
   if (ids.length === 0) return 0;
+  const firstItem = cart[ids[0]];
+  if (firstItem.teacherName && firstItem.deliveryMode === 'teacher') return firstItem.teacherDeliveryFee || 0;
   const hasPkg = ids.some(id => id.startsWith('pkg_'));
   if (hasPkg) return 0; // أي بكج كامل بالسلة = توصيل مجاني للطلب كامل
   const hasIndividualOrNotebook = ids.some(id => id.startsWith('subj_') || id.startsWith('nb_'));
@@ -3021,8 +3023,14 @@ function renderCartItems() {
   list.innerHTML = ids.map(id => {
     const it = cart[id];
     subtotal += it.price * it.qty;
+    const stageLabel = it.stage ? (STAGE_LABELS_AR[it.stage] || it.stage) : '';
+    const detailParts = [];
+    if (stageLabel) detailParts.push(stageLabel);
+    if (it.grade) detailParts.push(it.grade);
+    if (it.teacherName) detailParts.push(`أ. ${it.teacherName}`);
+    const detailLine = detailParts.length ? `<br><span style="color:#0e6fa8;font-size:12px;">${detailParts.join(' — ')}</span>` : '';
     return `<div class="lesson-row" style="flex-wrap:wrap;gap:8px;">
-      <div class="title" style="flex:1;min-width:150px;">${it.title}<br><span style="color:#8a90a3;font-size:12px;">${it.price} د.ع × ${it.qty} = ${it.price * it.qty} د.ع</span></div>
+      <div class="title" style="flex:1;min-width:150px;">${it.title}${detailLine}<br><span style="color:#8a90a3;font-size:12px;">${it.price} د.ع × ${it.qty} = ${it.price * it.qty} د.ع</span></div>
       <div style="display:flex;align-items:center;gap:8px;">
         <button class="small-btn" onclick="changeCartItemQty('${id}',-1)">−</button>
         <span style="min-width:16px;text-align:center;">${it.qty}</span>
