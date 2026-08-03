@@ -2949,7 +2949,7 @@ function addToCart(id, title, price, qty, meta) {
       return;
     }
   }
-  if (!cart[id]) cart[id] = { title, price, qty: 0, teacherName: meta.teacherName || null, deliveryMode: meta.deliveryMode || null, teacherDeliveryFee: meta.teacherDeliveryFee || 0 };
+  if (!cart[id]) cart[id] = { title, price, qty: 0, teacherName: meta.teacherName || null, deliveryMode: meta.deliveryMode || null, teacherDeliveryFee: meta.teacherDeliveryFee || 0, stage: meta.stage || null, grade: meta.grade || null };
   cart[id].qty += qty;
   saveCartToStorage();
   renderCartBar();
@@ -3103,7 +3103,7 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
   btn.disabled = true;
   btn.style.opacity = '0.6';
   btn.textContent = '⏳ جاري الإرسال...';
-  const items = ids.map(id => ({ bookId: id, title: cart[id].title, price: cart[id].price, qty: cart[id].qty }));
+  const items = ids.map(id => ({ bookId: id, title: cart[id].title, price: cart[id].price, qty: cart[id].qty, stage: cart[id].stage || null, grade: cart[id].grade || null }));
   const subtotal = items.reduce((s,it)=>s+it.price*it.qty,0);
   const deliveryFee = isAllTeacherSelf ? (firstMeta.teacherDeliveryFee || 0) : calcCartDeliveryFee();
   const totalPrice = subtotal + deliveryFee;
@@ -3235,7 +3235,13 @@ async function showMyOrders(phoneOverride) {
     } catch(e) { console.error(e); }
 
     list.innerHTML = rows.map(({id, o}) => {
-      const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
+      const itemsText = o.items.map(it => {
+        const stageLabel = it.stage ? (STAGE_LABELS_AR[it.stage] || it.stage) : '';
+        const parts = [it.title];
+        if (stageLabel) parts.push(stageLabel);
+        if (it.grade) parts.push(it.grade);
+        return `${parts.join(' — ')} ×${it.qty}`;
+      }).join('، ');
       const isCopied = !!o.processingAt;
       let cardStyle;
       if (o.status === 'cancelled') cardStyle = 'background:#1f2937;border:2px solid #000;color:#fff;';
@@ -3246,6 +3252,7 @@ async function showMyOrders(phoneOverride) {
       return `<div class="card" style="${cardStyle}">
         <h3 ${textColor}>${ORDER_STATUS_LABELS[o.status] || o.status} ${o.edited ? '<span style="background:#cda44e;color:#10203f;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">✏️ تم التعديل</span>' : ''} ${unreadCount > 0 ? `<span style="background:#ec4899;color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">🔔 ${unreadCount}</span>` : ''}</h3>
         ${o.customerId ? `<p ${textColor} style="font-weight:bold;">🪪 رقم الزبون: ${o.customerId}</p>` : ''}
+        <p ${textColor} style="font-size:13px;color:#8a90a3;">${o.fulfillment === 'teacher' ? `🚚 التوصيل: الأستاذ ${o.fulfillmentTeacherName||''}` : '🚚 التوصيل: المكتبة'}</p>
         <p ${textColor}>${itemsText}</p>
         <p style="color:${o.status==='cancelled'?'#d1d5db':'#8a90a3'};">مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع</p>
         <p ${textColor}><b>المجموع: ${o.totalPrice} د.ع</b></p>
@@ -4795,7 +4802,16 @@ function renderOrdersGroupedByDate(rows, list, unreadByOrderId, mode) {
 
 function renderOrderCard(id, o, unreadCount, mode) {
   // mode: undefined = وضع كامل (جديدة/قيد التنفيذ)، 'delivering' = مراسلة + رفض، 'arrived' = مراسلة فقط
-  const itemsText = o.items.map(it => `${it.title} ×${it.qty}`).join('، ');
+  const itemsText = o.items.map(it => {
+    const stageLabel = it.stage ? (STAGE_LABELS_AR[it.stage] || it.stage) : '';
+    const parts = [it.title];
+    if (stageLabel) parts.push(stageLabel);
+    if (it.grade) parts.push(it.grade);
+    return `${parts.join(' — ')} ×${it.qty} — ${it.price} د.ع`;
+  }).join('، ');
+  const fulfillmentLabel = o.fulfillment === 'teacher'
+    ? `🚚 التوصيل: الأستاذ ${o.fulfillmentTeacherName||''} (توصيله الخاص)`
+    : '🚚 التوصيل: المكتبة';
   const isCopied = !!o.processingAt;
   let cardStyle;
   if (o.status === 'cancelled') cardStyle = 'background:#1f2937;border:2px solid #000;color:#fff;';
@@ -4840,6 +4856,7 @@ function renderOrderCard(id, o, unreadCount, mode) {
         <b style="text-decoration:underline;cursor:pointer;color:#0e6fa8;" onclick="openCustomerProfile('${o.phone}')">${o.studentName}</b> — ${o.phone}${o.altPhone ? ' / '+o.altPhone : ''}<br>
         <span style="color:${o.status==='cancelled'?'#d1d5db':'#888'};">${o.province} - ${o.district}</span><br>
         ${itemsText}<br>
+        <span style="color:#8a90a3;font-size:12px;">${fulfillmentLabel}</span><br>
         مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع = <b style="color:#b8903c;">${o.totalPrice} د.ع</b><br>
         الحالة: <b>${ORDER_STATUS_LABELS[o.status]||o.status}</b>
       </div>
@@ -5533,7 +5550,13 @@ async function loadTeacherOrders() {
   } catch(e) { console.error(e); list.innerHTML = '<p>تعذّر التحميل.</p>'; }
 }
 function renderTeacherOrderCard(id, o) {
-  const itemsText = (o.items||[]).map(it => `📦 ${it.title} ×${it.qty}`).join('<br>');
+  const itemsText = (o.items||[]).map(it => {
+    const stageLabel = it.stage ? (STAGE_LABELS_AR[it.stage] || it.stage) : '';
+    const parts = [`📦 ${it.title}`];
+    if (stageLabel) parts.push(stageLabel);
+    if (it.grade) parts.push(it.grade);
+    return `${parts.join(' — ')} × ${it.qty} — ${it.price} د.ع`;
+  }).join('<br>');
   let actionsHtml = `<button class="small-btn" onclick="teacherCopyOrder('${id}')">📋 نسخ</button>
     <button class="small-btn" onclick="openChat('order_${id}','💬 طلب ${o.studentName}')">💬 مراسلة الزبون</button>`;
   if (currentTeacherOrdersTab === 'new') {
@@ -5544,10 +5567,12 @@ function renderTeacherOrderCard(id, o) {
     actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','completed')" style="background:#16a34a;color:#fff;">✅ تم التوصيل</button>`;
   }
   return `<div class="card">
-    <p style="margin:0;"><b>${o.studentName}</b> — ${o.phone}</p>
+    <p style="margin:0;color:#0e6fa8;font-weight:bold;">🚚 التوصيل: أنت (توصيلك الخاص)</p>
+    <p style="margin:4px 0 0;"><b>👤 ${o.studentName}</b> — 📞 ${o.phone}</p>
     <p style="margin:4px 0;color:#8a90a3;">${o.province||''} ${o.district? '- '+o.district : ''}</p>
     <p style="margin:4px 0;">${itemsText}</p>
-    <p style="margin:4px 0;font-weight:bold;color:#b8903c;">الإجمالي: ${o.totalPrice||0} د.ع</p>
+    <p style="margin:4px 0;color:#8a90a3;">🚚 التوصيل: ${o.deliveryFee||0} د.ع</p>
+    <p style="margin:4px 0;font-weight:bold;color:#b8903c;">💵 الإجمالي: ${o.totalPrice||0} د.ع</p>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">${actionsHtml}</div>
   </div>`;
 }
@@ -5809,8 +5834,7 @@ let currentStoreItems = [];
 function addStoreItemToCart(id) {
   const b = currentStoreItems.find(x => x.id === id);
   if (!b) return;
-  const label = b.grade ? `${b.title} (${b.grade})` : b.title;
-  addToCart(id, label, b.price, 1, { teacherName: b.teacherName, deliveryMode: b.deliveryMode, teacherDeliveryFee: b.teacherDeliveryFee });
+  addToCart(id, b.title, b.price, 1, { teacherName: b.teacherName, deliveryMode: b.deliveryMode, teacherDeliveryFee: b.teacherDeliveryFee, stage: b.stage, grade: b.grade });
 }
 
 async function openTeacherBooksLibrary() {
