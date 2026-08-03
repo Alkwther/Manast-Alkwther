@@ -5446,12 +5446,14 @@ document.getElementById('teacherLoginBtn').onclick = async () => {
     applyTeacherModeUI();
     setupTeacherOrderMessageNotifications();
     refreshTeacherBellBadge();
-    const activeList = await getActiveGradesList();
-    document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
-    await refreshTeacherClassSubjectOptions();
-    await loadTeacherClasses();
-    updateTeacherChatBadge();
-    show('screen-teacher-dashboard');
+    show('screen-teacher-dashboard'); // نعرض اللوحة فوراً، والبيانات تكمل تحميلها بالخلفية بدون ما تعطّل الدخول
+    (async () => {
+      const activeList = await getActiveGradesList();
+      document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
+      await refreshTeacherClassSubjectOptions();
+      await loadTeacherClasses();
+      updateTeacherChatBadge();
+    })();
   } catch(e) {
     console.error(e);
     if (e.code === 'auth/user-not-found') setMsg('teacherLoginMsg','رقم الهاتف غير مسجّل', false);
@@ -5987,20 +5989,27 @@ function showTeacherWalletDrilldown(key) {
 }
 
 async function openTeacherBooksLibrary() {
-  const booksSnap = await db.collection('books').where('teacherName','==', currentTeacher.name).get();
+  show('screen-teacher-books'); // نعرض الشاشة فوراً، والبيانات تلحگ
   const booksList = document.getElementById('teacherBooksList');
   const summaryEl = document.getElementById('teacherBooksEarningsSummary');
   document.getElementById('teacherWalletDrilldown').classList.add('hidden');
+  booksList.innerHTML = '<p>جاري التحميل...</p>';
+  summaryEl.innerHTML = '';
+
+  // نجيب الملازم والطلبات والتحاسب السابق بنفس الوقت (بدل ما ننتظر وحدة وحدة) — أسرع بكثير
+  const [booksSnap, allOrders, settlementsSnap] = await Promise.all([
+    db.collection('books').where('teacherName','==', currentTeacher.name).get(),
+    db.collection('orders').orderBy('createdAt','desc').limit(500).get(),
+    db.collection('settlements').where('teacherName','==', currentTeacher.name).get().catch(() => ({ docs: [] }))
+  ]);
 
   if (booksSnap.empty) {
     booksList.innerHTML = '<div class="card"><p>ما عندك ملازم مضافة بالمكتبة بعد. اطلب من المشرف أو الموظف يضيف ملزمتك ويحدد حصتك منها.</p></div>';
     summaryEl.innerHTML = '';
-    show('screen-teacher-books');
     return;
   }
 
   const bookIds = booksSnap.docs.map(d => d.id);
-  const allOrders = await db.collection('orders').orderBy('createdAt','desc').limit(500).get();
 
   const now = Date.now();
   const weekAgo = now - 7*24*60*60*1000;
@@ -6075,11 +6084,7 @@ async function openTeacherBooksLibrary() {
     </div>`);
   }
   summaryEl.innerHTML = sections.join('') || '<div class="card"><p>ما فيه مبيعات بعد.</p></div>';
-
-  try {
-    const settlementsSnap = await db.collection('settlements').where('teacherName','==', currentTeacher.name).get();
-    document.getElementById('teacherSettlementHistory').innerHTML = renderSettlementHistoryHtml(settlementsSnap.docs.map(d => d.data()));
-  } catch(e) { console.error(e); }
+  document.getElementById('teacherSettlementHistory').innerHTML = renderSettlementHistoryHtml(settlementsSnap.docs.map(d => d.data()));
 
   window.__teacherWalletData = { libPendingOrders, libSettledOrders, selfPendingOrders, selfSettledOrders };
 
@@ -6114,7 +6119,6 @@ async function openTeacherBooksLibrary() {
       ${buyersHtml}
     </div>`;
   }).join('');
-  show('screen-teacher-books');
 }
 function toggleEditTeacherBooklet(id) {
   document.getElementById(`editTeacherBookletPanel-${id}`).classList.toggle('hidden');
@@ -7155,7 +7159,8 @@ function routeFromHash() {
     'notebooks': () => openNotebooksScreen(),
     'teacher-stores': () => { show('screen-teacher-stores'); loadTeacherStoresList(); }
   };
-  if (routes[hash]) routes[hash]();
+  if (routes[hash]) { routes[hash](); return true; }
+  return false;
 }
 window.addEventListener('load', routeFromHash);
 window.addEventListener('hashchange', routeFromHash);
@@ -7338,20 +7343,22 @@ async function autoEscalateOrderStatuses() {
           db.collection('teacherPhoneIndex').doc(t.phone).set({ name: t.name }).catch(e => console.error(e));
           applyTeacherModeUI();
           setupTeacherOrderMessageNotifications();
-    refreshTeacherBellBadge();
-          const activeList = await getActiveGradesList();
-          document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
-          await refreshTeacherClassSubjectOptions();
-          await loadTeacherClasses();
-          updateTeacherChatBadge();
+          refreshTeacherBellBadge();
           show('screen-teacher-dashboard');
+          (async () => {
+            const activeList = await getActiveGradesList();
+            document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
+            await refreshTeacherClassSubjectOptions();
+            await loadTeacherClasses();
+            updateTeacherChatBadge();
+          })();
           return;
         }
       } catch(e) { console.error(e); }
     }
   });
   loadAnnouncements();
-  show('screen-welcome');
+  if (!routeFromHash()) show('screen-welcome');
 })();
 
 // ---------- نظام الإشعارات (بدون صوت) ----------
