@@ -2024,7 +2024,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     <button class="btn secondary hidden" id="tchStoreSettingsBtn" onclick="openTeacherStoreSettings()">🏪 متجري الخاص</button>
     <button class="btn secondary" id="tchUploadBookletBtn" onclick="openTeacherUploadBooklet('store')">📤 رفع ملزمة/دفتر داخل متجري الخاص</button>
     <button class="btn secondary" id="tchUploadLibraryBtn" onclick="openTeacherUploadBooklet('library')">📚 رفع ملزمة/دفتر داخل صفوف المكتبة</button>
-    <button class="btn secondary hidden" id="tchMyOrdersBtn" onclick="show('screen-teacher-orders'); switchTeacherOrdersTab('new');">📦 طلبات ملازمي (توصيلي الخاص)</button>
+    <button class="btn secondary hidden" id="tchMyOrdersBtn" onclick="teacherOrdersContextName=null; show('screen-teacher-orders'); switchTeacherOrdersTab('new');">📦 طلبات ملازمي (توصيلي الخاص)</button>
     <button class="btn secondary" onclick="openStaffTeacherChatFromTeacher()">💬 الدردشة مع الإدارة <span id="teacherChatUnreadBadge" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></button>
     <button class="btn secondary" id="tchBuyCodeBtn" onclick="openTeacherBuyCode()">🎫 شراء كود</button>
     <button class="btn secondary" onclick="show('screen-print-shop')">🖨️ المطبعة — أسعار الطباعة</button>
@@ -2194,7 +2194,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 
   <!-- طلبات الملازم التي يوصّلها الأستاذ بنفسه -->
   <div class="screen hidden" id="screen-teacher-orders">
-    <button class="btn secondary" onclick="show('screen-teacher-dashboard')">← رجوع</button>
+    <button class="btn secondary" onclick="if (teacherOrdersContextName) { show('screen-admin'); openAdminSection('library-hub'); openAdminSection('library-teacher-stores'); } else { show('screen-teacher-dashboard'); }">← رجوع</button>
     <div class="card">
       <h3>📦 طلبات ملازمي (توصيلي الخاص)</h3>
       <p>هذي الطلبات على الملازم اللي تتكفّل بتوصيلها بنفسك — ما تشوفها المكتبة أبداً.</p>
@@ -2205,6 +2205,15 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <button class="small-btn" id="tchOrdersTabDelivering" style="flex:1;">🚚 قيد التوصيل</button>
     </div>
     <div id="teacherOrdersList"></div>
+
+    <h3 style="margin:18px 0 10px;color:#10203f;">📊 سجل الطلبات حسب الفترة (كل الحالات — بما فيها الملغية)</h3>
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+      <button class="small-btn" id="tchOrdersPeriodDay" style="flex:1;">اليوم</button>
+      <button class="small-btn" id="tchOrdersPeriodWeek" style="flex:1;">الأسبوع</button>
+      <button class="small-btn" id="tchOrdersPeriodMonth" style="flex:1;">الشهر</button>
+      <button class="small-btn" id="tchOrdersPeriodYear" style="flex:1;">السنة</button>
+    </div>
+    <div id="teacherOrdersPeriodList"></div>
   </div>
 
   <!-- تفاصيل صف الأستاذ -->
@@ -3125,13 +3134,19 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
       return;
     }
     const customerId = await getOrAssignCustomerId(phone);
-    await db.collection('orders').add({
+    const newOrderData = {
       studentPhone: currentStudent ? currentStudent.phone : phone,
       studentName: name,
       items, subtotal, deliveryFee, totalPrice, province, district, landmark, phone, altPhone,
       customerId, fulfillment, fulfillmentTeacherName,
       status: 'pending', seenByStaff: false, createdAt: Date.now()
-    });
+    };
+    if (fulfillment === 'teacher') {
+      // مبلغ حصة المكتبة يُحسب فوراً عند إنشاء الطلب، مو عند وصوله
+      newOrderData.platformOwedToLibrary = await computePlatformOwedForOrder({ items, fulfillment });
+      newOrderData.platformOwedSettled = false;
+    }
+    await db.collection('orders').add(newOrderData);
     saveDeliveryInfo({ name, province, district, landmark, phone, altPhone });
     cart = {}; saveCartToStorage();
     setMsg('checkoutMsg','تم إرسال طلبك بنجاح ✅', true);
@@ -4705,6 +4720,7 @@ async function loadAdminTeacherStores() {
         <button class="small-btn" style="margin-top:8px;${owed>0?'background:#b8903c;color:#fff;':'background:#ecfdf3;'}" onclick="toggleTeacherStoreSettlement('${t.name.replace(/'/g,"\\'")}')">
           💰 المبلغ المستحق للمكتبة: ${owed} د.ع ${owed>0 ? '— اضغط لتأكيد التحاسب' : '— تم التحاسب ✅'}
         </button>
+        <button class="small-btn" style="margin-top:6px;" onclick="teacherOrdersContextName='${t.name.replace(/'/g,"\\'")}'; show('screen-teacher-orders'); switchTeacherOrdersTab('new');">📊 سجل طلبات هذا المتجر</button>
       </div>`;
     }).join('');
   } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
@@ -4995,14 +5011,15 @@ async function setOrderStatus(id, status) {
   if (status === 'completed') {
     const orderDoc = await db.collection('orders').doc(id).get();
     const order = orderDoc.data();
-    if (!order.teacherPayoutsComputed) {
-      update.teacherPayouts = await computeTeacherPayoutsForOrder(order);
-      update.teacherPayoutsSettled = {};
-      update.teacherPayoutsComputed = true;
-      if (order.fulfillment === 'teacher') {
+    if (order.fulfillment === 'teacher') {
+      if (order.platformOwedToLibrary == null) {
         update.platformOwedToLibrary = await computePlatformOwedForOrder(order);
         update.platformOwedSettled = false;
       }
+    } else if (!order.teacherPayoutsComputed) {
+      update.teacherPayouts = await computeTeacherPayoutsForOrder(order);
+      update.teacherPayoutsSettled = {};
+      update.teacherPayoutsComputed = true;
     }
   }
   await db.collection('orders').doc(id).update(update);
@@ -5021,23 +5038,20 @@ async function convertAllProcessingToDelivering() {
 async function convertAllDeliveringToArrived() {
   if (!confirm('تحويل كل الطلبات "قيد التوصيل" إلى "الطلبات الواصلة" الآن؟')) return;
   const snap = await db.collection('orders').where('status','==','delivering').get();
-  if (snap.empty) { alert('لا توجد طلبات قيد التوصيل حالياً.'); return; }
+  const docs = snap.docs.filter(d => d.data().fulfillment !== 'teacher'); // طلبات متجر الأستاذ يديرها هو بنفسه
+  if (docs.length === 0) { alert('لا توجد طلبات قيد التوصيل حالياً.'); return; }
   const now = Date.now();
-  for (const d of snap.docs) {
+  for (const d of docs) {
     const order = d.data();
     const update = { status: 'completed' };
     if (!order.teacherPayoutsComputed) {
       update.teacherPayouts = await computeTeacherPayoutsForOrder(order);
       update.teacherPayoutsSettled = {};
       update.teacherPayoutsComputed = true;
-      if (order.fulfillment === 'teacher') {
-        update.platformOwedToLibrary = await computePlatformOwedForOrder(order);
-        update.platformOwedSettled = false;
-      }
     }
     await d.ref.update(update);
   }
-  alert(`تم تحويل ${snap.size} طلب إلى الطلبات الواصلة ✅`);
+  alert(`تم تحويل ${docs.length} طلب إلى الطلبات الواصلة ✅`);
   loadOrdersAdmin();
   loadTeacherEarningsAdmin();
 }
@@ -5534,11 +5548,13 @@ document.getElementById('tchOrdersTabNew').onclick = () => switchTeacherOrdersTa
 document.getElementById('tchOrdersTabProcessing').onclick = () => switchTeacherOrdersTab('processing');
 document.getElementById('tchOrdersTabDelivering').onclick = () => switchTeacherOrdersTab('delivering');
 
+let teacherOrdersContextName = null; // null = يستخدم currentTeacher.name (شاشة الأستاذ نفسه)؛ أو اسم محدد لو فتحها المشرف/الموظف
+function getTeacherOrdersContextName() { return teacherOrdersContextName || (currentTeacher && currentTeacher.name); }
 async function loadTeacherOrders() {
   const list = document.getElementById('teacherOrdersList');
   list.innerHTML = '<p>جاري التحميل...</p>';
   try {
-    const snap = await db.collection('orders').where('fulfillmentTeacherName','==', currentTeacher.name).where('fulfillment','==','teacher').get();
+    const snap = await db.collection('orders').where('fulfillmentTeacherName','==', getTeacherOrdersContextName()).where('fulfillment','==','teacher').get();
     const rows = snap.docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }));
     let filtered;
     if (currentTeacherOrdersTab === 'new') filtered = rows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed');
@@ -5549,7 +5565,7 @@ async function loadTeacherOrders() {
     list.innerHTML = filtered.map(({id,o}) => renderTeacherOrderCard(id, o)).join('');
   } catch(e) { console.error(e); list.innerHTML = '<p>تعذّر التحميل.</p>'; }
 }
-function renderTeacherOrderCard(id, o) {
+function renderTeacherOrderCard(id, o, useOwnStatus) {
   const itemsText = (o.items||[]).map(it => {
     const stageLabel = it.stage ? (STAGE_LABELS_AR[it.stage] || it.stage) : '';
     const parts = [`📦 ${it.title}`];
@@ -5559,15 +5575,17 @@ function renderTeacherOrderCard(id, o) {
   }).join('<br>');
   let actionsHtml = `<button class="small-btn" onclick="teacherCopyOrder('${id}')">📋 نسخ</button>
     <button class="small-btn" onclick="openChat('order_${id}','💬 طلب ${o.studentName}')">💬 مراسلة الزبون</button>`;
-  if (currentTeacherOrdersTab === 'new') {
+  const effectiveTab = useOwnStatus ? o.status : currentTeacherOrdersTab;
+  if (effectiveTab === 'new' || (useOwnStatus && !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed')) {
     actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','processing')" style="background:#0e6fa8;color:#fff;">⚙️ قيد التنفيذ</button>`;
-  } else if (currentTeacherOrdersTab === 'processing') {
+  } else if (effectiveTab === 'processing') {
     actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','delivering')" style="background:#16a34a;color:#fff;">🚚 قيد التوصيل</button>`;
-  } else if (currentTeacherOrdersTab === 'delivering') {
+  } else if (effectiveTab === 'delivering') {
     actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','completed')" style="background:#16a34a;color:#fff;">✅ تم التوصيل</button>`;
   }
+  const statusBadge = useOwnStatus ? `<span style="background:#eef1f8;color:#10203f;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">${ORDER_STATUS_LABELS[o.status]||o.status}</span>` : '';
   return `<div class="card">
-    <p style="margin:0;color:#0e6fa8;font-weight:bold;">🚚 التوصيل: أنت (توصيلك الخاص)</p>
+    <p style="margin:0;color:#0e6fa8;font-weight:bold;">🚚 التوصيل: أنت (توصيلك الخاص) ${statusBadge}</p>
     <p style="margin:4px 0 0;"><b>👤 ${o.studentName}</b> — 📞 ${o.phone}</p>
     <p style="margin:4px 0;color:#8a90a3;">${o.province||''} ${o.district? '- '+o.district : ''}</p>
     <p style="margin:4px 0;">${itemsText}</p>
@@ -5578,6 +5596,46 @@ function renderTeacherOrderCard(id, o) {
 }
 async function teacherCopyOrder(id) { await copySingleOrder(id); loadTeacherOrders(); }
 async function teacherSetOrderStatus(id, status) { await setOrderStatus(id, status); loadTeacherOrders(); }
+
+function getPeriodStart(period) {
+  const now = new Date();
+  if (period === 'day') return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if (period === 'week') {
+    const dayOfWeek = now.getDay(); // 0=الأحد
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
+    return start.getTime();
+  }
+  if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  if (period === 'year') return new Date(now.getFullYear(), 0, 1).getTime();
+  return 0;
+}
+const PERIOD_LABELS = { day:'اليوم', week:'الأسبوع', month:'الشهر', year:'السنة' };
+async function loadTeacherOrdersByPeriod(period) {
+  ['tchOrdersPeriodDay','tchOrdersPeriodWeek','tchOrdersPeriodMonth','tchOrdersPeriodYear'].forEach(bid => {
+    const btn = document.getElementById(bid);
+    btn.style.background = ''; btn.style.color = '';
+  });
+  const activeBtnId = { day:'tchOrdersPeriodDay', week:'tchOrdersPeriodWeek', month:'tchOrdersPeriodMonth', year:'tchOrdersPeriodYear' }[period];
+  document.getElementById(activeBtnId).style.background = '#10203f';
+  document.getElementById(activeBtnId).style.color = '#fff';
+  const list = document.getElementById('teacherOrdersPeriodList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('orders').where('fulfillmentTeacherName','==', getTeacherOrdersContextName()).where('fulfillment','==','teacher').get();
+    const cutoff = getPeriodStart(period);
+    const rows = snap.docs
+      .map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
+      .filter(({o}) => (o.createdAt||0) >= cutoff);
+    rows.sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
+    if (rows.length === 0) { list.innerHTML = `<div class="card"><p>لا توجد طلبات خلال ${PERIOD_LABELS[period]}.</p></div>`; return; }
+    list.innerHTML = `<p style="font-weight:bold;color:#10203f;margin-bottom:8px;">📊 ${rows.length} طلب خلال ${PERIOD_LABELS[period]}</p>` +
+      rows.map(({id,o}) => renderTeacherOrderCard(id, o, true)).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+}
+document.getElementById('tchOrdersPeriodDay').onclick = () => loadTeacherOrdersByPeriod('day');
+document.getElementById('tchOrdersPeriodWeek').onclick = () => loadTeacherOrdersByPeriod('week');
+document.getElementById('tchOrdersPeriodMonth').onclick = () => loadTeacherOrdersByPeriod('month');
+document.getElementById('tchOrdersPeriodYear').onclick = () => loadTeacherOrdersByPeriod('year');
 
 async function loadTeacherClasses() {
   const snap = await db.collection('teacherClasses').where('teacherPhone','==', currentTeacher.phone).get();
@@ -7042,6 +7100,7 @@ async function autoEscalateOrderStatuses() {
     const snap = await db.collection('orders').where('status','in',['pending','processing','delivering']).get();
     for (const d of snap.docs) {
       const o = d.data();
+      if (o.fulfillment === 'teacher') continue; // الأستاذ يدير حالة طلبات متجره يدوياً بنفسه
       const effectiveStatus = computeEffectiveStatus(o);
       if (effectiveStatus !== o.status) {
         const update = { status: effectiveStatus };
@@ -7049,10 +7108,6 @@ async function autoEscalateOrderStatuses() {
           update.teacherPayouts = await computeTeacherPayoutsForOrder(o);
           update.teacherPayoutsSettled = {};
           update.teacherPayoutsComputed = true;
-          if (o.fulfillment === 'teacher') {
-            update.platformOwedToLibrary = await computePlatformOwedForOrder(o);
-            update.platformOwedSettled = false;
-          }
         }
         await d.ref.update(update);
       }
@@ -7298,6 +7353,33 @@ async function markAllCurrentNotificationsReadNow() {
 function setupAdminNotifications() {
   requestNotificationPermissionQuietly();
 
+  // نتابع أي طلب توصيل ذاتي (متجر أستاذ) حتى نستثنيه من إشعارات الموظف/المشرف،
+  // ونبلّغ الموظف/المشرف فقط لما يكتمل بيع فعلي (حالة "تم التوصيل") بمبلغ المتجر وحصة المكتبة
+  const teacherFulfillmentOrderIds = new Set();
+  const knownTeacherOrderStatus = {};
+  let firstTeacherOrdersSnapshot = true;
+  db.collection('orders').where('fulfillment','==','teacher').onSnapshot(snap => {
+    teacherFulfillmentOrderIds.clear();
+    snap.docs.forEach(d => teacherFulfillmentOrderIds.add(d.id));
+    if (!firstTeacherOrdersSnapshot) {
+      snap.docChanges().forEach(change => {
+        const o = change.doc.data();
+        const prevStatus = knownTeacherOrderStatus[change.doc.id];
+        if (change.type !== 'added' && prevStatus !== 'completed' && o.status === 'completed') {
+          fireStaffNotification(
+            `🏪 بيع جديد — متجر الأستاذ ${o.fulfillmentTeacherName||''}`,
+            `مبلغ البيع: ${o.totalPrice||0} د.ع — حصة المكتبة: ${o.platformOwedToLibrary||0} د.ع`,
+            () => { show('screen-admin'); openAdminSection('library-hub'); openAdminSection('library-teacher-stores'); loadAdminTeacherStores(); }
+          );
+        }
+        knownTeacherOrderStatus[change.doc.id] = o.status;
+      });
+    } else {
+      snap.docs.forEach(d => { knownTeacherOrderStatus[d.id] = d.data().status; });
+    }
+    firstTeacherOrdersSnapshot = false;
+  }, e => console.error(e));
+
   if (!adminOrdersListenerStarted) {
     adminOrdersListenerStarted = true;
     let firstOrdersSnapshot = true;
@@ -7306,8 +7388,9 @@ function setupAdminNotifications() {
       let hasNew = false;
       snap.docChanges().forEach(change => {
         if (change.type === 'added') {
-          hasNew = true;
           const o = change.doc.data();
+          if (o.fulfillment === 'teacher') return; // طلب متجر أستاذ — ما يخص الموظف/المشرف
+          hasNew = true;
           fireStaffNotification('🆕 طلب جديد بالمكتبة', `${o.studentName} — ${o.totalPrice} د.ع`, () => {
             show('screen-admin'); openAdminSection('library-hub'); openAdminSection('library-orders'); switchOrdersTab('new');
           });
@@ -7332,7 +7415,11 @@ function setupAdminNotifications() {
           const isSupportMsg = (m.threadId||'').startsWith('support_');
           const isLibCustomerMsg = (m.threadId||'').startsWith('libcustomer_');
           if (!isOrderMsg && !isSupportMsg && !isLibCustomerMsg) return;
-          if (isOrderMsg) hasNewOrderMsg = true;
+          if (isOrderMsg) {
+            const orderId = (m.threadId||'').slice('order_'.length);
+            if (teacherFulfillmentOrderIds.has(orderId)) return; // مراسلة زبون مع أستاذ متجره الخاص — ما تخص الموظف/المشرف
+            hasNewOrderMsg = true;
+          }
           fireStaffNotification('💬 رسالة جديدة', `${m.fromName}: ${m.text}`, () => {
             show('screen-admin');
             if (isOrderMsg) { openAdminSection('library-hub'); openAdminSection('library-orders'); }
