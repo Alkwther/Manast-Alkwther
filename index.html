@@ -7145,6 +7145,21 @@ if (inAppBrowser && !localStorage.getItem('kawthar_inapp_dismissed')) {
 
 
 
+// روابط مباشرة لأقسام معيّنة: أضف #library أو #books أو #booklets أو #notebooks أو #teacher-stores في نهاية رابط الموقع
+function routeFromHash() {
+  const hash = (window.location.hash || '').replace('#','');
+  const routes = {
+    'library': () => show('screen-library'),
+    'books': () => show('screen-print-shop'),
+    'booklets': () => { show('screen-library-booklets'); loadLibrary(); },
+    'notebooks': () => openNotebooksScreen(),
+    'teacher-stores': () => { show('screen-teacher-stores'); loadTeacherStoresList(); }
+  };
+  if (routes[hash]) routes[hash]();
+}
+window.addEventListener('load', routeFromHash);
+window.addEventListener('hashchange', routeFromHash);
+
 if ('serviceWorker' in navigator) {
   let swRegistration = null;
   window.addEventListener('load', () => {
