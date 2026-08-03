@@ -2164,6 +2164,8 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <div id="tchStoreSettingsMsg"></div>
       <button class="btn" id="saveTeacherStoreBtn">💾 حفظ إعدادات المتجر</button>
     </div>
+    <h3 style="margin:14px 0 10px;color:#10203f;">📦 المواد المنشورة بمتجرك</h3>
+    <div id="tchStoreItemsList"><p>جاري التحميل...</p></div>
   </div>
 
   <!-- قائمة متاجر الأساتذة (للزبون) -->
@@ -5349,6 +5351,7 @@ document.getElementById('teacherLoginBtn').onclick = async () => {
     document.getElementById('teacherPhotoPreview').src = t.photo || DEFAULT_AVATAR;
     db.collection('teacherPhoneIndex').doc(t.phone).set({ name: t.name }).catch(e => console.error(e));
     applyTeacherModeUI();
+    setupTeacherOrderMessageNotifications();
     const activeList = await getActiveGradesList();
     document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
     await refreshTeacherClassSubjectOptions();
@@ -5681,6 +5684,66 @@ function openTeacherStoreSettings() {
   document.getElementById('tchStoreDeliveryFee').value = currentTeacher.storeDeliveryFee || '';
   document.getElementById('tchStoreSettingsMsg').innerHTML = '';
   show('screen-teacher-store-settings');
+  loadTeacherStoreItemsList();
+}
+async function loadTeacherStoreItemsList() {
+  const list = document.getElementById('tchStoreItemsList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('books').where('teacherName','==', currentTeacher.name).where('storeItem','==', true).get();
+    if (snap.empty) { list.innerHTML = '<div class="card"><p>ما نشرت أي مادة بمتجرك بعد.</p></div>'; return; }
+    list.innerHTML = snap.docs.map(d => {
+      const b = d.data();
+      const typeLabel = b.itemType === 'notebook' ? '📓 دفتر' : '📦 ملزمة';
+      const thumb = b.image
+        ? `<img src="${b.image}" style="width:52px;height:52px;object-fit:cover;border-radius:9px;margin-inline-end:12px;flex-shrink:0;">`
+        : `<div style="width:52px;height:52px;border-radius:9px;background:#eef1f8;display:flex;align-items:center;justify-content:center;font-size:22px;margin-inline-end:12px;flex-shrink:0;">📘</div>`;
+      return `<div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div style="display:flex;align-items:center;">${thumb}<div><b>${b.title}</b><br><span style="font-size:12px;color:#8a90a3;">${typeLabel} — ${b.grade||''}</span><br><span style="color:#b8903c;font-weight:bold;">${b.price} د.ع</span></div></div>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button class="small-btn" onclick="toggleEditStoreItem('${d.id}')">✏️ تعديل</button>
+            <button class="small-btn" onclick="deleteStoreItem('${d.id}')">🗑️ حذف</button>
+          </div>
+        </div>
+        <div id="editStoreItemPanel-${d.id}" class="hidden" style="background:#f6f7fb;border-radius:10px;padding:10px;margin-top:10px;">
+          <label>اسم المادة</label>
+          <input id="editStoreItemTitle-${d.id}" value="${b.title.replace(/"/g,'&quot;')}">
+          <label>السعر الكلي</label>
+          <input id="editStoreItemPrice-${d.id}" type="number" value="${b.price}">
+          <label>تغيير صورة المادة (اختياري)</label>
+          <input type="file" id="editStoreItemImageInput-${d.id}" accept="image/*">
+          <div id="editStoreItemImagePreview-${d.id}" style="margin-bottom:10px;"></div>
+          <button class="btn" onclick="saveStoreItemEdit('${d.id}')">💾 حفظ</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+}
+function toggleEditStoreItem(id) {
+  document.getElementById(`editStoreItemPanel-${id}`).classList.toggle('hidden');
+}
+async function saveStoreItemEdit(id) {
+  const title = document.getElementById(`editStoreItemTitle-${id}`).value.trim();
+  const price = +document.getElementById(`editStoreItemPrice-${id}`).value;
+  const imageInput = document.getElementById(`editStoreItemImageInput-${id}`);
+  if (!title || !price) { alert('اكتب اسم المادة والسعر'); return; }
+  const bookDoc = await db.collection('books').doc(id).get();
+  const deliveryMode = bookDoc.exists ? bookDoc.data().deliveryMode : 'teacher';
+  const pct = getTeacherDeliveryPercent(deliveryMode);
+  const teacherShare = price - Math.round(price * pct / 100);
+  const update = { title, price, teacherShare };
+  if (imageInput.files[0]) {
+    update.image = await resizeImageToBase64(imageInput.files[0], 800, 0.8);
+  }
+  await db.collection('books').doc(id).update(update);
+  alert('تم حفظ التعديل ✅');
+  loadTeacherStoreItemsList();
+}
+async function deleteStoreItem(id) {
+  if (!confirm('حذف هذي المادة نهائياً من متجرك؟')) return;
+  await db.collection('books').doc(id).delete();
+  loadTeacherStoreItemsList();
 }
 document.getElementById('saveTeacherStoreBtn').onclick = async () => {
   const storeEnabled = document.getElementById('tchStoreEnabled').value === 'yes';
@@ -5746,7 +5809,8 @@ let currentStoreItems = [];
 function addStoreItemToCart(id) {
   const b = currentStoreItems.find(x => x.id === id);
   if (!b) return;
-  addToCart(id, `${b.title} — ${b.teacherName}`, b.price, 1, { teacherName: b.teacherName, deliveryMode: b.deliveryMode, teacherDeliveryFee: b.teacherDeliveryFee });
+  const label = b.grade ? `${b.title} (${b.grade})` : b.title;
+  addToCart(id, label, b.price, 1, { teacherName: b.teacherName, deliveryMode: b.deliveryMode, teacherDeliveryFee: b.teacherDeliveryFee });
 }
 
 async function openTeacherBooksLibrary() {
@@ -7040,6 +7104,7 @@ async function autoEscalateOrderStatuses() {
           document.getElementById('teacherPhotoPreview').src = t.photo || DEFAULT_AVATAR;
           db.collection('teacherPhoneIndex').doc(t.phone).set({ name: t.name }).catch(e => console.error(e));
           applyTeacherModeUI();
+          setupTeacherOrderMessageNotifications();
           const activeList = await getActiveGradesList();
           document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
           await refreshTeacherClassSubjectOptions();
@@ -7258,6 +7323,37 @@ function setupAdminNotifications() {
   }
 }
 
+// إشعار الأستاذ برسائل الزبائن بخصوص طلبات متجره الخاص (توصيله الذاتي)
+let teacherOrderMsgListenerStarted = false;
+function setupTeacherOrderMessageNotifications() {
+  if (teacherOrderMsgListenerStarted || !currentTeacher) return;
+  teacherOrderMsgListenerStarted = true;
+  requestNotificationPermissionQuietly();
+  const myOrderIds = new Set();
+  db.collection('orders').where('fulfillmentTeacherName','==', currentTeacher.name).onSnapshot(snap => {
+    snap.docs.forEach(d => myOrderIds.add(d.id));
+  }, e => console.error(e));
+
+  let firstMsgSnapshot = true;
+  db.collection('messages').where('readByStaff','==', false).onSnapshot(snap => {
+    if (firstMsgSnapshot) { firstMsgSnapshot = false; return; }
+    snap.docChanges().forEach(change => {
+      if (change.type !== 'added') return;
+      const m = change.doc.data();
+      if (m.fromRole === 'teacher') return; // ما نبلّغه برسالته هو نفسه
+      const tid = m.threadId || '';
+      if (!tid.startsWith('order_')) return;
+      const orderId = tid.slice('order_'.length);
+      if (!myOrderIds.has(orderId)) return; // طلب مو تابع لمتجره
+      if (isNotificationSoundEnabled()) playNotificationBeep();
+      fireNotification(`💬 رسالة من زبون — ${m.fromName||''}`, m.text, () => {
+        show('screen-teacher-orders'); switchTeacherOrdersTab(currentTeacherOrdersTab || 'new');
+        openChat(tid, `💬 طلب ${m.fromName||''}`);
+      });
+    });
+  }, e => console.error(e));
+}
+
 function setupCustomerNotifications(phone) {
   if (!phone) return;
   setupLibraryCustomerChatBadge(phone);
@@ -7290,12 +7386,13 @@ function setupCustomerNotifications(phone) {
     snap.docChanges().forEach(change => {
       if (change.type !== 'added') return;
       const m = change.doc.data();
-      if (m.fromRole !== 'staff') return; // ما نبلّغ الزبون برسالته هو نفسه
+      if (m.fromRole !== 'staff' && m.fromRole !== 'teacher') return; // ما نبلّغ الزبون برسالته هو نفسه
       const tid = m.threadId || '';
       if (!tid.startsWith('order_')) return;
       const orderId = tid.slice('order_'.length);
       if (!myOrderIds.has(orderId)) return; // رسالة بخصوص طلب مو تابع لهذا الزبون
-      fireNotification('💬 رسالة جديدة من المكتبة', m.text, () => {
+      const notifTitle = m.fromRole === 'teacher' ? `💬 رسالة جديدة من الأستاذ ${m.fromName||''}` : '💬 رسالة جديدة من المكتبة';
+      fireNotification(notifTitle, m.text, () => {
         openChat(tid, '💬 طلبك — تعديل أو استفسار');
       });
     });
