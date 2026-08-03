@@ -1855,6 +1855,12 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <button class="btn" id="addTeacherBtn">إضافة مدرّس</button>
         </div>
         <div class="card">
+          <h3>🔧 إصلاح حسابات دخول ناقصة</h3>
+          <p>للأساتذة اللي أضافهم الموظف/المشرف قبل هذا التحديث وما كان ينشأ لهم حساب دخول فعلي. اضغط مرة وحدة — يستخدم نفس كلمة السر المحفوظة له من أول تسجيل، بدون ما يغيّرها.</p>
+          <button class="btn secondary" id="repairTeacherAccountsBtn">🔧 إصلاح الحسابات الناقصة الآن</button>
+          <div id="repairTeacherAccountsStatus" style="margin-top:8px;"></div>
+        </div>
+        <div class="card">
           <h3>📋 قائمة المدرسين</h3>
           <div id="teachersList"></div>
         </div>
@@ -2255,6 +2261,7 @@ try {
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
   auth = firebase.auth();
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => console.error('persistence error', e));
 } catch(e) { console.error("Firebase init error", e); }
 
 let isNavigatingViaBackButton = false;
@@ -3451,13 +3458,52 @@ document.getElementById('sendBroadcastTeacherBtn').onclick = async () => {
   } catch(e) { console.error(e); alert('صار خطأ أثناء الإرسال'); }
 };
 
+document.getElementById('repairTeacherAccountsBtn').onclick = async () => {
+  const statusEl = document.getElementById('repairTeacherAccountsStatus');
+  if (!confirm('هذا يفحص كل الأساتذة ويصلح حسابات الدخول الناقصة فقط (ما يغيّر كلمات سر أحد). متابعة؟')) return;
+  statusEl.textContent = 'جاري الفحص والإصلاح...';
+  try {
+    const snap = await db.collection('teachers').get();
+    let fixed = 0, alreadyOk = 0, skippedNoPass = 0, failed = [];
+    const secondaryAuth = getSecondaryAuth();
+    for (const d of snap.docs) {
+      const t = d.data();
+      if (!t.password) { skippedNoPass++; continue; }
+      try {
+        await secondaryAuth.createUserWithEmailAndPassword(teacherEmailFromPhone(t.phone), t.password);
+        await secondaryAuth.signOut();
+        fixed++;
+      } catch(e) {
+        if (e.code === 'auth/email-already-in-use') { alreadyOk++; }
+        else { failed.push(`${t.name} (${t.phone}): ${e.message||e.code}`); }
+      }
+    }
+    let msg = `✅ تم إصلاح ${fixed} حساب. ${alreadyOk} حساب كان شغال أصلاً.`;
+    if (skippedNoPass > 0) msg += ` ⚠️ ${skippedNoPass} أستاذ ما عنده كلمة سر محفوظة (سجّل من قبل ميزة الحفظ) — يحتاج "نسيت كلمة السر".`;
+    if (failed.length > 0) msg += `<br>⚠️ فشل الإصلاح لـ: ${failed.join('، ')}`;
+    statusEl.innerHTML = msg;
+  } catch(e) { console.error(e); statusEl.textContent = 'صار خطأ أثناء الإصلاح: ' + (e.message || 'خطأ غير معروف'); }
+};
+
 document.getElementById('addTeacherBtn').onclick = async () => {
   const name = document.getElementById('tchName').value.trim();
-  const phone = document.getElementById('tchPhone').value.trim();
+  const phone = document.getElementById('tchPhone').value.trim().replace(/[\s\-]/g,'');
   const password = document.getElementById('tchPass').value;
   if (!name || !phone || !password) { alert('عبّئ اسم المدرّس ورقم الهاتف وكلمة السر'); return; }
+  if (password.length < 6) { alert('كلمة السر يجب أن تكون 6 أحرف على الأقل (شرط Firebase)'); return; }
   const existing = await db.collection('teachers').where('phone','==',phone).limit(1).get();
   if (!existing.empty) { alert('يوجد مدرّس بنفس رقم الهاتف مسبقاً'); return; }
+  try {
+    // ننشئ حساب الدخول الفعلي عبر تطبيق ثانوي حتى ما ينسحب المشرف/الموظف من جلسته الحالية
+    const secondaryAuth = getSecondaryAuth();
+    await secondaryAuth.createUserWithEmailAndPassword(teacherEmailFromPhone(phone), password);
+    await secondaryAuth.signOut();
+  } catch(e) {
+    console.error(e);
+    if (e.code === 'auth/email-already-in-use') { alert('هذا الرقم مسجّل مسبقاً بحساب دخول — اطلب منه يسجّل دخول مباشرة أو يستخدم "نسيت كلمة السر"'); return; }
+    alert('تعذّر إنشاء حساب الدخول: ' + (e.message || 'خطأ غير معروف'));
+    return;
+  }
   await db.collection('teachers').add({ name, phone, password, addedBy: currentStaffName, createdAt: Date.now() });
   alert(`تمت الإضافة ✅ — بواسطة: ${currentStaffName}`);
   document.getElementById('tchName').value=''; document.getElementById('tchPhone').value=''; document.getElementById('tchPass').value='';
@@ -3504,6 +3550,16 @@ async function loadTeachersAdmin() {
           <button class="small-btn" onclick="deleteTeacher('${d.id}')">🗑️ حذف</button>
         </div>
       </div>
+      <div style="background:#eef1f8;border-radius:10px;padding:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:160px;">
+          <span style="font-size:12px;color:#8a90a3;">🔑 كلمة السر: </span>
+          <span id="tchPassView-${d.id}" style="font-weight:bold;letter-spacing:1px;">••••••</span>
+          <span id="tchPassRaw-${d.id}" class="hidden">${t.password || '—'}</span>
+        </div>
+        <button class="small-btn" onclick="toggleTeacherPasswordView('${d.id}')">👁️ عرض</button>
+        <button class="small-btn" onclick="copyTeacherPassword('${d.id}')">📋 نسخ</button>
+        <button class="small-btn" onclick="changeTeacherPassword('${d.id}','${t.phone}')">✏️ تغيير كلمة السر</button>
+      </div>
       <div style="background:#fbf7ec;border-radius:10px;padding:10px;margin-top:6px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
         <div style="flex:1;min-width:150px;">
           <label style="font-size:12px;margin-bottom:2px;">🚚 نسبة المكتبة — يوصّل الأستاذ بنفسه (%)</label>
@@ -3538,6 +3594,39 @@ async function saveTeacherPercents(teacherId) {
   const libraryDeliveryPercent = +document.getElementById(`tchLibPct-${teacherId}`).value || 0;
   await db.collection('teachers').doc(teacherId).update({ selfDeliveryPercent, libraryDeliveryPercent });
   alert('تم حفظ النسب ✅');
+}
+function toggleTeacherPasswordView(teacherId) {
+  const view = document.getElementById(`tchPassView-${teacherId}`);
+  const raw = document.getElementById(`tchPassRaw-${teacherId}`);
+  const hidden = raw.classList.contains('hidden');
+  if (hidden) { view.textContent = raw.textContent; raw.classList.remove('hidden'); }
+  else { view.textContent = '••••••'; raw.classList.add('hidden'); }
+}
+function copyTeacherPassword(teacherId) {
+  const pass = document.getElementById(`tchPassRaw-${teacherId}`).textContent;
+  if (!pass || pass === '—') { alert('ما فيه كلمة سر محفوظة لهذا الأستاذ (سجّل حسابه قبل إضافة هذا الخيار)'); return; }
+  navigator.clipboard.writeText(pass).then(() => alert('تم نسخ كلمة السر ✅')).catch(() => alert('تعذّر النسخ'));
+}
+async function changeTeacherPassword(teacherId, phone) {
+  const teacherDoc = await db.collection('teachers').doc(teacherId).get();
+  const oldPassword = teacherDoc.data().password;
+  if (!oldPassword) { alert('ما عندنا كلمة السر القديمة لهذا الحساب محفوظة، فما نقدر نغيّرها آلياً. اطلب منه يتواصل عبر واتساب من زر "نسيت كلمة السر" بصفحة الدخول.'); return; }
+  const newPassword = prompt('اكتب كلمة السر الجديدة للأستاذ (6 أحرف على الأقل):');
+  if (!newPassword) return;
+  if (newPassword.length < 6) { alert('لازم 6 أحرف على الأقل'); return; }
+  try {
+    // نسجّل دخول كالأستاذ عبر تطبيق ثانوي (بدون التأثير على جلسة المشرف/الموظف الحالية)، نغيّر كلمة السر، ونخرج
+    const secondaryAuth = getSecondaryAuth();
+    await secondaryAuth.signInWithEmailAndPassword(teacherEmailFromPhone(phone), oldPassword);
+    await secondaryAuth.currentUser.updatePassword(newPassword);
+    await secondaryAuth.signOut();
+    await db.collection('teachers').doc(teacherId).update({ password: newPassword });
+    alert('تم تغيير كلمة السر بنجاح ✅');
+    loadTeachersAdmin();
+  } catch(e) {
+    console.error(e);
+    alert('تعذّر تغيير كلمة السر: ' + (e.message || 'خطأ غير معروف') + ' — إذا استمرت المشكلة اطلب من الأستاذ يسوي "نسيت كلمة السر" بنفسه.');
+  }
 }
 function toggleTeacherLecturePanel(id) {
   document.getElementById(`tchLecturePanel-${id}`).classList.toggle('hidden');
@@ -5065,7 +5154,7 @@ document.getElementById('teacherRegMode').addEventListener('change', () => {
 
 document.getElementById('teacherRegisterBtn').onclick = async () => {
   const name = document.getElementById('teacherRegName').value.trim();
-  const phone = document.getElementById('teacherRegPhone').value.trim();
+  const phone = document.getElementById('teacherRegPhone').value.trim().replace(/[\s\-]/g,'');
   const password = document.getElementById('teacherRegPass').value;
   const mode = document.getElementById('teacherRegMode').value; // teaching | booklets | both
   const grade = document.getElementById('teacherRegGrade').value;
@@ -5075,7 +5164,7 @@ document.getElementById('teacherRegisterBtn').onclick = async () => {
   if (mode !== 'booklets' && (!grade || !subject)) { setMsg('teacherRegisterMsg','اختر الصف والمادة اللي تدرّسها', false); return; }
   try {
     await auth.createUserWithEmailAndPassword(teacherEmailFromPhone(phone), password);
-    await db.collection('teachers').add({ name, phone, mode, addedBy: 'تسجيل ذاتي', createdAt: Date.now() });
+    await db.collection('teachers').add({ name, phone, password, mode, addedBy: 'تسجيل ذاتي', createdAt: Date.now() });
     if (mode !== 'booklets') {
       await db.collection('teacherClasses').add({ teacherName: name, teacherPhone: phone, grade, subject, createdAt: Date.now() });
     }
@@ -5093,7 +5182,7 @@ document.getElementById('teacherRegisterBtn').onclick = async () => {
 };
 
 document.getElementById('teacherLoginBtn').onclick = async () => {
-  const phone = document.getElementById('teacherPhone').value.trim();
+  const phone = document.getElementById('teacherPhone').value.trim().replace(/[\s\-]/g,'');
   const pass = document.getElementById('teacherPass').value;
   if (!phone || !pass) { setMsg('teacherLoginMsg','عبّئ رقم الهاتف وكلمة السر', false); return; }
   try {
