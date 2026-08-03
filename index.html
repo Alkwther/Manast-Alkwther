@@ -5347,6 +5347,7 @@ document.getElementById('teacherLoginBtn').onclick = async () => {
     currentTeacher = { id: q.docs[0].id, ...t };
     document.getElementById('teacherWelcomeText').textContent = `👋 مرحباً أستاذ ${t.name}`;
     document.getElementById('teacherPhotoPreview').src = t.photo || DEFAULT_AVATAR;
+    db.collection('teacherPhoneIndex').doc(t.phone).set({ name: t.name }).catch(e => console.error(e));
     applyTeacherModeUI();
     const activeList = await getActiveGradesList();
     document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
@@ -5670,7 +5671,7 @@ document.getElementById('submitTeacherBookletBtn').onclick = async () => {
     });
     alert(`تم الرفع ✅ — حصتك من كل نسخة: ${teacherShare} دينار`);
     show('screen-teacher-dashboard');
-  } catch(e) { console.error(e); alert('صار خطأ أثناء الرفع'); }
+  } catch(e) { console.error(e); alert(`صار خطأ أثناء الرفع: ${e.code || ''} ${e.message || 'خطأ غير معروف'}`); }
 };
 
 // ---------- متجر الأستاذ الخاص ----------
@@ -7037,6 +7038,7 @@ async function autoEscalateOrderStatuses() {
           currentTeacher = { id: q.docs[0].id, ...t };
           document.getElementById('teacherWelcomeText').textContent = `👋 مرحباً أستاذ ${t.name}`;
           document.getElementById('teacherPhotoPreview').src = t.photo || DEFAULT_AVATAR;
+          db.collection('teacherPhoneIndex').doc(t.phone).set({ name: t.name }).catch(e => console.error(e));
           applyTeacherModeUI();
           const activeList = await getActiveGradesList();
           document.getElementById('tchClassGrade').innerHTML = activeList.map(g => `<option>${g}</option>`).join('');
