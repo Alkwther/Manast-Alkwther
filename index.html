@@ -2194,6 +2194,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     </div>
     <div id="teacherBooksEarningsSummary"></div>
     <div id="teacherWalletDrilldown" class="hidden"></div>
+    <div id="teacherSettlementHistory"></div>
     <h3 style="margin:14px 0 10px;color:#10203f;">📦 ملازمك</h3>
     <div id="teacherBooksList"></div>
   </div>
@@ -4714,6 +4715,26 @@ document.querySelector('.admin-menu-item[data-section="library-customers"]').add
 document.querySelector('.admin-menu-item[data-section="library-teacher-stores"]').addEventListener('click', () => loadAdminTeacherStores());
 
 // إدارة متاجر الأساتذة من قبل المشرف/الموظف: تشغيل/إيقاف + متابعة المبلغ المستحق للمكتبة
+async function toggleSettlementHistory(teacherId, teacherName) {
+  const box = document.getElementById(`settlementHistory-${teacherId}`);
+  if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  box.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('settlements').where('teacherName','==', teacherName).get();
+    box.innerHTML = renderSettlementHistoryHtml(snap.docs.map(d => d.data()));
+  } catch(e) { console.error(e); box.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+}
+function renderSettlementHistoryHtml(settlements) {
+  if (settlements.length === 0) return '<div class="card"><p>ما فيه أي تحاسب مسجّل سابقاً.</p></div>';
+  settlements.sort((a,b) => (b.settledAt||0) - (a.settledAt||0));
+  const rowsHtml = settlements.map(s => {
+    const dateStr = new Date(s.settledAt).toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
+    const typeLabel = s.type === 'self' ? '🚚 عمولة توصيل ذاتي' : '📚 حصة ملازم توصيل المكتبة';
+    return `<div class="lesson-row"><div class="title">${typeLabel}<br><span style="font-size:12px;color:#8a90a3;">📅 ${dateStr} — ${s.orderCount} طلب — بواسطة ${s.settledBy||''}</span></div><div style="font-weight:bold;color:#15803d;">${s.amount} د.ع</div></div>`;
+  }).join('');
+  return `<div class="card"><h3 style="margin:0 0 8px;">📜 سجل التحاسب</h3>${rowsHtml}</div>`;
+}
 async function loadAdminTeacherStores() {
   const list = document.getElementById('adminTeacherStoresList');
   list.innerHTML = '<p>جاري التحميل...</p>';
@@ -4747,7 +4768,9 @@ async function loadAdminTeacherStores() {
         <button class="small-btn" style="margin-top:8px;${owed>0?'background:#b8903c;color:#fff;':'background:#ecfdf3;'}" onclick="toggleTeacherStoreSettlement('${t.name.replace(/'/g,"\\'")}')">
           💰 المستحق للمكتبة: ${owed} د.ع (${count} طلب) ${owed>0 ? '— اضغط لتأكيد التحاسب' : '— تم التحاسب ✅'}
         </button>
-        <button class="small-btn" style="margin-top:6px;" onclick="teacherOrdersContextName='${t.name.replace(/'/g,"\\'")}'; show('screen-teacher-orders'); switchTeacherOrdersTab('new');">📊 سجل طلبات هذا المتجر (اليوم/الأسبوع/الشهر/السنة)</button>
+        <button class="small-btn" style="margin-top:6px;" onclick="teacherOrdersContextName='${t.name.replace(/'/g,"\\'")}'; show('screen-teacher-orders'); switchTeacherOrdersTab('new'); loadTeacherOrdersByPeriod('month');">📊 سجل طلبات هذا المتجر (اليوم/الأسبوع/الشهر/السنة)</button>
+        <button class="small-btn" style="margin-top:6px;" onclick="toggleSettlementHistory('${t.id}','${t.name.replace(/'/g,"\\'")}')">📜 سجل التحاسب السابق</button>
+        <div id="settlementHistory-${t.id}" class="hidden" style="margin-top:8px;"></div>
       </div>`;
     }).join('');
   } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
@@ -4763,6 +4786,10 @@ async function toggleTeacherStoreSettlement(teacherName) {
   const total = unsettled.reduce((s,d) => s + (d.data().platformOwedToLibrary || 0), 0);
   if (!confirm(`تأكيد إنك استلمت ${total} د.ع من الأستاذ ${teacherName} (عمولة المنصة عن ${unsettled.length} طلب)؟`)) return;
   await Promise.all(unsettled.map(d => d.ref.update({ platformOwedSettled: true })));
+  await db.collection('settlements').add({
+    teacherName, type: 'self', amount: total, orderCount: unsettled.length,
+    settledAt: Date.now(), settledBy: currentStaffName || 'المشرف'
+  });
   alert('تم تسجيل التحاسب ✅');
   loadAdminTeacherStores();
 }
@@ -5125,15 +5152,23 @@ async function settleTeacherEarnings(teacherName) {
   if (!confirm(`تأكيد إنك حاسبت الأستاذ ${teacherName} على كامل المبلغ المستحق؟`)) return;
   const completedOrders = await db.collection('orders').where('status','==','completed').get();
   const batchUpdates = [];
+  let total = 0, count = 0;
   completedOrders.docs.forEach(d => {
     const o = d.data();
     if (o.teacherPayouts && o.teacherPayouts[teacherName] && !(o.teacherPayoutsSettled && o.teacherPayoutsSettled[teacherName])) {
       const settled = o.teacherPayoutsSettled || {};
       settled[teacherName] = true;
       batchUpdates.push(db.collection('orders').doc(d.id).update({ teacherPayoutsSettled: settled }));
+      total += o.teacherPayouts[teacherName]; count++;
     }
   });
   await Promise.all(batchUpdates);
+  if (count > 0) {
+    await db.collection('settlements').add({
+      teacherName, type: 'library', amount: total, orderCount: count,
+      settledAt: Date.now(), settledBy: currentStaffName || 'المشرف'
+    });
+  }
   alert(`تم تسجيل التحاسب مع الأستاذ ${teacherName} ✅`);
   loadTeacherEarningsAdmin();
 }
@@ -5601,15 +5636,21 @@ function renderTeacherOrderCard(id, o, useOwnStatus) {
     if (it.grade) parts.push(it.grade);
     return `${parts.join(' — ')} × ${it.qty} — ${it.price} د.ع`;
   }).join('<br>');
-  let actionsHtml = `<button class="small-btn" onclick="teacherCopyOrder('${id}')">📋 نسخ</button>
+  const isAdminViewing = !!teacherOrdersContextName; // المشرف/الموظف يشاهد بس، ما يتحكم
+  let actionsHtml = '';
+  if (isAdminViewing) {
+    actionsHtml = `<button class="small-btn" onclick="openChat('order_${id}','💬 طلب ${o.studentName}')">👁️ مشاهدة المحادثة</button>`;
+  } else {
+    actionsHtml = `<button class="small-btn" onclick="teacherCopyOrder('${id}')">📋 نسخ</button>
     <button class="small-btn" onclick="openChat('order_${id}','💬 طلب ${o.studentName}')">💬 مراسلة الزبون</button>`;
-  const effectiveTab = useOwnStatus ? o.status : currentTeacherOrdersTab;
-  if (effectiveTab === 'new' || (useOwnStatus && !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed')) {
-    actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','processing')" style="background:#0e6fa8;color:#fff;">⚙️ قيد التنفيذ</button>`;
-  } else if (effectiveTab === 'processing') {
-    actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','delivering')" style="background:#16a34a;color:#fff;">🚚 قيد التوصيل</button>`;
-  } else if (effectiveTab === 'delivering') {
-    actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','completed')" style="background:#16a34a;color:#fff;">✅ تم التوصيل</button>`;
+    const effectiveTab = useOwnStatus ? o.status : currentTeacherOrdersTab;
+    if (effectiveTab === 'new' || (useOwnStatus && !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed')) {
+      actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','processing')" style="background:#0e6fa8;color:#fff;">⚙️ قيد التنفيذ</button>`;
+    } else if (effectiveTab === 'processing') {
+      actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','delivering')" style="background:#16a34a;color:#fff;">🚚 قيد التوصيل</button>`;
+    } else if (effectiveTab === 'delivering') {
+      actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','completed')" style="background:#16a34a;color:#fff;">✅ تم التوصيل</button>`;
+    }
   }
   const statusBadge = useOwnStatus ? `<span style="background:#eef1f8;color:#10203f;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">${ORDER_STATUS_LABELS[o.status]||o.status}</span>` : '';
   return `<div class="card">
@@ -6034,6 +6075,11 @@ async function openTeacherBooksLibrary() {
     </div>`);
   }
   summaryEl.innerHTML = sections.join('') || '<div class="card"><p>ما فيه مبيعات بعد.</p></div>';
+
+  try {
+    const settlementsSnap = await db.collection('settlements').where('teacherName','==', currentTeacher.name).get();
+    document.getElementById('teacherSettlementHistory').innerHTML = renderSettlementHistoryHtml(settlementsSnap.docs.map(d => d.data()));
+  } catch(e) { console.error(e); }
 
   window.__teacherWalletData = { libPendingOrders, libSettledOrders, selfPendingOrders, selfSettledOrders };
 
