@@ -5481,7 +5481,7 @@ async function openChat(threadId, title) {
     try {
       const snap = await db.collection('messages').where('threadId','==', threadId).where(flagToMark,'==', false).get();
       await Promise.all(snap.docs.map(d => d.ref.update({ [flagToMark]: true })));
-      if (me.role !== 'staff') updateLibraryCustomerChatBadge(me.id);
+      if (me.role !== 'staff') setupLibraryCustomerChatBadge(me.id);
     } catch(e) { console.error(e); }
   }
 }
