@@ -726,7 +726,11 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 <div id="app">
 
   <div class="topbar">
-    <div class="brand"><img src="icon-192.png" alt="شعار مكتبة الكوثر"><h1>مكتبة الكوثر</h1></div>
+    <div class="brand"><img src="icon-192.png" alt="شعار مكتبة الكوثر"><h1>مكتبة الكوثر</h1>
+      <button class="icon-btn" onclick="openLibraryCustomerChat()" title="مراسلة المكتبة" style="position:relative;">💬
+        <span id="libCustomerChatBadge" class="hidden" style="position:absolute;top:-4px;left:-6px;background:#dc2626;color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:bold;">0</span>
+      </button>
+    </div>
     <div style="display:flex;gap:14px;align-items:center;">
       <button class="icon-btn" onclick="shareThePlatform()" title="شارك البرنامج">📤</button>
       <button class="icon-btn" id="settingsBtn" title="دخول المشرف / الموظف">⚙️</button>
@@ -1587,6 +1591,11 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <div class="admin-menu-text"><b>طلبات المكتبة <span id="ordersUnreadBadge2" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></b><span>كل طلبات الملازم والكتب والدفاتر</span></div>
           <div class="admin-menu-arrow">‹</div>
         </div>
+        <div class="admin-menu-item" data-section="library-customers">
+          <div class="admin-menu-icon">👥</div>
+          <div class="admin-menu-text"><b>زبائني</b><span>كل من ثبّت البرنامج وحجز، مراسلة فردية أو جماعية</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
       </div>
 
       <div class="admin-section hidden" data-section="library-booklets">
@@ -1682,6 +1691,25 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <button class="btn secondary hidden" id="convertAllToArrivedBtn" style="margin-top:10px;">✅ اضغط لتحويل جميع الطلبات قيد التوصيل إلى الطلبات الواصلة</button>
           <div id="ordersAdminList" style="margin-top:10px;"></div>
         </div>
+      </div>
+
+      <div class="admin-section hidden" data-section="library-customers">
+        <button class="btn secondary admin-back-btn" data-back-to="library-hub">← رجوع للمكتبة</button>
+
+        <div class="card">
+          <h3>📢 رسالة جماعية لكل الزبائن</h3>
+          <textarea id="broadcastMsgText" rows="4" placeholder="اكتب رسالتك هنا... (اختياري إذا أرفقت صورة)" style="width:100%;"></textarea>
+          <label>صورة (اختياري)</label>
+          <input id="broadcastMsgImage" type="file" accept="image/*">
+          <div id="broadcastMsgImagePreview" style="margin-bottom:10px;"></div>
+          <button class="btn" id="sendBroadcastBtn">📤 إرسال للجميع</button>
+          <div id="broadcastMsgStatus" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="card">
+          <input id="customersSearchInput" placeholder="🔍 ابحث بالاسم أو الهاتف أو رقم المعرف...">
+        </div>
+        <div id="libraryCustomersList"><p>جاري التحميل...</p></div>
       </div>
 
       <div class="admin-section hidden" data-section="library-textbooks">
@@ -2035,6 +2063,14 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
         <button class="btn" id="chatSendBtn" style="width:auto;padding:12px 18px;margin:0;">إرسال</button>
       </div>
     </div>
+  </div>
+
+  <!-- صفحة الزبون: كل طلباته حسب التاريخ والحالة -->
+  <div class="screen hidden" id="screen-customer-profile">
+    <button class="btn secondary" onclick="show('screen-admin')">← رجوع</button>
+    <div class="card" id="customerProfileHeader"></div>
+    <button class="btn" id="customerProfileMsgBtn" style="margin-bottom:14px;">💬 مراسلة الزبون</button>
+    <div id="customerProfileOrdersList"></div>
   </div>
 
   <!-- رفع ملزمة الأستاذ -->
@@ -4319,6 +4355,118 @@ async function performGlobalOrderSearch() {
   }
 }
 
+// قائمة "زبائني": كل رقم هاتف حجز ولو مرة وحدة، مبني على طلبات المكتبة (يشمل رقم المعرف الدائم)
+let libraryCustomersCache = [];
+async function loadLibraryCustomers() {
+  const list = document.getElementById('libraryCustomersList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('orders').get();
+    const byPhone = {};
+    snap.docs.forEach(d => {
+      const o = d.data();
+      if (!o.phone) return;
+      if (!byPhone[o.phone] || (o.createdAt||0) > byPhone[o.phone].lastOrderAt) {
+        byPhone[o.phone] = {
+          phone: o.phone, name: o.studentName, province: o.province,
+          customerId: o.customerId || (byPhone[o.phone]?.customerId), lastOrderAt: o.createdAt||0,
+          orderCount: (byPhone[o.phone]?.orderCount || 0) + 1
+        };
+      } else {
+        byPhone[o.phone].orderCount += 1;
+        if (!byPhone[o.phone].customerId && o.customerId) byPhone[o.phone].customerId = o.customerId;
+      }
+    });
+    libraryCustomersCache = Object.values(byPhone).sort((a,b) => b.lastOrderAt - a.lastOrderAt);
+    renderLibraryCustomersList(libraryCustomersCache);
+  } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+}
+function renderLibraryCustomersList(customers) {
+  const list = document.getElementById('libraryCustomersList');
+  if (customers.length === 0) { list.innerHTML = '<div class="card"><p>لا يوجد زبائن بعد.</p></div>'; return; }
+  list.innerHTML = customers.map(c => `
+    <div class="card" style="cursor:pointer;" onclick="openCustomerProfile('${c.phone}')">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <p style="font-weight:bold;margin:0;">👤 ${c.name || c.phone}</p>
+          <p style="margin:4px 0 0;color:#8a90a3;">📞 ${c.phone} ${c.province ? '— 📍 '+c.province : ''}</p>
+          ${c.customerId ? `<p style="margin:4px 0 0;font-weight:bold;color:#0e6fa8;">🪪 رقم الزبون: ${c.customerId}</p>` : ''}
+          <p style="margin:4px 0 0;color:#8a90a3;font-size:12px;">📦 ${c.orderCount} طلب</p>
+        </div>
+        <button class="small-btn" onclick="event.stopPropagation(); openChat('libcustomer_${c.phone}','💬 مراسلة ${(c.name||c.phone).replace(/'/g,"")}')">💬 مراسلة</button>
+      </div>
+    </div>`).join('');
+}
+document.getElementById('customersSearchInput').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  const qDigits = e.target.value.replace(/\D/g,'');
+  if (!q) { renderLibraryCustomersList(libraryCustomersCache); return; }
+  const filtered = libraryCustomersCache.filter(c =>
+    (c.name||'').toLowerCase().includes(q) ||
+    (!!qDigits && c.phone.includes(qDigits)) ||
+    (c.customerId != null && String(c.customerId) === e.target.value.trim())
+  );
+  renderLibraryCustomersList(filtered);
+});
+document.querySelector('.admin-menu-item[data-section="library-customers"]').addEventListener('click', () => loadLibraryCustomers());
+
+// رسالة جماعية لكل الزبائن (نص و/أو صورة) — تُرسل كرسالة بمحادثة كل زبون على حدة
+let broadcastImageBase64 = null;
+document.getElementById('broadcastMsgImage').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  broadcastImageBase64 = await resizeImageToBase64(file, 900, 0.7);
+  document.getElementById('broadcastMsgImagePreview').innerHTML = `<img src="${broadcastImageBase64}" style="max-width:160px;border-radius:8px;">`;
+});
+document.getElementById('sendBroadcastBtn').onclick = async () => {
+  const text = document.getElementById('broadcastMsgText').value.trim();
+  if (!text && !broadcastImageBase64) { alert('اكتب رسالة أو أرفق صورة على الأقل'); return; }
+  if (!confirm(`سيتم إرسال هذه الرسالة لكل الزبائن (${libraryCustomersCache.length}). متأكد؟`)) return;
+  const statusEl = document.getElementById('broadcastMsgStatus');
+  statusEl.textContent = 'جاري الإرسال...';
+  const fromName = currentStaffRole === 'admin' ? 'المشرف' : currentStaffName;
+  try {
+    if (libraryCustomersCache.length === 0) await loadLibraryCustomers();
+    await Promise.all(libraryCustomersCache.map(c => db.collection('messages').add({
+      threadId: `libcustomer_${c.phone}`,
+      fromRole: 'staff', fromId: fromName, fromName,
+      text: text || '', image: broadcastImageBase64 || null,
+      createdAt: Date.now(), readByStaff: true, readByCustomer: false
+    })));
+    statusEl.innerHTML = `<span style="color:#16a34a;">تم الإرسال لـ ${libraryCustomersCache.length} زبون ✅</span>`;
+    document.getElementById('broadcastMsgText').value = '';
+    document.getElementById('broadcastMsgImage').value = '';
+    document.getElementById('broadcastMsgImagePreview').innerHTML = '';
+    broadcastImageBase64 = null;
+  } catch(e) { console.error(e); statusEl.innerHTML = '<span style="color:#b91c1c;">تعذّر الإرسال.</span>'; }
+};
+
+// صفحة الزبون: كل طلباته حسب التاريخ والحالة + مراسلته مباشرة
+async function openCustomerProfile(phone) {
+  show('screen-customer-profile');
+  document.getElementById('customerProfileHeader').innerHTML = '<p>جاري التحميل...</p>';
+  document.getElementById('customerProfileOrdersList').innerHTML = '';
+  document.getElementById('customerProfileMsgBtn').onclick = () => openChat(`libcustomer_${phone}`, `💬 مراسلة ${phone}`);
+  try {
+    const snap = await db.collection('orders').where('phone','==', phone).get();
+    const orders = snap.docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }));
+    orders.sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
+    const latest = orders[0] ? orders[0].o : null;
+    const customerId = orders.find(r => r.o.customerId != null)?.o.customerId;
+    document.getElementById('customerProfileHeader').innerHTML = `
+      <h3 style="margin-bottom:6px;">👤 ${latest ? latest.studentName : phone}</h3>
+      <p style="margin:0;">📞 ${phone}</p>
+      ${customerId ? `<p style="margin:4px 0 0;font-weight:bold;color:#0e6fa8;">🪪 رقم الزبون: ${customerId}</p>` : ''}
+      <p style="margin:4px 0 0;color:#8a90a3;">📦 عدد الطلبات: ${orders.length}</p>
+    `;
+    if (orders.length === 0) { document.getElementById('customerProfileOrdersList').innerHTML = '<div class="card"><p>لا توجد طلبات لهذا الزبون.</p></div>'; return; }
+    document.getElementById('customerProfileOrdersList').innerHTML = orders.map(({id,o}) => renderOrderCard(id, o, 0, 'search')).join('');
+  } catch(e) {
+    console.error(e);
+    document.getElementById('customerProfileHeader').innerHTML = '<p style="color:#b91c1c;">تعذّر تحميل بيانات الزبون.</p>';
+  }
+}
+
 function renderOrdersGroupedByDate(rows, list, unreadByOrderId, mode) {
   const groups = {}; // 'YYYY-MM-DD' => rows[]
   rows.forEach(r => {
@@ -4382,7 +4530,7 @@ function renderOrderCard(id, o, unreadCount, mode) {
         ${o.status === 'cancelled' ? '<span style="background:#000;color:#fff;border:1px solid #fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">❌ ملغى</span> ' : ''}
         ${unreadCount > 0 ? `<span style="background:#ec4899;color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">💬 طلب تعديل (${unreadCount})</span> ` : ''}
         <span style="color:${o.status==='cancelled'?'#d1d5db':'#8a90a3'};font-size:12px;">🕒 ${formatOrderTime(o.createdAt)}</span><br>
-        <b>${o.studentName}</b> — ${o.phone}${o.altPhone ? ' / '+o.altPhone : ''}<br>
+        <b style="text-decoration:underline;cursor:pointer;color:#0e6fa8;" onclick="openCustomerProfile('${o.phone}')">${o.studentName}</b> — ${o.phone}${o.altPhone ? ' / '+o.altPhone : ''}<br>
         <span style="color:${o.status==='cancelled'?'#d1d5db':'#888'};">${o.province} - ${o.district}</span><br>
         ${itemsText}<br>
         مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع = <b style="color:#b8903c;">${o.totalPrice} د.ع</b><br>
@@ -5328,6 +5476,14 @@ async function openChat(threadId, title) {
       if (me.role === 'teacher') updateTeacherChatBadge();
     } catch(e) { console.error(e); }
   }
+  if (threadId.startsWith('libcustomer_')) {
+    const flagToMark = me.role === 'staff' ? 'readByStaff' : 'readByCustomer';
+    try {
+      const snap = await db.collection('messages').where('threadId','==', threadId).where(flagToMark,'==', false).get();
+      await Promise.all(snap.docs.map(d => d.ref.update({ [flagToMark]: true })));
+      if (me.role !== 'staff') updateLibraryCustomerChatBadge(me.id);
+    } catch(e) { console.error(e); }
+  }
 }
 document.getElementById('chatBackBtn').onclick = () => {
   if (currentChatUnsubscribe) { currentChatUnsubscribe(); currentChatUnsubscribe = null; }
@@ -5349,6 +5505,7 @@ function startChatMessagesListener(threadId) {
   // استماع لحظي (Realtime) للرسائل بدل تحميلها مرة وحدة، حتى توصل الرسائل الجديدة فوراً بدون أي تحديث يدوي
   const isOrderThread = threadId.startsWith('order_');
   const isStaffTeacherThread = threadId.startsWith('staffteacher_');
+  const isLibCustomerThread = threadId.startsWith('libcustomer_');
   currentChatUnsubscribe = db.collection('messages')
     .where('threadId','==', threadId)
     .onSnapshot(snap => {
@@ -5363,12 +5520,14 @@ function startChatMessagesListener(threadId) {
           let seen = false;
           if (isOrderThread) seen = m.fromRole === 'staff' ? m.readByCustomer === true : m.readByStaff === true;
           else if (isStaffTeacherThread) seen = m.fromRole === 'staff' ? m.readByTeacher === true : m.readByStaff === true;
+          else if (isLibCustomerThread) seen = m.fromRole === 'staff' ? m.readByCustomer === true : m.readByStaff === true;
           else if (threadId.startsWith('support_')) seen = m.fromRole === 'staff' ? false : m.readByStaff === true; // ما فيه تتبع لقراءة الطالب/الأستاذ برسائل الموظف بخدمة العملاء حالياً
           seenLabel = `<span style="font-size:11px;color:${seen ? '#16a34a' : '#8a90a3'};">${seen ? '✓✓ تمت الرؤية' : '✓ تم الإرسال'}</span>`;
         }
         return `<div class="card" style="margin-bottom:8px;${mine ? 'border-inline-end:4px solid #cda44e;' : 'border-inline-start:4px solid #0e8fa8;'}">
           <p style="font-size:12px;color:#8a90a3;margin-bottom:4px;">${m.fromName} — ${new Date(m.createdAt).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'})}</p>
-          <p style="margin:0;">${m.text}</p>
+          ${m.image ? `<img src="${m.image}" style="max-width:100%;border-radius:8px;margin-bottom:6px;display:block;">` : ''}
+          ${m.text ? `<p style="margin:0;">${m.text}</p>` : ''}
           ${seenLabel ? `<div style="text-align:left;margin-top:4px;">${seenLabel}</div>` : ''}
         </div>`;
       }).join('');
@@ -5381,9 +5540,14 @@ document.getElementById('chatSendBtn').onclick = async () => {
   const isSupportThread = currentChatThread.threadId.startsWith('support_');
   const isStaffTeacherThread = currentChatThread.threadId.startsWith('staffteacher_');
   const isOrderThread = currentChatThread.threadId.startsWith('order_');
+  const isLibCustomerThread = currentChatThread.threadId.startsWith('libcustomer_');
   const extraFields = {};
   if (isSupportThread || isOrderThread) extraFields.readByStaff = currentChatThread.role === 'staff';
   if (isOrderThread) extraFields.readByCustomer = currentChatThread.role !== 'staff'; // إذا الموظف هو اللي أرسل، تصير غير مقروءة من الزبون
+  if (isLibCustomerThread) {
+    extraFields.readByStaff = currentChatThread.role === 'staff';
+    extraFields.readByCustomer = currentChatThread.role !== 'staff';
+  }
   if (isStaffTeacherThread) {
     extraFields.readByStaff = currentChatThread.role === 'staff';
     extraFields.readByTeacher = currentChatThread.role === 'teacher';
@@ -5401,6 +5565,46 @@ document.getElementById('chatSendBtn').onclick = async () => {
     loadSupportChats();
   }
 };
+
+// مراسلة الزبون لمكتبة الكوثر (أيقونة 💬 بجانب اسم البرنامج) — متاحة لأي زائر حتى لو ما طلب من قبل
+function openLibraryCustomerChat() {
+  let me = currentIdentity();
+  if (!me) {
+    const phone = prompt('أدخل رقم هاتفك للتواصل مع المكتبة:');
+    if (!phone || !phone.trim()) return;
+    const name = prompt('أدخل اسمك:');
+    saveDeliveryInfo({ name: (name||phone).trim(), phone: phone.trim(), province:'', district:'', landmark:'', altPhone:'' });
+    me = currentIdentity();
+  }
+  openChat(`libcustomer_${me.id}`, '💬 مراسلة مكتبة الكوثر');
+  setupLibraryCustomerChatBadge(me.id);
+}
+
+let libCustomerBadgeListenerPhone = null;
+function updateLibraryCustomerChatBadge(count) {
+  const badge = document.getElementById('libCustomerChatBadge');
+  if (!badge) return;
+  if (count > 0) { badge.textContent = count; badge.classList.remove('hidden'); }
+  else badge.classList.add('hidden');
+}
+function setupLibraryCustomerChatBadge(phone) {
+  if (!phone || libCustomerBadgeListenerPhone === phone) return;
+  libCustomerBadgeListenerPhone = phone;
+  db.collection('messages')
+    .where('threadId','==', `libcustomer_${phone}`)
+    .where('readByCustomer','==', false)
+    .onSnapshot(snap => {
+      const count = snap.docs.filter(d => d.data().fromRole === 'staff').length;
+      updateLibraryCustomerChatBadge(count);
+    }, e => console.error(e));
+}
+// نفعّل شارة الرسائل تلقائياً لو عندنا رقم هاتف محفوظ من طلب سابق
+(function initLibraryCustomerBadgeFromSavedPhone(){
+  try {
+    const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
+    if (saved && saved.phone) setupLibraryCustomerChatBadge(saved.phone);
+  } catch(e) { console.error(e); }
+})();
 
 // خدمة العملاء
 function forgotPassword(phoneFieldId, userType) {
@@ -6495,7 +6699,9 @@ function setupAdminNotifications() {
 }
 
 function setupCustomerNotifications(phone) {
-  if (!phone || customerOrdersListenerStarted) return;
+  if (!phone) return;
+  setupLibraryCustomerChatBadge(phone);
+  if (customerOrdersListenerStarted) return;
   customerOrdersListenerStarted = true;
   requestNotificationPermissionQuietly();
   let firstSnapshot = true;
