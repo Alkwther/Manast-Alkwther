@@ -1177,6 +1177,11 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <div class="badge">فتح</div>
     </div>
 
+    <div class="subject-tile" onclick="show('screen-teacher-stores'); loadTeacherStoresList();">
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🏪</span><div><b>متاجر الأساتذة</b><br><span style="font-size:12px;color:#8a90a3;">ملازم ودفاتر يوصّلها الأستاذ بنفسه</span></div></div>
+      <div class="badge">فتح</div>
+    </div>
+
     <div class="subject-tile" onclick="openNotebooksScreen()">
       <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📓</span><div><b>الدفاتر</b><br><span style="font-size:12px;color:#8a90a3;">دفاتر بمختلف عدد الصفحات</span></div></div>
       <div class="badge">فتح</div>
@@ -2005,7 +2010,9 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <p>أضف صفوفك وتابع طلابك وملفاتك من هنا</p>
     </div>
     <button class="btn secondary" id="tchBooksLibraryBtn" onclick="openTeacherBooksLibrary()">📚 مكتبة ملازمك</button>
-    <button class="btn secondary" id="tchUploadBookletBtn" onclick="openTeacherUploadBooklet()">📤 ارفع ملزمتك</button>
+    <button class="btn secondary hidden" id="tchStoreSettingsBtn" onclick="openTeacherStoreSettings()">🏪 متجري الخاص</button>
+    <button class="btn secondary" id="tchUploadBookletBtn" onclick="openTeacherUploadBooklet('store')">📤 رفع ملزمة/دفتر داخل متجري الخاص</button>
+    <button class="btn secondary" id="tchUploadLibraryBtn" onclick="openTeacherUploadBooklet('library')">📚 رفع ملزمة/دفتر داخل صفوف المكتبة</button>
     <button class="btn secondary hidden" id="tchMyOrdersBtn" onclick="show('screen-teacher-orders'); switchTeacherOrdersTab('new');">📦 طلبات ملازمي (توصيلي الخاص)</button>
     <button class="btn secondary" onclick="openStaffTeacherChatFromTeacher()">💬 الدردشة مع الإدارة <span id="teacherChatUnreadBadge" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></button>
     <button class="btn secondary" id="tchBuyCodeBtn" onclick="openTeacherBuyCode()">🎫 شراء كود</button>
@@ -2085,12 +2092,17 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
   <div class="screen hidden" id="screen-teacher-upload-booklet">
     <button class="btn secondary" onclick="show('screen-teacher-dashboard')">← رجوع</button>
     <div class="card">
-      <h3>📤 ارفع ملزمتك</h3>
-      <p>ارفع صورة احترافية لملزمتك، وحدد اسمها وسعرها — راح تُعرض بمكتبة الكوثر للطلاب</p>
-      <label>صورة الملزمة</label>
+      <h3 id="tchUploadTitle">📤 ارفع ملزمتك</h3>
+      <p id="tchUploadHint">ارفع صورة احترافية لملزمتك، وحدد اسمها وسعرها — راح تُعرض بمكتبة الكوثر للطلاب</p>
+      <label>نوع المادة</label>
+      <select id="tchBookletType">
+        <option value="booklet">📦 ملزمة</option>
+        <option value="notebook">📓 دفتر / كراس</option>
+      </select>
+      <label>صورة المادة</label>
       <input type="file" id="tchBookletImageInput" accept="image/*">
       <div id="tchBookletImagePreview" style="margin-bottom:10px;"></div>
-      <label>اسم الملزمة</label>
+      <label>اسم المادة</label>
       <input id="tchBookletTitle" placeholder="مثال: ملزمة الرياضيات - الفصل الأول">
       <label>المرحلة</label>
       <select id="tchBookletStage">
@@ -2102,15 +2114,18 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <select id="tchBookletGrade"></select>
       <label>السعر الكلي بالمكتبة (دينار)</label>
       <input id="tchBookletPrice" type="number" placeholder="مثال: 10000">
-      <label>من يتكفّل بتوصيل الملزمة؟</label>
-      <select id="tchBookletDeliveryMode">
-        <option value="library">📦 المكتبة توصّلها (المكتبة تبيع وتوصّل نيابة عنك)</option>
-        <option value="teacher">🚚 أنا أوصّلها بنفسي (تظهر لي كطلبات خاصة بي فقط)</option>
-      </select>
+      <div id="tchBookletDeliveryModeWrap">
+        <label>من يتكفّل بتوصيل الملزمة؟</label>
+        <select id="tchBookletDeliveryMode">
+          <option value="library">📦 المكتبة توصّلها (المكتبة تبيع وتوصّل نيابة عنك)</option>
+          <option value="teacher">🚚 أنا أوصّلها بنفسي (تظهر لي كطلبات خاصة بي فقط)</option>
+        </select>
+      </div>
       <div id="tchBookletDeliveryFeeWrap" class="hidden">
         <label>سعر التوصيل الذي تحدده أنت (دينار)</label>
         <input id="tchBookletDeliveryFee" type="number" placeholder="مثال: 3000">
       </div>
+      <div id="tchBookletStoreFeeNotice" class="hidden" style="background:#eef1f8;border-radius:10px;padding:10px 14px;margin:10px 0;font-size:13px;color:#0e6fa8;"></div>
       <div class="box" style="background:#f6f7fb;border-radius:10px;padding:12px 14px;margin:10px 0;border-inline-start:4px solid #0e8fa8;">
         <p style="margin:0;">حصتك من كل نسخة: <b id="tchBookletMyShare" style="color:#15803d;">— دينار</b></p>
         <p style="margin:6px 0 0;">أجور المنصة (<span id="tchBookletPlatformPct">20</span>%): <b id="tchBookletPlatformShare" style="color:#8a90a3;">— دينار</b></p>
@@ -2118,6 +2133,40 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       </div>
       <button class="btn" id="submitTeacherBookletBtn">📤 رفع الملزمة</button>
     </div>
+  </div>
+
+  <!-- إعدادات متجر الأستاذ -->
+  <div class="screen hidden" id="screen-teacher-store-settings">
+    <button class="btn secondary" onclick="show('screen-teacher-dashboard')">← رجوع</button>
+    <div class="card">
+      <h3>🏪 متجري الخاص</h3>
+      <p>فعّل متجرك الخاص حتى يشوفه الزبائن داخل المكتبة ويشترون منك مباشرة وتوصّلهم بنفسك.</p>
+      <label>تفعيل المتجر</label>
+      <select id="tchStoreEnabled">
+        <option value="no">🔴 غير مفعّل</option>
+        <option value="yes">🟢 مفعّل ويظهر للزبائن</option>
+      </select>
+      <label>وصف قصير لمتجرك (يظهر للزبون تحت اسمك)</label>
+      <textarea id="tchStoreDescription" rows="3" placeholder="مثال: ملازم ودفاتر الأستاذ أحمد لمادة الرياضيات — توصيل سريع لكل بغداد"></textarea>
+      <label>أجور التوصيل الثابتة لمتجرك (دينار) — تُحسب مرة وحدة فقط مهما زاد عدد القطع بالطلب</label>
+      <input id="tchStoreDeliveryFee" type="number" placeholder="مثال: 3000">
+      <div id="tchStoreSettingsMsg"></div>
+      <button class="btn" id="saveTeacherStoreBtn">💾 حفظ إعدادات المتجر</button>
+    </div>
+  </div>
+
+  <!-- قائمة متاجر الأساتذة (للزبون) -->
+  <div class="screen hidden" id="screen-teacher-stores">
+    <button class="btn secondary" onclick="show('screen-library')">← رجوع للمكتبة</button>
+    <div class="card"><h3 style="margin:0;">🏪 متاجر الأساتذة</h3><p>تصفح متجر أي أستاذ يبيع ملازمه ويوصّلها بنفسه</p></div>
+    <div id="teacherStoresList"><p>جاري التحميل...</p></div>
+  </div>
+
+  <!-- متجر أستاذ محدد (للزبون) -->
+  <div class="screen hidden" id="screen-teacher-store-detail">
+    <button class="btn secondary" onclick="show('screen-teacher-stores'); loadTeacherStoresList();">← رجوع لمتاجر الأساتذة</button>
+    <div class="card" id="teacherStoreDetailHeader"></div>
+    <div id="teacherStoreDetailList" style="padding-bottom:80px;"></div>
   </div>
 
   <div class="screen hidden" id="screen-teacher-books">
@@ -2870,16 +2919,16 @@ function renderLibraryNav() {
 function openLibraryStage(stage) { libraryNavStage = stage; libraryNavGrade = null; renderLibraryNav(); }
 function openLibraryGrade(grade) { libraryNavGrade = grade; renderLibraryNav(); }
 
-function addToCart(id, title, price, qty) {
+function addToCart(id, title, price, qty, meta) {
   qty = qty || 1;
-  const meta = (libraryAllBooks || []).find(b => b.id === id);
-  const isTeacherSelf = !!(meta && meta.teacherName && meta.deliveryMode === 'teacher');
+  meta = meta || (libraryAllBooks || []).find(b => b.id === id) || {};
+  const isTeacherSelf = !!(meta.teacherName && meta.deliveryMode === 'teacher');
   const cartIds = Object.keys(cart);
   if (cartIds.length > 0) {
-    const existingMeta = (libraryAllBooks || []).find(b => b.id === cartIds[0]);
-    const existingIsTeacherSelf = !!(existingMeta && existingMeta.teacherName && existingMeta.deliveryMode === 'teacher');
-    if (existingIsTeacherSelf && (!isTeacherSelf || meta.teacherName !== existingMeta.teacherName)) {
-      alert(`سلتك فيها ملزمة يوصّلها الأستاذ ${existingMeta.teacherName} بنفسه. أكمل الشراء منه فقط بهذا الطلب، أو أفرغ السلة لتبدأ طلب جديد من المكتبة.`);
+    const existingItem = cart[cartIds[0]];
+    const existingIsTeacherSelf = !!(existingItem.teacherName && existingItem.deliveryMode === 'teacher');
+    if (existingIsTeacherSelf && (!isTeacherSelf || meta.teacherName !== existingItem.teacherName)) {
+      alert(`سلتك فيها ملزمة يوصّلها الأستاذ ${existingItem.teacherName} بنفسه. أكمل الشراء منه فقط بهذا الطلب، أو أفرغ السلة لتبدأ طلب جديد من المكتبة.`);
       return;
     }
     if (!existingIsTeacherSelf && isTeacherSelf) {
@@ -2887,7 +2936,7 @@ function addToCart(id, title, price, qty) {
       return;
     }
   }
-  if (!cart[id]) cart[id] = { title, price, qty: 0 };
+  if (!cart[id]) cart[id] = { title, price, qty: 0, teacherName: meta.teacherName || null, deliveryMode: meta.deliveryMode || null, teacherDeliveryFee: meta.teacherDeliveryFee || 0 };
   cart[id].qty += qty;
   saveCartToStorage();
   renderCartBar();
@@ -3015,7 +3064,7 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
   if (ids.length === 0) { setMsg('checkoutMsg','سلتك فارغة', false); return; }
 
   // تحديد نوع تنفيذ الطلب: هل كل عناصر السلة ملازم يوصّلها نفس الأستاذ بنفسه؟
-  const cartMetas = ids.map(id => (libraryAllBooks || []).find(b => b.id === id));
+  const cartMetas = ids.map(id => cart[id]);
   const firstMeta = cartMetas[0];
   const isAllTeacherSelf = firstMeta && firstMeta.teacherName && firstMeta.deliveryMode === 'teacher'
     && cartMetas.every(m => m && m.teacherName === firstMeta.teacherName && m.deliveryMode === 'teacher');
@@ -3648,7 +3697,22 @@ async function addTeacherLecture(teacherId, teacherName) {
 }
 async function deleteTeacher(id) {
   if (!confirm('حذف هذا المدرّس؟ لن يتمكن من الدخول بعد الحذف.')) return;
+  const teacherDoc = await db.collection('teachers').doc(id).get();
+  const t = teacherDoc.exists ? teacherDoc.data() : null;
   await db.collection('teachers').doc(id).delete();
+  // نحذف حساب الدخول الفعلي أيضاً (عبر تطبيق ثانوي حتى ما يأثر على جلستك) حتى يقدر يسجّل بنفس رقم هاتفه من جديد لاحقاً
+  if (t && t.phone && t.password) {
+    try {
+      const secondaryAuth = getSecondaryAuth();
+      await secondaryAuth.signInWithEmailAndPassword(teacherEmailFromPhone(t.phone), t.password);
+      await secondaryAuth.currentUser.delete();
+    } catch(e) {
+      console.error(e);
+      alert('⚠️ تم حذف بيانات الأستاذ، لكن تعذّر حذف حساب الدخول القديم آلياً. إذا احتاج يسجّل بنفس رقمه لاحقاً وظهر له "الرقم مسجّل مسبقاً"، لازم تحذف حسابه يدوياً من Firebase Console → Authentication.');
+    }
+  } else if (t && t.phone) {
+    alert('⚠️ تم حذف بيانات الأستاذ، لكن ما عندنا كلمة سره المحفوظة فما نقدر نحذف حساب الدخول القديم آلياً. إذا حاول يسجّل بنفس رقمه لاحقاً وظهر له "الرقم مسجّل مسبقاً"، لازم تحذف حسابه يدوياً من Firebase Console → Authentication.');
+  }
   loadTeachersAdmin();
 }
 
@@ -5305,7 +5369,9 @@ function applyTeacherModeUI() {
   const isBooklets = mode === 'booklets' || mode === 'both';
 
   document.getElementById('tchBooksLibraryBtn').classList.toggle('hidden', !isBooklets);
+  document.getElementById('tchStoreSettingsBtn').classList.toggle('hidden', !isBooklets);
   document.getElementById('tchUploadBookletBtn').classList.toggle('hidden', !isBooklets);
+  document.getElementById('tchUploadLibraryBtn').classList.toggle('hidden', !isBooklets);
   document.getElementById('tchMyOrdersBtn').classList.toggle('hidden', !isBooklets);
 
   document.getElementById('tchAddClassCard').classList.toggle('hidden', !isTeaching);
@@ -5411,17 +5477,35 @@ async function loadTeacherClasses() {
 }
 
 // ---------- مكتبة ملازم الأستاذ ----------
-async function openTeacherUploadBooklet() {
+let tchUploadDestination = 'library'; // 'library' | 'store'
+async function openTeacherUploadBooklet(destination) {
+  tchUploadDestination = destination || 'library';
   document.getElementById('tchBookletImageInput').value = '';
   document.getElementById('tchBookletImagePreview').innerHTML = '';
   document.getElementById('tchBookletTitle').value = '';
   document.getElementById('tchBookletPrice').value = '';
+  document.getElementById('tchBookletType').value = 'booklet';
   document.getElementById('tchBookletDeliveryMode').value = 'library';
   document.getElementById('tchBookletDeliveryFeeWrap').classList.add('hidden');
   document.getElementById('tchBookletDeliveryFee').value = '';
   document.getElementById('tchBookletMyShare').textContent = '— دينار';
   document.getElementById('tchBookletPlatformShare').textContent = '— دينار';
   document.getElementById('tchBookletTotalPrice').textContent = '— دينار';
+
+  if (tchUploadDestination === 'store') {
+    document.getElementById('tchUploadTitle').textContent = '📤 رفع مادة داخل متجري الخاص';
+    document.getElementById('tchUploadHint').textContent = 'هذي المادة تظهر بمتجرك الخاص فقط، وأنت تتكفّل بتوصيلها حسب أجور التوصيل المحددة بإعدادات متجرك.';
+    document.getElementById('tchBookletDeliveryModeWrap').classList.add('hidden');
+    document.getElementById('tchBookletDeliveryFeeWrap').classList.add('hidden');
+    const storeFee = (currentTeacher && currentTeacher.storeDeliveryFee) || 0;
+    document.getElementById('tchBookletStoreFeeNotice').classList.remove('hidden');
+    document.getElementById('tchBookletStoreFeeNotice').textContent = `🚚 هذي المادة توصّلها أنت بنفسك — أجور التوصيل الثابتة لمتجرك حالياً: ${storeFee} د.ع (تقدر تغيّرها من "متجري الخاص")`;
+  } else {
+    document.getElementById('tchUploadTitle').textContent = '📤 ارفع ملزمتك أو دفترك';
+    document.getElementById('tchUploadHint').textContent = 'ارفع صورة احترافية، وحدد نوعها واسمها وسعرها — راح تُعرض بصفوف مكتبة الكوثر العامة للطلاب';
+    document.getElementById('tchBookletDeliveryModeWrap').classList.remove('hidden');
+    document.getElementById('tchBookletStoreFeeNotice').classList.add('hidden');
+  }
   updateTchBookletPlatformPctLabel();
   populateTchBookletGradeSelect();
   show('screen-teacher-upload-booklet');
@@ -5432,7 +5516,7 @@ function getTeacherDeliveryPercent(mode) {
   return t.libraryDeliveryPercent != null ? t.libraryDeliveryPercent : 30;
 }
 function updateTchBookletPlatformPctLabel() {
-  const mode = document.getElementById('tchBookletDeliveryMode').value;
+  const mode = tchUploadDestination === 'store' ? 'teacher' : document.getElementById('tchBookletDeliveryMode').value;
   document.getElementById('tchBookletPlatformPct').textContent = getTeacherDeliveryPercent(mode);
 }
 function populateTchBookletGradeSelect() {
@@ -5455,7 +5539,7 @@ document.getElementById('tchBookletImageInput').addEventListener('change', async
 });
 document.getElementById('tchBookletPrice').addEventListener('input', (e) => {
   const price = +e.target.value || 0;
-  const mode = document.getElementById('tchBookletDeliveryMode').value;
+  const mode = tchUploadDestination === 'store' ? 'teacher' : document.getElementById('tchBookletDeliveryMode').value;
   const pct = getTeacherDeliveryPercent(mode);
   const platformShare = Math.round(price * pct / 100);
   const myShare = price - platformShare;
@@ -5466,27 +5550,110 @@ document.getElementById('tchBookletPrice').addEventListener('input', (e) => {
 document.getElementById('submitTeacherBookletBtn').onclick = async () => {
   const image = document.getElementById('tchBookletImagePreview').dataset.image;
   const title = document.getElementById('tchBookletTitle').value.trim();
+  const itemType = document.getElementById('tchBookletType').value; // 'booklet' | 'notebook'
   const stage = document.getElementById('tchBookletStage').value;
   const grade = document.getElementById('tchBookletGrade').value;
   const price = +document.getElementById('tchBookletPrice').value;
-  const deliveryMode = document.getElementById('tchBookletDeliveryMode').value; // 'library' | 'teacher'
-  const teacherDeliveryFee = deliveryMode === 'teacher' ? (+document.getElementById('tchBookletDeliveryFee').value || 0) : null;
-  if (!image) { alert('ارفع صورة للملزمة'); return; }
-  if (!title || !price) { alert('اكتب اسم الملزمة والسعر'); return; }
-  if (deliveryMode === 'teacher' && !teacherDeliveryFee && teacherDeliveryFee !== 0) { alert('حدد سعر التوصيل الذي تتكفّل فيه'); return; }
+  if (!image) { alert('ارفع صورة للمادة'); return; }
+  if (!title || !price) { alert('اكتب اسم المادة والسعر'); return; }
+
+  let deliveryMode, teacherDeliveryFee;
+  if (tchUploadDestination === 'store') {
+    if (!currentTeacher.storeEnabled) { alert('فعّل متجرك الخاص أولاً من "متجري الخاص" قبل ما ترفع مواد فيه'); return; }
+    deliveryMode = 'teacher';
+    teacherDeliveryFee = currentTeacher.storeDeliveryFee || 0;
+  } else {
+    deliveryMode = document.getElementById('tchBookletDeliveryMode').value;
+    teacherDeliveryFee = deliveryMode === 'teacher' ? (+document.getElementById('tchBookletDeliveryFee').value || 0) : null;
+    if (deliveryMode === 'teacher' && !teacherDeliveryFee && teacherDeliveryFee !== 0) { alert('حدد سعر التوصيل الذي تتكفّل فيه'); return; }
+  }
   const pct = getTeacherDeliveryPercent(deliveryMode);
   const teacherShare = price - Math.round(price * pct / 100);
+  const targetCollection = (tchUploadDestination === 'library' && itemType === 'notebook') ? 'notebooks' : 'books';
   try {
-    await db.collection('books').add({
-      title, price, stage, grade, image,
+    await db.collection(targetCollection).add({
+      title, price, stage, grade, image, itemType,
       teacherName: currentTeacher.name, teacherShare,
       deliveryMode, teacherDeliveryFee,
+      storeItem: tchUploadDestination === 'store',
       addedBy: currentTeacher.name, createdAt: Date.now()
     });
-    alert(`تم رفع الملزمة ✅ — حصتك من كل نسخة: ${teacherShare} دينار`);
+    alert(`تم الرفع ✅ — حصتك من كل نسخة: ${teacherShare} دينار`);
     show('screen-teacher-dashboard');
   } catch(e) { console.error(e); alert('صار خطأ أثناء الرفع'); }
 };
+
+// ---------- متجر الأستاذ الخاص ----------
+function openTeacherStoreSettings() {
+  document.getElementById('tchStoreEnabled').value = currentTeacher.storeEnabled ? 'yes' : 'no';
+  document.getElementById('tchStoreDescription').value = currentTeacher.storeDescription || '';
+  document.getElementById('tchStoreDeliveryFee').value = currentTeacher.storeDeliveryFee || '';
+  document.getElementById('tchStoreSettingsMsg').innerHTML = '';
+  show('screen-teacher-store-settings');
+}
+document.getElementById('saveTeacherStoreBtn').onclick = async () => {
+  const storeEnabled = document.getElementById('tchStoreEnabled').value === 'yes';
+  const storeDescription = document.getElementById('tchStoreDescription').value.trim();
+  const storeDeliveryFee = +document.getElementById('tchStoreDeliveryFee').value || 0;
+  if (storeEnabled && !storeDescription) { setMsg('tchStoreSettingsMsg','اكتب وصف قصير لمتجرك', false); return; }
+  try {
+    await db.collection('teachers').doc(currentTeacher.id).update({ storeEnabled, storeDescription, storeDeliveryFee });
+    currentTeacher.storeEnabled = storeEnabled;
+    currentTeacher.storeDescription = storeDescription;
+    currentTeacher.storeDeliveryFee = storeDeliveryFee;
+    setMsg('tchStoreSettingsMsg','تم حفظ إعدادات متجرك ✅', true);
+  } catch(e) { console.error(e); setMsg('tchStoreSettingsMsg','تعذّر الحفظ', false); }
+};
+
+// عرض متاجر الأساتذة للزبون
+async function loadTeacherStoresList() {
+  const list = document.getElementById('teacherStoresList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('teachers').where('storeEnabled','==', true).get();
+    if (snap.empty) { list.innerHTML = '<div class="card"><p>ما فيه متاجر أساتذة مفعّلة حالياً.</p></div>'; return; }
+    list.innerHTML = snap.docs.map(d => {
+      const t = d.data();
+      return `<div class="subject-tile" onclick="openTeacherStoreDetail('${t.name.replace(/'/g,"\\'")}')">
+        <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🏪</span><div><b>متجر الأستاذ ${t.name}</b><br><span style="font-size:12px;color:#8a90a3;">${t.storeDescription || ''}</span></div></div>
+        <div class="badge">فتح</div>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p>تعذّر التحميل.</p>'; }
+}
+async function openTeacherStoreDetail(teacherName) {
+  show('screen-teacher-store-detail');
+  const teacherSnap = await db.collection('teachers').where('name','==', teacherName).limit(1).get();
+  const t = teacherSnap.empty ? {} : teacherSnap.docs[0].data();
+  document.getElementById('teacherStoreDetailHeader').innerHTML = `
+    <h3 style="margin-bottom:6px;">🏪 متجر الأستاذ ${teacherName}</h3>
+    <p style="color:#8a90a3;margin:0;">${t.storeDescription || ''}</p>
+  `;
+  const list = document.getElementById('teacherStoreDetailList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('books').where('teacherName','==', teacherName).where('storeItem','==', true).get();
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    currentStoreItems = items;
+    if (items.length === 0) { list.innerHTML = '<div class="card"><p>ما فيه مواد بهذا المتجر بعد.</p></div>'; return; }
+    list.innerHTML = items.map(b => {
+      const typeLabel = b.itemType === 'notebook' ? '📓 دفتر' : '📦 ملزمة';
+      const thumb = b.image
+        ? `<img src="${b.image}" style="width:52px;height:52px;object-fit:cover;border-radius:9px;margin-inline-end:12px;flex-shrink:0;">`
+        : `<div style="width:52px;height:52px;border-radius:9px;background:#eef1f8;display:flex;align-items:center;justify-content:center;font-size:22px;margin-inline-end:12px;flex-shrink:0;">📘</div>`;
+      return `<div class="lesson-row">
+        <div style="display:flex;align-items:center;">${thumb}<div class="title">${b.title}<br><span style="font-size:12px;color:#8a90a3;">${typeLabel} — ${b.grade||''}</span><br><span style="color:#b8903c;font-weight:bold;">${b.price} د.ع</span></div></div>
+        <button class="play" onclick="addStoreItemToCart('${b.id}')">أضف للسلة</button>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p>تعذّر التحميل.</p>'; }
+}
+let currentStoreItems = [];
+function addStoreItemToCart(id) {
+  const b = currentStoreItems.find(x => x.id === id);
+  if (!b) return;
+  addToCart(id, `${b.title} — ${b.teacherName}`, b.price, 1, { teacherName: b.teacherName, deliveryMode: b.deliveryMode, teacherDeliveryFee: b.teacherDeliveryFee });
+}
 
 async function openTeacherBooksLibrary() {
   const booksSnap = await db.collection('books').where('teacherName','==', currentTeacher.name).get();
