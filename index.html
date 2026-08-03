@@ -1601,6 +1601,11 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <div class="admin-menu-text"><b>زبائني</b><span>كل من ثبّت البرنامج وحجز، مراسلة فردية أو جماعية</span></div>
           <div class="admin-menu-arrow">‹</div>
         </div>
+        <div class="admin-menu-item" data-section="library-teacher-stores">
+          <div class="admin-menu-icon">🏪</div>
+          <div class="admin-menu-text"><b>متاجر الأساتذة</b><span>تشغيل/إيقاف كل متجر، والمبلغ المستحق للمكتبة</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
       </div>
 
       <div class="admin-section hidden" data-section="library-booklets">
@@ -1715,6 +1720,12 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <input id="customersSearchInput" placeholder="🔍 ابحث بالاسم أو الهاتف أو رقم المعرف...">
         </div>
         <div id="libraryCustomersList"><p>جاري التحميل...</p></div>
+      </div>
+
+      <div class="admin-section hidden" data-section="library-teacher-stores">
+        <button class="btn secondary admin-back-btn" data-back-to="library-hub">← رجوع للمكتبة</button>
+        <div class="card"><h3>🏪 متاجر الأساتذة</h3><p>شغّل أو أوقف أي متجر، وتابع المبلغ المستحق للمكتبة من كل أستاذ (عمولة المنصة على طلبات توصيله الذاتي)</p></div>
+        <div id="adminTeacherStoresList"><p>جاري التحميل...</p></div>
       </div>
 
       <div class="admin-section hidden" data-section="library-textbooks">
@@ -3518,6 +3529,7 @@ document.getElementById('repairTeacherAccountsBtn').onclick = async () => {
     const secondaryAuth = getSecondaryAuth();
     for (const d of snap.docs) {
       const t = d.data();
+      if (t.phone && t.name) { try { await db.collection('teacherPhoneIndex').doc(t.phone).set({ name: t.name }); } catch(e) { console.error(e); } }
       if (!t.password) { skippedNoPass++; continue; }
       try {
         await secondaryAuth.createUserWithEmailAndPassword(teacherEmailFromPhone(t.phone), t.password);
@@ -3555,6 +3567,7 @@ document.getElementById('addTeacherBtn').onclick = async () => {
     return;
   }
   await db.collection('teachers').add({ name, phone, password, addedBy: currentStaffName, createdAt: Date.now() });
+  await db.collection('teacherPhoneIndex').doc(phone).set({ name });
   alert(`تمت الإضافة ✅ — بواسطة: ${currentStaffName}`);
   document.getElementById('tchName').value=''; document.getElementById('tchPhone').value=''; document.getElementById('tchPass').value='';
   loadTeachersAdmin();
@@ -4479,6 +4492,10 @@ function loadOrdersAdmin() {
         update.teacherPayouts = await computeTeacherPayoutsForOrder(o);
         update.teacherPayoutsSettled = {};
         update.teacherPayoutsComputed = true;
+        if (o.fulfillment === 'teacher') {
+          update.platformOwedToLibrary = await computePlatformOwedForOrder(o);
+          update.platformOwedSettled = false;
+        }
       }
       await db.collection('orders').doc(d.id).update(update);
     }
@@ -4646,6 +4663,57 @@ document.getElementById('customersSearchInput').addEventListener('input', (e) =>
   renderLibraryCustomersList(filtered);
 });
 document.querySelector('.admin-menu-item[data-section="library-customers"]').addEventListener('click', () => loadLibraryCustomers());
+document.querySelector('.admin-menu-item[data-section="library-teacher-stores"]').addEventListener('click', () => loadAdminTeacherStores());
+
+// إدارة متاجر الأساتذة من قبل المشرف/الموظف: تشغيل/إيقاف + متابعة المبلغ المستحق للمكتبة
+async function loadAdminTeacherStores() {
+  const list = document.getElementById('adminTeacherStoresList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const teachersSnap = await db.collection('teachers').get();
+    const stores = teachersSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(t => t.storeEnabled !== undefined || t.storeDescription || t.storeDeliveryFee);
+    if (stores.length === 0) { list.innerHTML = '<div class="card"><p>ما فيه أي متجر أستاذ مفعّل أو مُعدّ بعد.</p></div>'; return; }
+
+    const ordersSnap = await db.collection('orders').where('fulfillment','==','teacher').where('status','==','completed').get();
+    const owedByTeacher = {};
+    ordersSnap.docs.forEach(d => {
+      const o = d.data();
+      if (o.platformOwedSettled) return;
+      const name = o.fulfillmentTeacherName;
+      if (!name) return;
+      owedByTeacher[name] = (owedByTeacher[name] || 0) + (o.platformOwedToLibrary || 0);
+    });
+
+    list.innerHTML = stores.map(t => {
+      const owed = owedByTeacher[t.name] || 0;
+      return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div><b>${t.name}</b><br><span style="color:#8a90a3;font-size:13px;">${t.storeDescription || 'بدون وصف'}</span></div>
+          <button class="small-btn" onclick="toggleTeacherStoreEnabled('${t.id}', ${!t.storeEnabled})" style="${t.storeEnabled ? 'background:#16a34a;color:#fff;' : 'background:#000;color:#fff;'}">${t.storeEnabled ? '🟢 مفعّل (إيقاف)' : '🔴 موقوف (تشغيل)'}</button>
+        </div>
+        <button class="small-btn" style="margin-top:8px;${owed>0?'background:#b8903c;color:#fff;':'background:#ecfdf3;'}" onclick="toggleTeacherStoreSettlement('${t.name.replace(/'/g,"\\'")}')">
+          💰 المبلغ المستحق للمكتبة: ${owed} د.ع ${owed>0 ? '— اضغط لتأكيد التحاسب' : '— تم التحاسب ✅'}
+        </button>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+}
+async function toggleTeacherStoreEnabled(teacherId, newValue) {
+  await db.collection('teachers').doc(teacherId).update({ storeEnabled: newValue });
+  loadAdminTeacherStores();
+}
+async function toggleTeacherStoreSettlement(teacherName) {
+  const snap = await db.collection('orders').where('fulfillment','==','teacher').where('status','==','completed').get();
+  const unsettled = snap.docs.filter(d => d.data().fulfillmentTeacherName === teacherName && !d.data().platformOwedSettled);
+  if (unsettled.length === 0) { alert('ما فيه مبلغ مستحق حالياً على هذا الأستاذ.'); return; }
+  const total = unsettled.reduce((s,d) => s + (d.data().platformOwedToLibrary || 0), 0);
+  if (!confirm(`تأكيد إنك استلمت ${total} د.ع من الأستاذ ${teacherName} (عمولة المنصة)؟`)) return;
+  await Promise.all(unsettled.map(d => d.ref.update({ platformOwedSettled: true })));
+  alert('تم تسجيل التحاسب ✅');
+  loadAdminTeacherStores();
+}
 
 // رسالة جماعية لكل الزبائن (نص و/أو صورة) — تُرسل كرسالة بمحادثة كل زبون على حدة
 let broadcastImageBase64 = null;
@@ -4875,6 +4943,18 @@ async function copySingleOrder(id) {
   loadOrdersAdmin();
 }
 
+async function computePlatformOwedForOrder(order) {
+  if (order.fulfillment !== 'teacher') return 0;
+  let owed = 0;
+  for (const item of (order.items || [])) {
+    if (!item.bookId) continue;
+    const bookDoc = await db.collection('books').doc(item.bookId).get();
+    if (!bookDoc.exists) continue;
+    const book = bookDoc.data();
+    if (book.teacherShare != null) owed += (item.price - book.teacherShare) * item.qty;
+  }
+  return owed;
+}
 async function computeTeacherPayoutsForOrder(order) {
   const teacherPayouts = {};
   for (const item of (order.items || [])) {
@@ -4900,6 +4980,10 @@ async function setOrderStatus(id, status) {
       update.teacherPayouts = await computeTeacherPayoutsForOrder(order);
       update.teacherPayoutsSettled = {};
       update.teacherPayoutsComputed = true;
+      if (order.fulfillment === 'teacher') {
+        update.platformOwedToLibrary = await computePlatformOwedForOrder(order);
+        update.platformOwedSettled = false;
+      }
     }
   }
   await db.collection('orders').doc(id).update(update);
@@ -4927,6 +5011,10 @@ async function convertAllDeliveringToArrived() {
       update.teacherPayouts = await computeTeacherPayoutsForOrder(order);
       update.teacherPayoutsSettled = {};
       update.teacherPayoutsComputed = true;
+      if (order.fulfillment === 'teacher') {
+        update.platformOwedToLibrary = await computePlatformOwedForOrder(order);
+        update.platformOwedSettled = false;
+      }
     }
     await d.ref.update(update);
   }
@@ -5230,6 +5318,7 @@ document.getElementById('teacherRegisterBtn').onclick = async () => {
   try {
     await auth.createUserWithEmailAndPassword(teacherEmailFromPhone(phone), password);
     await db.collection('teachers').add({ name, phone, password, mode, addedBy: 'تسجيل ذاتي', createdAt: Date.now() });
+    await db.collection('teacherPhoneIndex').doc(phone).set({ name });
     if (mode !== 'booklets') {
       await db.collection('teacherClasses').add({ teacherName: name, teacherPhone: phone, grade, subject, createdAt: Date.now() });
     }
@@ -5747,7 +5836,10 @@ function toggleEditTeacherBooklet(id) {
 async function saveTeacherBookletEdit(id) {
   const title = document.getElementById(`editTBookletTitle-${id}`).value.trim();
   const price = +document.getElementById(`editTBookletPrice-${id}`).value;
-  const teacherShare = Math.round(price * 0.8);
+  const bookDoc = await db.collection('books').doc(id).get();
+  const deliveryMode = bookDoc.exists ? bookDoc.data().deliveryMode : 'library';
+  const pct = getTeacherDeliveryPercent(deliveryMode);
+  const teacherShare = price - Math.round(price * pct / 100);
   await db.collection('books').doc(id).update({ title, price, teacherShare });
   alert('تم حفظ التعديل ✅');
   openTeacherBooksLibrary();
@@ -6868,6 +6960,10 @@ async function autoEscalateOrderStatuses() {
           update.teacherPayouts = await computeTeacherPayoutsForOrder(o);
           update.teacherPayoutsSettled = {};
           update.teacherPayoutsComputed = true;
+          if (o.fulfillment === 'teacher') {
+            update.platformOwedToLibrary = await computePlatformOwedForOrder(o);
+            update.platformOwedSettled = false;
+          }
         }
         await d.ref.update(update);
       }
