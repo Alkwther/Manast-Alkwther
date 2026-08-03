@@ -5603,7 +5603,10 @@ document.getElementById('saveTeacherStoreBtn').onclick = async () => {
     currentTeacher.storeDescription = storeDescription;
     currentTeacher.storeDeliveryFee = storeDeliveryFee;
     setMsg('tchStoreSettingsMsg','تم حفظ إعدادات متجرك ✅', true);
-  } catch(e) { console.error(e); setMsg('tchStoreSettingsMsg','تعذّر الحفظ', false); }
+  } catch(e) {
+    console.error(e);
+    setMsg('tchStoreSettingsMsg', `تعذّر الحفظ: ${e.code || ''} ${e.message || 'خطأ غير معروف'}`, false);
+  }
 };
 
 // عرض متاجر الأساتذة للزبون
