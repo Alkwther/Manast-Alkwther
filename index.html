@@ -95,6 +95,17 @@
   }
   .subject-tile:active { transform:scale(.98); }
   .subject-tile .badge { background:#10203f; color:#f0dfae; border-radius:20px; padding:3px 12px; font-size:12px; font-weight:600; }
+  .tile-icon-badge {
+    width:52px; height:52px; border-radius:16px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,#10203f,#1b3a6b);
+    box-shadow:0 4px 10px rgba(16,32,63,.28);
+  }
+  .tile-icon-badge svg { width:26px; height:26px; }
+  .tile-row { display:flex; align-items:center; gap:14px; }
+  .tile-text { text-align:right; }
+  .tile-text b { display:block; font-size:16px; color:#10203f; margin-bottom:3px; }
+  .tile-text span { display:block; font-size:12.5px; color:#8a90a3; line-height:1.5; }
 
   .lesson-row {
     display:flex; align-items:center; justify-content:space-between;
@@ -1163,27 +1174,42 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     <div id="returningCustomerNotice"></div>
 
     <div class="subject-tile" onclick="showMyOrders()">
-      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📦</span><div><b>طلباتي</b><br><span style="font-size:12px;color:#8a90a3;">تابع حالة طلباتك السابقة</span></div></div>
+      <div class="tile-row">
+        <div class="tile-icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 011 1v1H8V4a1 1 0 011-1z"/><rect x="5" y="5" width="14" height="16" rx="2"/><path d="M9 11l2 2 4-4"/></svg></div>
+        <div class="tile-text"><b>طلباتي</b><span>تابع حالة طلباتك السابقة</span></div>
+      </div>
       <div class="badge">عرض</div>
     </div>
 
     <div class="subject-tile" onclick="show('screen-library-booklets'); loadLibrary();">
-      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📦</span><div><b>الملازم</b><br><span style="font-size:12px;color:#8a90a3;">ملازم الأساتذة حسب المرحلة والصف</span></div></div>
+      <div class="tile-row">
+        <div class="tile-icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5.5A2.5 2.5 0 016.5 3H18v16.5"/><path d="M6.5 3H18v18H6.5A2.5 2.5 0 014 18.5v-13A2.5 2.5 0 016.5 3z"/><path d="M8 8h6M8 12h6"/></svg></div>
+        <div class="tile-text"><b>الملازم</b><span>ملازم الأساتذة حسب المرحلة والصف</span></div>
+      </div>
       <div class="badge">فتح</div>
     </div>
 
     <div class="subject-tile" onclick="openTextbooksScreen()">
-      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📖</span><div><b>الكتب المدرسية</b><br><span style="font-size:12px;color:#8a90a3;">كتب المنهج حسب المرحلة والصف</span></div></div>
+      <div class="tile-row">
+        <div class="tile-icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6c-1.6-1.2-4-1.7-6-1.7v13.4c2 0 4.4.5 6 1.7 1.6-1.2 4-1.7 6-1.7V4.3c-2 0-4.4.5-6 1.7z"/><path d="M12 6v13.4"/></svg></div>
+        <div class="tile-text"><b>الكتب المدرسية</b><span>كتب المنهج حسب المرحلة والصف</span></div>
+      </div>
       <div class="badge">فتح</div>
     </div>
 
     <div class="subject-tile" onclick="show('screen-teacher-stores'); loadTeacherStoresList();">
-      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🏪</span><div><b>متاجر الأساتذة</b><br><span style="font-size:12px;color:#8a90a3;">ملازم ودفاتر يوصّلها الأستاذ بنفسه</span></div></div>
+      <div class="tile-row">
+        <div class="tile-icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l1-5h14l1 5"/><path d="M4 9a2 2 0 004 0 2 2 0 004 0 2 2 0 004 0 2 2 0 004 0"/><path d="M5 9v10h14V9"/><path d="M10 19v-5h4v5"/></svg></div>
+        <div class="tile-text"><b>متاجر الأساتذة</b><span>ملازم خاصة يمكنك طلبها حصراً من الأستاذ</span></div>
+      </div>
       <div class="badge">فتح</div>
     </div>
 
     <div class="subject-tile" onclick="openNotebooksScreen()">
-      <div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">📓</span><div><b>الدفاتر</b><br><span style="font-size:12px;color:#8a90a3;">دفاتر بمختلف عدد الصفحات</span></div></div>
+      <div class="tile-row">
+        <div class="tile-icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 7h1.5M5 11h1.5M5 15h1.5"/><path d="M9 3v18"/></svg></div>
+        <div class="tile-text"><b>الدفاتر</b><span>دفاتر بمختلف عدد الصفحات</span></div>
+      </div>
       <div class="badge">فتح</div>
     </div>
   </div>
@@ -1716,10 +1742,23 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <div id="broadcastMsgStatus" style="margin-top:8px;"></div>
         </div>
 
-        <div class="card">
-          <input id="customersSearchInput" placeholder="🔍 ابحث بالاسم أو الهاتف أو رقم المعرف...">
+        <div style="display:flex;gap:6px;margin-bottom:14px;">
+          <button class="small-btn" id="customersTabAll" style="flex:1;background:#10203f;color:#fff;">👥 كل الزبائن</button>
+          <button class="small-btn" id="customersTabProvince" style="flex:1;">🗺️ حسب المحافظة</button>
         </div>
-        <div id="libraryCustomersList"><p>جاري التحميل...</p></div>
+
+        <div id="customersViewAll">
+          <div class="card">
+            <p style="margin:0 0 8px;font-weight:bold;color:#10203f;">👥 إجمالي الزبائن: <span id="customersTotalCount">0</span></p>
+            <input id="customersSearchInput" placeholder="🔍 ابحث بالاسم أو الهاتف أو رقم المعرف...">
+          </div>
+          <div id="libraryCustomersList"><p>جاري التحميل...</p></div>
+        </div>
+
+        <div id="customersViewProvince" class="hidden">
+          <div id="customersByProvinceList"><p>جاري التحميل...</p></div>
+          <div id="customersProvinceDetail" class="hidden"></div>
+        </div>
       </div>
 
       <div class="admin-section hidden" data-section="library-teacher-stores">
@@ -2441,7 +2480,7 @@ document.getElementById('loginGrade').addEventListener('change', async (e) => {
 
 // ---------- تسجيل الدخول (طالب مسجل من قبل) ----------
 document.getElementById('loginOnlyBtn').onclick = async () => {
-  const phone = document.getElementById('loginOnlyPhone').value.trim();
+  const phone = toEnglishDigits(document.getElementById('loginOnlyPhone').value.trim());
   const password = document.getElementById('loginOnlyPassword').value;
   if (!phone || !password) { setMsg('loginOnlyMsg','أدخل رقم الهاتف وكلمة السر', false); return; }
   try {
@@ -2467,7 +2506,7 @@ document.getElementById('loginOnlyBtn').onclick = async () => {
 // ---------- تسجيل حساب جديد ----------
 document.getElementById('loginBtn').onclick = async () => {
   const name = document.getElementById('loginName').value.trim();
-  const phone = document.getElementById('loginPhone').value.trim();
+  const phone = toEnglishDigits(document.getElementById('loginPhone').value.trim());
   const password = document.getElementById('loginPassword').value;
   const grade = document.getElementById('loginGrade').value;
   const subject = document.getElementById('loginSubject').value;
@@ -3098,14 +3137,37 @@ async function getOrAssignCustomerId(phone) {
 }
 
 let isSubmittingOrder = false;
+// يحوّل أي أرقام عربية (٠١٢٣...) أو فارسية (۰۱۲۳...) لأرقام إنكليزية عادية — يستخدم لأرقام الهواتف بكل الطلبات
+function toEnglishDigits(str) {
+  if (!str) return str;
+  const arabicIndic = '٠١٢٣٤٥٦٧٨٩';
+  const persianIndic = '۰۱۲۳۴۵۶۷۸۹';
+  return String(str).replace(/[٠-٩۰-۹]/g, (d) => {
+    const ai = arabicIndic.indexOf(d);
+    if (ai !== -1) return ai;
+    const pi = persianIndic.indexOf(d);
+    if (pi !== -1) return pi;
+    return d;
+  });
+}
+
+document.getElementById('ckPhone').addEventListener('input', (e) => {
+  const converted = toEnglishDigits(e.target.value);
+  if (converted !== e.target.value) e.target.value = converted;
+});
+document.getElementById('ckAltPhone').addEventListener('input', (e) => {
+  const converted = toEnglishDigits(e.target.value);
+  if (converted !== e.target.value) e.target.value = converted;
+});
+
 document.getElementById('confirmOrderBtn').onclick = async () => {
   if (isSubmittingOrder) return; // منع تكرار الطلب لو ضغط الزبون على الزر أكثر من مرة بسرعة
   const name = document.getElementById('ckName').value.trim();
   const province = document.getElementById('ckProvince').value;
   const district = document.getElementById('ckDistrict').value.trim();
   const landmark = document.getElementById('ckLandmark').value.trim();
-  const phone = document.getElementById('ckPhone').value.trim();
-  const altPhone = document.getElementById('ckAltPhone').value.trim();
+  const phone = toEnglishDigits(document.getElementById('ckPhone').value.trim());
+  const altPhone = toEnglishDigits(document.getElementById('ckAltPhone').value.trim());
   if (!name || !province || !district || !phone) { setMsg('checkoutMsg','الرجاء تعبئة الاسم والمحافظة والقضاء/الناحية ورقم الهاتف', false); return; }
   const ids = Object.keys(cart);
   if (ids.length === 0) { setMsg('checkoutMsg','سلتك فارغة', false); return; }
@@ -3598,7 +3660,7 @@ document.getElementById('repairTeacherAccountsBtn').onclick = async () => {
 
 document.getElementById('addTeacherBtn').onclick = async () => {
   const name = document.getElementById('tchName').value.trim();
-  const phone = document.getElementById('tchPhone').value.trim().replace(/[\s\-]/g,'');
+  const phone = toEnglishDigits(document.getElementById('tchPhone').value.trim().replace(/[\s\-]/g,''));
   const password = document.getElementById('tchPass').value;
   if (!name || !phone || !password) { alert('عبّئ اسم المدرّس ورقم الهاتف وكلمة السر'); return; }
   if (password.length < 6) { alert('كلمة السر يجب أن تكون 6 أحرف على الأقل (شرط Firebase)'); return; }
@@ -4681,7 +4743,9 @@ async function loadLibraryCustomers() {
       }
     });
     libraryCustomersCache = Object.values(byPhone).sort((a,b) => b.lastOrderAt - a.lastOrderAt);
+    document.getElementById('customersTotalCount').textContent = libraryCustomersCache.length;
     renderLibraryCustomersList(libraryCustomersCache);
+    renderCustomersByProvince();
   } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
 }
 function renderLibraryCustomersList(customers) {
@@ -4699,6 +4763,55 @@ function renderLibraryCustomersList(customers) {
         <button class="small-btn" onclick="event.stopPropagation(); openChat('libcustomer_${c.phone}','💬 مراسلة ${(c.name||c.phone).replace(/'/g,"")}')">💬 مراسلة</button>
       </div>
     </div>`).join('');
+}
+document.getElementById('customersTabAll').onclick = () => {
+  document.getElementById('customersTabAll').style.background = '#10203f'; document.getElementById('customersTabAll').style.color = '#fff';
+  document.getElementById('customersTabProvince').style.background = ''; document.getElementById('customersTabProvince').style.color = '';
+  document.getElementById('customersViewAll').classList.remove('hidden');
+  document.getElementById('customersViewProvince').classList.add('hidden');
+};
+document.getElementById('customersTabProvince').onclick = () => {
+  document.getElementById('customersTabProvince').style.background = '#10203f'; document.getElementById('customersTabProvince').style.color = '#fff';
+  document.getElementById('customersTabAll').style.background = ''; document.getElementById('customersTabAll').style.color = '';
+  document.getElementById('customersViewProvince').classList.remove('hidden');
+  document.getElementById('customersViewAll').classList.add('hidden');
+  document.getElementById('customersProvinceDetail').classList.add('hidden');
+  renderCustomersByProvince();
+};
+function renderCustomersByProvince() {
+  const box = document.getElementById('customersByProvinceList');
+  if (!box) return;
+  const counts = {};
+  libraryCustomersCache.forEach(c => {
+    const p = c.province || 'بدون محافظة';
+    counts[p] = (counts[p] || 0) + 1;
+  });
+  const rows = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+  if (rows.length === 0) { box.innerHTML = '<div class="card"><p>لا يوجد زبائن بعد.</p></div>'; return; }
+  box.innerHTML = rows.map(([province, count]) => `
+    <div class="admin-list-item" style="cursor:pointer;" onclick="showProvinceCustomers('${province.replace(/'/g,"\\'")}')">
+      <b>📍 ${province}</b>
+      <span style="background:#10203f;color:#f0dfae;border-radius:20px;padding:3px 14px;font-size:13px;font-weight:bold;">${count}</span>
+    </div>`).join('');
+}
+function showProvinceCustomers(province) {
+  const detail = document.getElementById('customersProvinceDetail');
+  const customers = libraryCustomersCache.filter(c => (c.province || 'بدون محافظة') === province);
+  detail.classList.remove('hidden');
+  detail.innerHTML = `<h3 style="margin:14px 0 10px;color:#10203f;">📍 زبائن ${province} (${customers.length})</h3>` +
+    customers.map(c => `
+      <div class="card" style="cursor:pointer;" onclick="openCustomerProfile('${c.phone}')">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <p style="font-weight:bold;margin:0;">👤 ${c.name || c.phone}</p>
+            <p style="margin:4px 0 0;color:#8a90a3;">📞 ${c.phone}</p>
+            ${c.customerId ? `<p style="margin:4px 0 0;font-weight:bold;color:#0e6fa8;">🪪 رقم الزبون: ${c.customerId}</p>` : ''}
+            <p style="margin:4px 0 0;color:#8a90a3;font-size:12px;">📦 ${c.orderCount} طلب</p>
+          </div>
+          <button class="small-btn" onclick="event.stopPropagation(); openChat('libcustomer_${c.phone}','💬 مراسلة ${(c.name||c.phone).replace(/'/g,"")}')">💬 مراسلة</button>
+        </div>
+      </div>`).join('');
+  detail.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 document.getElementById('customersSearchInput').addEventListener('input', (e) => {
   const q = e.target.value.trim().toLowerCase();
@@ -5402,7 +5515,7 @@ document.getElementById('teacherRegMode').addEventListener('change', () => {
 
 document.getElementById('teacherRegisterBtn').onclick = async () => {
   const name = document.getElementById('teacherRegName').value.trim();
-  const phone = document.getElementById('teacherRegPhone').value.trim().replace(/[\s\-]/g,'');
+  const phone = toEnglishDigits(document.getElementById('teacherRegPhone').value.trim().replace(/[\s\-]/g,''));
   const password = document.getElementById('teacherRegPass').value;
   const mode = document.getElementById('teacherRegMode').value; // teaching | booklets | both
   const grade = document.getElementById('teacherRegGrade').value;
@@ -5431,7 +5544,7 @@ document.getElementById('teacherRegisterBtn').onclick = async () => {
 };
 
 document.getElementById('teacherLoginBtn').onclick = async () => {
-  const phone = document.getElementById('teacherPhone').value.trim().replace(/[\s\-]/g,'');
+  const phone = toEnglishDigits(document.getElementById('teacherPhone').value.trim().replace(/[\s\-]/g,''));
   const pass = document.getElementById('teacherPass').value;
   if (!phone || !pass) { setMsg('teacherLoginMsg','عبّئ رقم الهاتف وكلمة السر', false); return; }
   try {
@@ -7155,6 +7268,7 @@ function routeFromHash() {
   const routes = {
     'library': () => show('screen-library'),
     'books': () => show('screen-print-shop'),
+    'textbooks': () => openTextbooksScreen(),
     'booklets': () => { show('screen-library-booklets'); loadLibrary(); },
     'notebooks': () => openNotebooksScreen(),
     'teacher-stores': () => { show('screen-teacher-stores'); loadTeacherStoresList(); }
@@ -9134,8 +9248,8 @@ function goToConfirm() {
   let valid = true;
   const prov = document.getElementById('province').value.trim();
   const dist = document.getElementById('district').value.trim();
-  const ph1  = document.getElementById('phone1').value.trim();
-  const ph2  = document.getElementById('phone2').value.trim();
+  const ph1  = toEnglishDigits(document.getElementById('phone1').value.trim());
+  const ph2  = toEnglishDigits(document.getElementById('phone2').value.trim());
   const lm   = document.getElementById('landmark').value.trim();
 
   const setE = (id,eid,show) => {
