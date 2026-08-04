@@ -8970,14 +8970,18 @@ let TB_PRICING = { tier1Price: 4000, tier2Price: 3000, tier1Max: 3 };
 const STAGE_LABELS = { primary: { icon:'🏫', label:'المرحلة الابتدائية' }, middle: { icon:'🏛️', label:'المرحلة المتوسطة' }, secondary: { icon:'🎓', label:'المرحلة الإعدادية' } };
 
 async function tbLoadData() {
+  const container = document.getElementById('tbStageBlocks');
+  const withTimeout = (p, ms) => Promise.race([
+    p,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+  ]);
   try {
-    await seedDefaultTbGradesIfNeeded();
-    await seedDefaultTbSubjectsIfNeeded();
-    const [gradesSnap, subjectsSnap, pricingDoc] = await Promise.all([
+    const [gradesSnap, subjectsSnap, pricingDoc] = await withTimeout(Promise.all([
       db.collection('textbookGrades').orderBy('order','asc').get(),
       db.collection('textbookSubjects').get(),
       db.collection('settings').doc('textbookPricing').get()
-    ]);
+    ]), 10000);
+
     const defaultStagePkg = { primary: 20000, middle: 24000, secondary: 28000 };
     let stagePkgPrices = defaultStagePkg;
     if (pricingDoc.exists) {
@@ -8997,10 +9001,38 @@ async function tbLoadData() {
       const g = d.data();
       TB_GRADES[d.id] = { name: g.name, stage: g.stage, pkg: stagePkgPrices[g.stage] || 20000, books: subjectsByGrade[d.id] || [] };
     });
+
+    // نزرع الصفوف الافتراضية بصمت وبالخلفية فقط أول مرة بتاريخ المشروع (المجموعة فاضية تماماً) — ما يوقف عرض أي بيانات موجودة أصلاً
+    if (gradesSnap.empty) {
+      (async () => {
+        try {
+          await ensureAuthed();
+          await seedDefaultTbGradesIfNeeded();
+          await seedDefaultTbSubjectsIfNeeded();
+          await tbLoadData();
+          tbRenderStageBlocks();
+        } catch(e) { console.error('seed textbook defaults failed', e); }
+      })();
+    }
   } catch(e) {
-    console.error('tbLoadData error', e);
-    const container = document.getElementById('tbStageBlocks');
-    if (container) container.innerHTML = `<div class="card" style="background:#fef2f2;"><p style="color:#b91c1c;">⚠️ تعذّر تحميل الصفوف: ${e.message || 'خطأ غير معروف'}<br>تأكد من قواعد Firestore (textbookGrades وtextbookSubjects) وحاول تحديث الصفحة.</p></div>`;
+    // ما فيه نت أبداً ولا حتى نسخة محفوظة بالجهاز (أول زيارة بدون اتصال): نعرض منهج افتراضي ثابت بالكود
+    // نفسه بدون ما ننتظر أي سيرفر، والزبون يقدر يتصفح ويطلب عادي — وبمجرد رجوع النت يوصل طلبه تلقائياً
+    console.error('tbLoadData error, falling back to built-in curriculum', e);
+    const defaultStagePkg = { primary: 20000, middle: 24000, secondary: 28000 };
+    TB_GRADES = {};
+    Object.entries(DEFAULT_TB_GRADES).forEach(([stage, names]) => {
+      names.forEach((name) => {
+        const subjects = (DEFAULT_TB_SUBJECTS[name] || []).map((subjName, i) => ({
+          id: `${tbSafeId(name)}__${tbSafeId(subjName)}`, name: subjName, image: null,
+          price: i < TB_PRICING.tier1Max ? TB_PRICING.tier1Price : TB_PRICING.tier2Price
+        }));
+        TB_GRADES[tbSafeId(name)] = { name, stage, pkg: defaultStagePkg[stage] || 20000, books: subjects };
+      });
+    });
+    if (container && !container.dataset.retryWired) {
+      container.dataset.retryWired = '1';
+      setInterval(() => { tbLoadData().then(tbRenderStageBlocks); }, 20000); // نحاول نجيب النسخة الحقيقية بالخلفية كل شوي بصمت لو رجع النت
+    }
   }
 }
 
