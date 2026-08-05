@@ -6127,11 +6127,24 @@ function openImageGalleryEnc(encoded) {
   try { openImageGallery(JSON.parse(decodeURIComponent(encoded))); }
   catch(e) { console.error('openImageGalleryEnc failed', e); }
 }
+document.addEventListener('click', (e) => {
+  const closeBtn = e.target.closest && e.target.closest('#galleryCloseBtn');
+  if (closeBtn) {
+    e.stopPropagation(); e.preventDefault();
+    document.body.style.overflow = '';
+    document.querySelectorAll('[id="imageGalleryOverlay"]').forEach(el => el.remove());
+    return;
+  }
+  if (e.target && e.target.id === 'imageGalleryOverlay') {
+    document.body.style.overflow = '';
+    e.target.remove();
+  }
+}, true);
+
 let currentStoreItems = [];
 function openImageGallery(images) {
   if (!images || images.length === 0) return;
-  const existing = document.getElementById('imageGalleryOverlay');
-  if (existing) existing.remove();
+  document.querySelectorAll('[id="imageGalleryOverlay"]').forEach(el => el.remove());
   let idx = 0;
   const overlay = document.createElement('div');
   overlay.id = 'imageGalleryOverlay';
@@ -6149,21 +6162,21 @@ function openImageGallery(images) {
   document.body.style.overflow = 'hidden';
   const closeGallery = () => {
     document.body.style.overflow = '';
-    const el = document.getElementById('imageGalleryOverlay');
-    if (el) el.remove();
+    overlay.remove();
+    document.querySelectorAll('[id="imageGalleryOverlay"]').forEach(el => el.remove());
   };
-  const imgEl = document.getElementById('galleryImg');
-  const dotsEl = document.getElementById('galleryDots');
+  const imgEl = overlay.querySelector('#galleryImg');
+  const dotsEl = overlay.querySelector('#galleryDots');
   function renderDots() {
     dotsEl.innerHTML = images.map((_, i) => `<span style="width:8px;height:8px;border-radius:50%;background:${i===idx?'#cda44e':'rgba(255,255,255,.4)'};"></span>`).join('');
   }
   function showImgAt(i) { idx = (i + images.length) % images.length; imgEl.src = images[idx]; renderDots(); }
   renderDots();
-  document.getElementById('galleryCloseBtn').addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); closeGallery(); });
+  overlay.querySelector('#galleryCloseBtn').addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); closeGallery(); });
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeGallery(); });
   if (images.length > 1) {
-    document.getElementById('galleryPrevBtn').addEventListener('click', (e) => { e.stopPropagation(); showImgAt(idx - 1); });
-    document.getElementById('galleryNextBtn').addEventListener('click', (e) => { e.stopPropagation(); showImgAt(idx + 1); });
+    overlay.querySelector('#galleryPrevBtn').addEventListener('click', (e) => { e.stopPropagation(); showImgAt(idx - 1); });
+    overlay.querySelector('#galleryNextBtn').addEventListener('click', (e) => { e.stopPropagation(); showImgAt(idx + 1); });
   }
 }
 function addStoreItemToCart(id) {
