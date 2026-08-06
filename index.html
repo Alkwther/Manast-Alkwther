@@ -3312,6 +3312,9 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
       customerId, fulfillment, fulfillmentTeacherName,
       status: 'pending', seenByStaff: false, createdAt: Date.now()
     };
+    if (fulfillment !== 'teacher') {
+      newOrderData.deliveringThresholdAt = computeDeliveringThresholdAt(newOrderData.createdAt);
+    }
     if (fulfillment === 'teacher') {
       // مبلغ حصة المكتبة يُحسب فوراً عند إنشاء الطلب، مو عند وصوله
       newOrderData.platformOwedToLibrary = await computePlatformOwedForOrder({ items, fulfillment });
@@ -3441,6 +3444,7 @@ async function showMyOrders(phoneOverride) {
         <h3 ${textColor}>${ORDER_STATUS_LABELS[o.status] || o.status} ${o.edited ? '<span style="background:#cda44e;color:#10203f;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">✏️ تم التعديل</span>' : ''} ${unreadCount > 0 ? `<span style="background:#ec4899;color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">🔔 ${unreadCount}</span>` : ''}</h3>
         ${o.customerId ? `<p ${textColor} style="font-weight:bold;">🪪 رقم الزبون: ${o.customerId}</p>` : ''}
         <p ${textColor} style="font-size:13px;color:#8a90a3;">${o.fulfillment === 'teacher' ? `🚚 التوصيل: الأستاذ ${o.fulfillmentTeacherName||''}` : '🚚 التوصيل: المكتبة'}</p>
+        ${o.fulfillment !== 'teacher' && (o.status === 'pending' || o.status === 'processing') ? `<p ${textColor} style="font-weight:bold;color:#0e6fa8;">📅 موعد التوصيل المتوقع: ${formatArabicDayDate(getEstimatedDeliveryDate(o))}</p>` : ''}
         <p ${textColor}>${itemsText}</p>
         <p style="color:${o.status==='cancelled'?'#d1d5db':'#8a90a3'};">مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع</p>
         <p ${textColor}><b>المجموع: ${o.totalPrice} د.ع</b></p>
@@ -4549,6 +4553,23 @@ function formatOrderTime(ts) {
 //     * حجز قبل الساعة 6 عصراً: يتحول صباح اليوم التالي (الساعة 7 صباحاً).
 //     * حجز بعد الساعة 6 عصراً: يبقى قيد التنفيذ خلال اليوم التالي أيضاً، ويتحول صباح اليوم الذي يليه (الساعة 7 صباحاً).
 // ملاحظة: لو الموظف/المشرف غيّر الحالة يدوياً (تم التسليم/ملغى) تبقى كما حددها ولا يتم تجاوزها تلقائياً
+const AR_WEEKDAYS = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const AR_MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+function getEstimatedDeliveryDate(order) {
+  return new Date(order.deliveringThresholdAt || computeDeliveringThresholdAt(order.createdAt));
+}
+function formatArabicDayDate(date) {
+  return `${AR_WEEKDAYS[date.getDay()]}، ${date.getDate()} ${AR_MONTHS[date.getMonth()]}`;
+}
+function computeDeliveringThresholdAt(createdAt) {
+  const orderDate = new Date(createdAt);
+  const orderDayStart = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
+  const bookedBefore6PM = orderDate.getHours() < 18;
+  const threshold = new Date(orderDayStart);
+  threshold.setDate(threshold.getDate() + (bookedBefore6PM ? 1 : 2));
+  threshold.setHours(8,0,0,0);
+  return threshold.getTime();
+}
 function computeEffectiveStatus(order) {
   if (order.status === 'cancelled' || order.status === 'completed') return order.status;
 
@@ -4562,14 +4583,8 @@ function computeEffectiveStatus(order) {
 
   if (!order.processingAt) return 'pending'; // ما تم نسخه بعد: يبقى ضمن "الطلبات الجديدة"
 
-  const orderDate = new Date(order.createdAt);
-  const orderDayStart = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
-  const bookedBefore6PM = orderDate.getHours() < 18;
-  const deliveringThreshold = new Date(orderDayStart);
-  deliveringThreshold.setDate(deliveringThreshold.getDate() + (bookedBefore6PM ? 1 : 2));
-  deliveringThreshold.setHours(7,0,0,0);
-
-  if (Date.now() >= deliveringThreshold.getTime()) return 'delivering';
+  const deliveringThresholdAt = order.deliveringThresholdAt || computeDeliveringThresholdAt(order.createdAt);
+  if (Date.now() >= deliveringThresholdAt) return 'delivering';
   return 'processing';
 }
 
@@ -4935,11 +4950,13 @@ document.getElementById('createExtOrderBtn').onclick = async () => {
     const customerId = await getOrAssignCustomerId(phone);
     const items = [{ bookId: null, title: details, price, qty: 1 }];
     const totalPrice = price + deliveryFee;
+    const createdAt = Date.now();
     const orderRef = await db.collection('orders').add({
       studentName: name, studentPhone: phone, phone, altPhone: '',
       items, subtotal: price, deliveryFee, totalPrice, province, district,
       customerId, fulfillment: 'library', source: 'external', externalPlatform: source,
-      addedBy: currentStaffName || 'موظف', status: 'pending', seenByStaff: true, createdAt: Date.now()
+      deliveringThresholdAt: computeDeliveringThresholdAt(createdAt),
+      addedBy: currentStaffName || 'موظف', status: 'pending', seenByStaff: true, createdAt
     });
     const link = window.location.origin + window.location.pathname + '#o=' + orderRef.id;
     const waText = encodeURIComponent('مرحباً ' + name + ' \nتم تسجيل طلبك بمكتبة الكوثر:\n' + details + '\nالمبلغ الكلي (شامل التوصيل): ' + totalPrice + ' د.ع\n\nتقدر تتابع حالة طلبك من هذا الرابط:\n' + link);
@@ -5005,6 +5022,7 @@ async function openOrderView(orderId) {
         '<p style="margin:0 0 6px;">مواد: ' + (o.subtotal||0) + ' د.ع + توصيل: ' + (o.deliveryFee||0) + ' د.ع</p>' +
         '<p style="margin:0 0 10px;font-weight:bold;color:#b8903c;font-size:18px;">الإجمالي: ' + (o.totalPrice||0) + ' د.ع</p>' +
         '<p style="font-weight:bold;color:#10203f;">الحالة الحالية: ' + (ORDER_STATUS_LABELS[status]||status) + '</p>' +
+        (o.fulfillment !== 'teacher' && (status === 'pending' || status === 'processing') ? '<p style="font-weight:bold;color:#0e6fa8;margin-top:6px;">📅 موعد التوصيل المتوقع: ' + formatArabicDayDate(getEstimatedDeliveryDate(o)) + '</p>' : '') +
       '</div>' +
       '<button class="btn secondary" onclick="openChat(\'order_' + orderId + '\',\'💬 طلبك — تعديل أو استفسار\')">💬 مراسلة المكتبة بخصوص هذا الطلب</button>';
   } catch(e) { console.error(e); box.innerHTML = '<div class="card"><p>تعذّر تحميل الطلب. تأكد من اتصالك بالإنترنت.</p></div>'; }
@@ -5323,7 +5341,11 @@ async function copySingleOrder(id) {
   // لو أول مرة تُنسخ، نسجّل وقت النسخ (يبدأ حساب تطور الحالة تلقائياً من هذا الوقت)
   // ولو انسخت من قبل، نسمح بإعادة النسخ العادية بدون ما نغيّر وقت النسخ الأصلي
   if (!o.processingAt) {
-    await db.collection('orders').doc(id).update({ status:'processing', processingAt: Date.now() });
+    const update = { status:'processing', processingAt: Date.now() };
+    if (o.fulfillment !== 'teacher' && !o.deliveringThresholdAt) {
+      update.deliveringThresholdAt = computeDeliveringThresholdAt(o.createdAt);
+    }
+    await db.collection('orders').doc(id).update(update);
   }
   loadOrdersAdmin();
 }
@@ -7733,6 +7755,24 @@ async function autoEscalateOrderStatuses() {
   if (!routeFromHash()) show('screen-welcome');
 })();
 
+async function selfEscalateMyOrders(phone) {
+  // كل جهاز يحدّث بس طلباته هو (المرتبطة برقم هاتفه) — ما يقرأ ولا يلمس طلبات أي زبون ثاني إطلاقاً
+  if (!phone) return;
+  try {
+    await ensureAuthed();
+    const snap = await db.collection('orders').where('phone','==', phone).where('status','==','processing').get();
+    const now = Date.now();
+    const updates = [];
+    snap.docs.forEach(d => {
+      const o = d.data();
+      if (o.fulfillment === 'teacher') return; // الأستاذ يدير طلبات متجره يدوياً بنفسه
+      if (!o.deliveringThresholdAt || now < o.deliveringThresholdAt) return;
+      updates.push(d.ref.update({ status: 'delivering', deliveringAt: now }).catch(e => console.error(e)));
+    });
+    if (updates.length) await Promise.all(updates);
+  } catch(e) { console.error('selfEscalateMyOrders failed', e); }
+}
+
 // ---------- نظام الإشعارات (بدون صوت) ----------
 let adminOrdersListenerStarted = false;
 let adminMessagesListenerStarted = false;
@@ -8136,7 +8176,9 @@ async function markAllTeacherNotificationsReadNow() {
 function setupCustomerNotifications(phone) {
   if (!phone) return;
   setupLibraryCustomerChatBadge(phone);
+  selfEscalateMyOrders(phone);
   if (customerOrdersListenerStarted) return;
+  setInterval(() => selfEscalateMyOrders(phone), 180000); // كل 3 دقائق، بس لطلبات هذا الزبون نفسه
   customerOrdersListenerStarted = true;
   requestNotificationPermissionQuietly();
   let firstSnapshot = true;
