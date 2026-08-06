@@ -1664,6 +1664,17 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <div class="admin-menu-text"><b>طلبات خارجية</b><span>واتساب / فيسبوك / إنستغرام — أضف الطلب وابعث رابطه للزبون</span></div>
           <div class="admin-menu-arrow">‹</div>
         </div>
+        <div class="admin-menu-item" data-section="library-customer-chats">
+          <div class="admin-menu-icon">💬</div>
+          <div class="admin-menu-text"><b>كل المحادثات</b><span>كل زبون راسل المكتبة، حتى لو ما حجز</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
+      </div>
+
+      <div class="admin-section hidden" data-section="library-customer-chats">
+        <button class="btn secondary admin-back-btn" data-back-to="library-hub">← رجوع للمكتبة</button>
+        <div class="card"><h3 style="margin:0;">💬 كل محادثات الزبائن</h3><p>كل من راسل المكتبة، مرتّبين حسب آخر رسالة — اضغط "طلباته" لمعرفة وقت وتفاصيل حجزه</p></div>
+        <div id="staffMessagesInboxList"><p>جاري التحميل...</p></div>
       </div>
 
       <div class="admin-section hidden" data-section="library-external-orders">
@@ -6787,6 +6798,7 @@ document.getElementById('chatSendBtn').onclick = async () => {
 
 // مراسلة الزبون لمكتبة الكوثر (أيقونة 💬 بجانب اسم البرنامج) — متاحة لأي زائر حتى لو ما طلب من قبل
 function openLibraryCustomerChat() {
+  if (currentStaffRole) { openStaffMessagesInbox(); return; } // المشرف/الموظف يشوف كل المحادثات، مو محادثة نفسه
   let me = currentIdentity();
   if (!me) {
     const phone = prompt('أدخل رقم هاتفك للتواصل مع المكتبة:');
@@ -6797,6 +6809,39 @@ function openLibraryCustomerChat() {
   }
   openChat(`libcustomer_${me.id}`, '💬 مراسلة مكتبة الكوثر');
   setupLibraryCustomerChatBadge(me.id);
+}
+
+// صندوق كل محادثات الزبائن (للمشرف/الموظف) — يشمل كل زبون راسل، حتى لو ما حجز إطلاقاً
+async function openStaffMessagesInbox() {
+  show('screen-admin');
+  openAdminSection('library-hub');
+  openAdminSection('library-customer-chats');
+  const list = document.getElementById('staffMessagesInboxList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('messages').where('threadId','>=','libcustomer_').where('threadId','<','libcustomer_\uf8ff').get();
+    const byPhone = {};
+    snap.docs.forEach(d => {
+      const m = d.data();
+      const phone = (m.threadId||'').slice('libcustomer_'.length);
+      if (!phone) return;
+      if (!byPhone[phone] || (m.createdAt||0) > byPhone[phone].lastAt) {
+        byPhone[phone] = { phone, lastText: m.text || (m.image ? '📷 صورة' : ''), lastAt: m.createdAt||0, lastFromRole: m.fromRole, fromName: m.fromName };
+      }
+    });
+    const rows = Object.values(byPhone).sort((a,b) => b.lastAt - a.lastAt);
+    if (rows.length === 0) { list.innerHTML = '<div class="card"><p>ما فيه محادثات بعد.</p></div>'; return; }
+    list.innerHTML = rows.map(r => `
+      <div class="card" style="cursor:pointer;" onclick="openChat('libcustomer_${r.phone}','💬 مراسلة ${(r.fromName||r.phone).replace(/'/g,"")}')">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <p style="font-weight:bold;margin:0;">👤 ${r.fromName || r.phone}</p>
+            <p style="margin:4px 0 0;color:#8a90a3;font-size:13px;">${r.lastFromRole === 'staff' ? 'أنت: ' : ''}${r.lastText}</p>
+          </div>
+          <button class="small-btn" onclick="event.stopPropagation(); openCustomerProfile('${r.phone}')">📦 طلباته</button>
+        </div>
+      </div>`).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
 }
 
 let libCustomerBadgeListenerPhone = null;
