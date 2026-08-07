@@ -3455,7 +3455,7 @@ async function showMyOrders(phoneOverride) {
         <h3 ${textColor}>${ORDER_STATUS_LABELS[o.status] || o.status} ${o.edited ? '<span style="background:#cda44e;color:#10203f;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">✏️ تم التعديل</span>' : ''} ${unreadCount > 0 ? `<span style="background:#ec4899;color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">🔔 ${unreadCount}</span>` : ''}</h3>
         ${o.customerId ? `<p ${textColor} style="font-weight:bold;">🪪 رقم الزبون: ${o.customerId}</p>` : ''}
         <p ${textColor} style="font-size:13px;color:#8a90a3;">${o.fulfillment === 'teacher' ? `🚚 التوصيل: الأستاذ ${o.fulfillmentTeacherName||''}` : '🚚 التوصيل: المكتبة'}</p>
-        ${o.fulfillment !== 'teacher' && (o.status === 'pending' || o.status === 'processing') ? `<p ${textColor} style="font-weight:bold;color:#0e6fa8;">📅 موعد التوصيل المتوقع: ${formatArabicDayDate(getEstimatedDeliveryDate(o))}</p>` : ''}
+        ${o.fulfillment !== 'teacher' && (o.status === 'pending' || o.status === 'processing' || o.status === 'delivering') ? `<p ${textColor} style="font-weight:bold;color:#0e6fa8;">📅 موعد التوصيل ${o.status==='delivering'?'(اليوم)':'المتوقع'}: ${formatArabicDayDate(getEstimatedDeliveryDate(o))}</p>` : ''}
         <p ${textColor}>${itemsText}</p>
         <p style="color:${o.status==='cancelled'?'#d1d5db':'#8a90a3'};">مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع</p>
         <p ${textColor}><b>المجموع: ${o.totalPrice} د.ع</b></p>
@@ -4570,7 +4570,10 @@ function getEstimatedDeliveryDate(order) {
   return new Date(order.deliveringThresholdAt || computeDeliveringThresholdAt(order.createdAt));
 }
 function formatArabicDayDate(date) {
-  return `${AR_WEEKDAYS[date.getDay()]}، ${date.getDate()} ${AR_MONTHS[date.getMonth()]}`;
+  const dd = String(date.getDate()).padStart(2,'0');
+  const mm = String(date.getMonth()+1).padStart(2,'0');
+  const yyyy = date.getFullYear();
+  return `${AR_WEEKDAYS[date.getDay()]}، ${dd},${mm},${yyyy}`;
 }
 function computeDeliveringThresholdAt(createdAt) {
   const orderDate = new Date(createdAt);
@@ -5033,7 +5036,7 @@ async function openOrderView(orderId) {
         '<p style="margin:0 0 6px;">مواد: ' + (o.subtotal||0) + ' د.ع + توصيل: ' + (o.deliveryFee||0) + ' د.ع</p>' +
         '<p style="margin:0 0 10px;font-weight:bold;color:#b8903c;font-size:18px;">الإجمالي: ' + (o.totalPrice||0) + ' د.ع</p>' +
         '<p style="font-weight:bold;color:#10203f;">الحالة الحالية: ' + (ORDER_STATUS_LABELS[status]||status) + '</p>' +
-        (o.fulfillment !== 'teacher' && (status === 'pending' || status === 'processing') ? '<p style="font-weight:bold;color:#0e6fa8;margin-top:6px;">📅 موعد التوصيل المتوقع: ' + formatArabicDayDate(getEstimatedDeliveryDate(o)) + '</p>' : '') +
+        (o.fulfillment !== 'teacher' && (status === 'pending' || status === 'processing' || status === 'delivering') ? '<p style="font-weight:bold;color:#0e6fa8;margin-top:6px;">📅 موعد التوصيل ' + (status==='delivering'?'(اليوم)':'المتوقع') + ': ' + formatArabicDayDate(getEstimatedDeliveryDate(o)) + '</p>' : '') +
       '</div>' +
       '<button class="btn secondary" onclick="openChat(\'order_' + orderId + '\',\'💬 طلبك — تعديل أو استفسار\')">💬 مراسلة المكتبة بخصوص هذا الطلب</button>';
   } catch(e) { console.error(e); box.innerHTML = '<div class="card"><p>تعذّر تحميل الطلب. تأكد من اتصالك بالإنترنت.</p></div>'; }
@@ -5253,6 +5256,7 @@ function renderOrderCard(id, o, unreadCount, mode) {
         ${itemsText}<br>
         <span style="color:#8a90a3;font-size:12px;">${fulfillmentLabel}</span><br>
         مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع = <b style="color:#b8903c;">${o.totalPrice} د.ع</b><br>
+        ${o.fulfillment !== 'teacher' && (o.status === 'pending' || o.status === 'processing' || o.status === 'delivering') ? `<span style="color:#0e6fa8;font-weight:bold;">📅 موعد التوصيل ${o.status==='delivering'?'(اليوم)':'المتوقع'}: ${formatArabicDayDate(getEstimatedDeliveryDate(o))}</span><br>` : ''}
         الحالة: <b>${ORDER_STATUS_LABELS[o.status]||o.status}</b>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -6303,7 +6307,7 @@ function openImageGalleryEnc(encoded) {
   catch(e) { console.error('openImageGalleryEnc failed', e); }
 }
 document.addEventListener('click', (e) => {
-  const closeBtn = e.target.closest && e.target.closest('#galleryCloseBtn');
+  const closeBtn = e.target.closest && e.target.closest('#myImgGalCloseBtn');
   if (closeBtn) {
     e.stopPropagation(); e.preventDefault();
     document.body.style.overflow = '';
@@ -6325,12 +6329,12 @@ function openImageGallery(images) {
   overlay.id = 'imageGalleryOverlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;';
   overlay.innerHTML = `
-    <button type="button" id="galleryCloseBtn" style="position:absolute;top:16px;left:16px;background:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:22px;cursor:pointer;z-index:2;">✕</button>
-    <img id="galleryImg" src="${images[0]}" style="max-width:100%;max-height:75vh;border-radius:12px;object-fit:contain;">
-    <div id="galleryDots" style="display:flex;gap:8px;margin-top:16px;"></div>
+    <button type="button" id="myImgGalCloseBtn" style="position:absolute;top:16px;left:16px;background:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:22px;cursor:pointer;z-index:2;">✕</button>
+    <img id="myImgGalImg" src="${images[0]}" style="max-width:100%;max-height:75vh;border-radius:12px;object-fit:contain;">
+    <div id="myImgGalDots" style="display:flex;gap:8px;margin-top:16px;"></div>
     ${images.length > 1 ? `
-    <button type="button" id="galleryPrevBtn" style="position:absolute;top:50%;right:12px;transform:translateY(-50%);background:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;">›</button>
-    <button type="button" id="galleryNextBtn" style="position:absolute;top:50%;left:12px;transform:translateY(-50%);background:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;">‹</button>
+    <button type="button" id="myImgGalPrevBtn" style="position:absolute;top:50%;right:12px;transform:translateY(-50%);background:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;">›</button>
+    <button type="button" id="myImgGalNextBtn" style="position:absolute;top:50%;left:12px;transform:translateY(-50%);background:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;">‹</button>
     ` : ''}
   `;
   document.body.appendChild(overlay);
@@ -6340,18 +6344,18 @@ function openImageGallery(images) {
     overlay.remove();
     document.querySelectorAll('[id="imageGalleryOverlay"]').forEach(el => el.remove());
   };
-  const imgEl = overlay.querySelector('#galleryImg');
-  const dotsEl = overlay.querySelector('#galleryDots');
+  const imgEl = overlay.querySelector('#myImgGalImg');
+  const dotsEl = overlay.querySelector('#myImgGalDots');
   function renderDots() {
     dotsEl.innerHTML = images.map((_, i) => `<span style="width:8px;height:8px;border-radius:50%;background:${i===idx?'#cda44e':'rgba(255,255,255,.4)'};"></span>`).join('');
   }
   function showImgAt(i) { idx = (i + images.length) % images.length; imgEl.src = images[idx]; renderDots(); }
   renderDots();
-  overlay.querySelector('#galleryCloseBtn').addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); closeGallery(); });
+  overlay.querySelector('#myImgGalCloseBtn').addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); closeGallery(); });
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeGallery(); });
   if (images.length > 1) {
-    overlay.querySelector('#galleryPrevBtn').addEventListener('click', (e) => { e.stopPropagation(); showImgAt(idx - 1); });
-    overlay.querySelector('#galleryNextBtn').addEventListener('click', (e) => { e.stopPropagation(); showImgAt(idx + 1); });
+    overlay.querySelector('#myImgGalPrevBtn').addEventListener('click', (e) => { e.stopPropagation(); showImgAt(idx - 1); });
+    overlay.querySelector('#myImgGalNextBtn').addEventListener('click', (e) => { e.stopPropagation(); showImgAt(idx + 1); });
   }
 }
 function addStoreItemToCart(id) {
