@@ -2236,7 +2236,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
         <option value="booklet">📦 ملزمة</option>
         <option value="notebook">📓 دفتر / كراس</option>
       </select>
-      <label>صور المادة (حتى 3 صور)</label>
+      <label>صور المادة (حتى 4 صور)</label>
       <input type="file" id="tchBookletImageInput" accept="image/*" multiple>
       <div id="tchBookletImagePreview" style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;"></div>
       <label>اسم المادة</label>
@@ -3074,12 +3074,16 @@ function renderLibraryNav() {
   const books = libraryAllBooks.filter(b => b.grade === libraryNavGrade);
   if (books.length === 0) { list.innerHTML = back + '<div class="card"><p>لا توجد ملازم لهذا الصف بعد.</p></div>'; return; }
   const booksHtml = books.map(b => {
-    const thumb = b.image
-      ? `<img src="${b.image}" style="width:52px;height:52px;object-fit:cover;border-radius:9px;margin-inline-end:12px;flex-shrink:0;">`
-      : `<div style="width:52px;height:52px;border-radius:9px;background:#eef1f8;display:flex;align-items:center;justify-content:center;font-size:22px;margin-inline-end:12px;flex-shrink:0;">📘</div>`;
-    return `<div class="lesson-row">
-      <div style="display:flex;align-items:center;">${thumb}<div class="title">${b.title}${b.teacherName ? `<br><span style="font-size:12px;color:#8a90a3;">أ. ${b.teacherName}</span>` : ''}<br><span style="color:#b8903c;font-weight:bold;">${b.price} د.ع</span></div></div>
-      <button class="play" onclick="addToCart('${b.id}','${b.title.replace(/'/g,"\\'")} — ${libraryNavGrade.replace(/'/g,"\\'")}',${b.price})">أضف للسلة</button>
+    const images = (b.images && b.images.length) ? b.images : (b.image ? [b.image] : []);
+    const thumb = images[0]
+      ? `<img src="${images[0]}" style="width:90px;height:90px;object-fit:cover;border-radius:12px;margin-inline-end:14px;flex-shrink:0;cursor:pointer;" onclick='openImageGallery(${JSON.stringify(images)})'>`
+      : `<div style="width:90px;height:90px;border-radius:12px;background:#eef1f8;display:flex;align-items:center;justify-content:center;font-size:32px;margin-inline-end:14px;flex-shrink:0;">📘</div>`;
+    return `<div class="card">
+      <div style="display:flex;align-items:flex-start;">${thumb}<div class="title" style="flex:1;">${b.title}${b.teacherName ? `<br><span style="font-size:12px;color:#8a90a3;">أ. ${b.teacherName}</span>` : ''}<br><span style="color:#b8903c;font-weight:bold;">${b.price} د.ع</span></div></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        ${images.length ? `<button class="small-btn" onclick='openImageGallery(${JSON.stringify(images)})'>📷 مشاهدة الصور${images.length>1?' ('+images.length+')':''}</button>` : ''}
+        <button class="play" style="margin:0;flex:1;" onclick="addToCart('${b.id}','${b.title.replace(/'/g,"\\'")} — ${libraryNavGrade.replace(/'/g,"\\'")}',${b.price})">أضف للسلة</button>
+      </div>
     </div>`;
   }).join('');
   list.innerHTML = back + booksHtml;
@@ -3455,7 +3459,7 @@ async function showMyOrders(phoneOverride) {
         <h3 ${textColor}>${ORDER_STATUS_LABELS[o.status] || o.status} ${o.edited ? '<span style="background:#cda44e;color:#10203f;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">✏️ تم التعديل</span>' : ''} ${unreadCount > 0 ? `<span style="background:#ec4899;color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">🔔 ${unreadCount}</span>` : ''}</h3>
         ${o.customerId ? `<p ${textColor} style="font-weight:bold;">🪪 رقم الزبون: ${o.customerId}</p>` : ''}
         <p ${textColor} style="font-size:13px;color:#8a90a3;">${o.fulfillment === 'teacher' ? `🚚 التوصيل: الأستاذ ${o.fulfillmentTeacherName||''}` : '🚚 التوصيل: المكتبة'}</p>
-        ${o.fulfillment !== 'teacher' && (o.status === 'pending' || o.status === 'processing' || o.status === 'delivering') ? `<p ${textColor} style="font-weight:bold;color:#0e6fa8;">📅 موعد التوصيل ${o.status==='delivering'?'(اليوم)':'المتوقع'}: ${formatArabicDayDate(getEstimatedDeliveryDate(o))}</p>` : ''}
+        ${o.fulfillment !== 'teacher' && (o.status === 'pending' || o.status === 'processing' || o.status === 'delivering') ? `<p ${textColor} style="font-weight:bold;color:#0e6fa8;">📅 موعد التوصيل المتوقع: ${formatArabicDayDate(getEstimatedDeliveryDate(o))}</p>` : ''}
         <p ${textColor}>${itemsText}</p>
         <p style="color:${o.status==='cancelled'?'#d1d5db':'#8a90a3'};">مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع</p>
         <p ${textColor}><b>المجموع: ${o.totalPrice} د.ع</b></p>
@@ -4573,7 +4577,7 @@ function formatArabicDayDate(date) {
   const dd = String(date.getDate()).padStart(2,'0');
   const mm = String(date.getMonth()+1).padStart(2,'0');
   const yyyy = date.getFullYear();
-  return `${AR_WEEKDAYS[date.getDay()]}، ${dd},${mm},${yyyy}`;
+  return `يوم ${AR_WEEKDAYS[date.getDay()]}، ${dd},${mm},${yyyy}`;
 }
 function computeDeliveringThresholdAt(createdAt) {
   const orderDate = new Date(createdAt);
@@ -5036,7 +5040,7 @@ async function openOrderView(orderId) {
         '<p style="margin:0 0 6px;">مواد: ' + (o.subtotal||0) + ' د.ع + توصيل: ' + (o.deliveryFee||0) + ' د.ع</p>' +
         '<p style="margin:0 0 10px;font-weight:bold;color:#b8903c;font-size:18px;">الإجمالي: ' + (o.totalPrice||0) + ' د.ع</p>' +
         '<p style="font-weight:bold;color:#10203f;">الحالة الحالية: ' + (ORDER_STATUS_LABELS[status]||status) + '</p>' +
-        (o.fulfillment !== 'teacher' && (status === 'pending' || status === 'processing' || status === 'delivering') ? '<p style="font-weight:bold;color:#0e6fa8;margin-top:6px;">📅 موعد التوصيل ' + (status==='delivering'?'(اليوم)':'المتوقع') + ': ' + formatArabicDayDate(getEstimatedDeliveryDate(o)) + '</p>' : '') +
+        (o.fulfillment !== 'teacher' && (status === 'pending' || status === 'processing' || status === 'delivering') ? '<p style="font-weight:bold;color:#0e6fa8;margin-top:6px;">📅 موعد التوصيل ' + 'المتوقع' + ': ' + formatArabicDayDate(getEstimatedDeliveryDate(o)) + '</p>' : '') +
       '</div>' +
       '<button class="btn secondary" onclick="openChat(\'order_' + orderId + '\',\'💬 طلبك — تعديل أو استفسار\')">💬 مراسلة المكتبة بخصوص هذا الطلب</button>';
   } catch(e) { console.error(e); box.innerHTML = '<div class="card"><p>تعذّر تحميل الطلب. تأكد من اتصالك بالإنترنت.</p></div>'; }
@@ -5256,7 +5260,7 @@ function renderOrderCard(id, o, unreadCount, mode) {
         ${itemsText}<br>
         <span style="color:#8a90a3;font-size:12px;">${fulfillmentLabel}</span><br>
         مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع = <b style="color:#b8903c;">${o.totalPrice} د.ع</b><br>
-        ${o.fulfillment !== 'teacher' && (o.status === 'pending' || o.status === 'processing' || o.status === 'delivering') ? `<span style="color:#0e6fa8;font-weight:bold;">📅 موعد التوصيل ${o.status==='delivering'?'(اليوم)':'المتوقع'}: ${formatArabicDayDate(getEstimatedDeliveryDate(o))}</span><br>` : ''}
+        ${o.fulfillment !== 'teacher' && (o.status === 'pending' || o.status === 'processing' || o.status === 'delivering') ? `<span style="color:#0e6fa8;font-weight:bold;">📅 موعد التوصيل المتوقع: ${formatArabicDayDate(getEstimatedDeliveryDate(o))}</span><br>` : ''}
         الحالة: <b>${ORDER_STATUS_LABELS[o.status]||o.status}</b>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -6111,7 +6115,7 @@ document.getElementById('tchBookletDeliveryMode').addEventListener('change', (e)
   document.getElementById('tchBookletPrice').dispatchEvent(new Event('input'));
 });
 document.getElementById('tchBookletImageInput').addEventListener('change', async (e) => {
-  const files = Array.from(e.target.files || []).slice(0, 3);
+  const files = Array.from(e.target.files || []).slice(0, 4);
   const preview = document.getElementById('tchBookletImagePreview');
   if (files.length === 0) { preview.innerHTML = ''; preview.dataset.images = ''; return; }
   const dataUrls = await Promise.all(files.map(f => resizeImageToBase64(f, 800, 0.8)));
@@ -6201,7 +6205,7 @@ async function loadTeacherStoreItemsList() {
           <input id="editStoreItemTitle-${d.id}" value="${b.title.replace(/"/g,'&quot;')}">
           <label>السعر الكلي</label>
           <input id="editStoreItemPrice-${d.id}" type="number" value="${b.price}">
-          <label>تغيير صور المادة (اختياري — حتى 3 صور، تستبدل الصور الحالية)</label>
+          <label>تغيير صور المادة (اختياري — حتى 4 صور، تستبدل الصور الحالية)</label>
           <input type="file" id="editStoreItemImageInput-${d.id}" accept="image/*" multiple>
           <div id="editStoreItemImagePreview-${d.id}" style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;"></div>
           <button class="btn" onclick="saveStoreItemEdit('${d.id}')">💾 حفظ</button>
@@ -6223,7 +6227,7 @@ async function saveStoreItemEdit(id) {
   const pct = getTeacherDeliveryPercent(deliveryMode);
   const teacherShare = price - Math.round(price * pct / 100);
   const update = { title, price, teacherShare };
-  const files = Array.from(imageInput.files || []).slice(0, 3);
+  const files = Array.from(imageInput.files || []).slice(0, 4);
   if (files.length > 0) {
     const dataUrls = await Promise.all(files.map(f => resizeImageToBase64(f, 800, 0.8)));
     update.images = dataUrls;
