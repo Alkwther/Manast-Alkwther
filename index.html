@@ -7768,8 +7768,8 @@ async function autoEscalateOrderStatuses() {
 }
 
 (async function init() {
-  await loadFreeModeStatus();
-  await loadLibraryStructure();
+  loadFreeModeStatus(); // بالخلفية بدون انتظار — ما توقف فتح البرنامج
+  loadLibraryStructure(); // نفس الشي: القيم الافتراضية جاهزة أصلاً، وتتحدث بالخلفية لو تغيّرت
   auth.onAuthStateChanged(async (user) => {
     if (!user) {
       // زائر يتصفح المكتبة أو الدروس المجانية بدون تسجيل: نسجّله دخول مجهول

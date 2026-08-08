@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kawthar-platform-v110';
+const CACHE_NAME = 'kawthar-platform-v111';
 const APP_SHELL = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -21,12 +21,16 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// الشعار وملفات الواجهة الثابتة (الأيقونات وmanifest): تظهر فوراً من الكاش دائماً
+// الشعار وملفات الواجهة الثابتة (الأيقونات وmanifest وindex.html نفسه): تظهر فوراً من الكاش دائماً
 // (حتى لو النت ضعيف جداً أو منقطع)، مع تحديثها بالخلفية إذا كان فيه اتصال.
+// هذا هو سبب "البرنامج بطيء بالفتح" — كان يحاول يجيب index.html كامل (600+ كيلوبايت) من النت
+// كل مرة قبل ما يفتح، بدل ما يفتحه فوراً من نسخة الجهاز المحفوظة ويحدثها بالخلفية.
 function isShellAsset(url) {
   return url.pathname.endsWith('/icon-192.png') ||
          url.pathname.endsWith('/icon-512.png') ||
-         url.pathname.endsWith('/manifest.json');
+         url.pathname.endsWith('/manifest.json') ||
+         url.pathname.endsWith('/index.html') ||
+         url.pathname.endsWith('/') || url.pathname === '';
 }
 
 self.addEventListener('fetch', (event) => {
