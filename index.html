@@ -1705,14 +1705,30 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <input id="extOrderDistrict" placeholder="اختياري">
           <label>تفاصيل الطلب (اسم الكتاب/الملزمة)</label>
           <textarea id="extOrderDetails" rows="2" placeholder="مثال: كتب الصف الأول ابتدائي كاملة"></textarea>
-          <label>سعر المواد (دينار)</label>
-          <input id="extOrderPrice" type="number" placeholder="مثال: 20000">
+          <label>سعر القطعة الواحدة (دينار)</label>
+          <input id="extOrderUnitPrice" type="number" placeholder="مثال: 1400">
+          <label>الكمية (عدد القطع)</label>
+          <input id="extOrderQty" type="number" value="1" min="1">
+          <p id="extOrderSubtotalPreview" style="color:#0e6fa8;font-weight:bold;"></p>
           <label>أجور التوصيل (دينار)</label>
           <input id="extOrderDelivery" type="number" placeholder="مثال: 5000" value="5000">
           <div id="extOrderMsg"></div>
           <button class="btn" id="createExtOrderBtn">➕ إنشاء الطلب وتوليد الرابط</button>
         </div>
         <div id="extOrderResult"></div>
+        <script>
+          (function(){
+            function updateExtOrderPreview(){
+              var u = +document.getElementById('extOrderUnitPrice').value || 0;
+              var q = +document.getElementById('extOrderQty').value || 0;
+              var el = document.getElementById('extOrderSubtotalPreview');
+              if (el) el.textContent = (u && q) ? ('المجموع: ' + u + ' × ' + q + ' = ' + (u*q) + ' د.ع') : '';
+            }
+            document.addEventListener('input', function(e){
+              if (e.target && (e.target.id === 'extOrderUnitPrice' || e.target.id === 'extOrderQty')) updateExtOrderPreview();
+            });
+          })();
+        </script>
         <h3 style="margin:16px 0 10px;color:#10203f;">📋 آخر الطلبات الخارجية</h3>
         <div id="extOrdersList"><p>جاري التحميل...</p></div>
       </div>
@@ -3446,8 +3462,8 @@ async function showMyOrders(phoneOverride) {
         const parts = [it.title];
         if (stageLabel) parts.push(stageLabel);
         if (it.grade) parts.push(it.grade);
-        return `${parts.join(' — ')} ×${it.qty}`;
-      }).join('، ');
+        return `${parts.join(' — ')}: ${it.price} × ${it.qty} = ${it.price*it.qty} د.ع`;
+      }).join('<br>');
       const isCopied = !!o.processingAt;
       let cardStyle;
       if (o.status === 'cancelled') cardStyle = 'background:#1f2937;border:2px solid #000;color:#fff;';
@@ -4960,24 +4976,34 @@ document.getElementById('createExtOrderBtn').onclick = async () => {
   const province = document.getElementById('extOrderProvince').value;
   const district = document.getElementById('extOrderDistrict').value.trim();
   const details = document.getElementById('extOrderDetails').value.trim();
-  const price = +document.getElementById('extOrderPrice').value || 0;
+  const unitPrice = +document.getElementById('extOrderUnitPrice').value || 0;
+  const qty = +document.getElementById('extOrderQty').value || 1;
   const deliveryFee = +document.getElementById('extOrderDelivery').value || 0;
-  if (!name || !phone || !province || !details || !price) { setMsg('extOrderMsg','عبّئ الاسم ورقم الهاتف والمحافظة وتفاصيل الطلب والسعر', false); return; }
+  if (!name || !phone || !province || !details || !unitPrice || !qty) { setMsg('extOrderMsg','عبّئ الاسم ورقم الهاتف والمحافظة وتفاصيل الطلب وسعر القطعة والكمية', false); return; }
   try {
     await ensureAuthed();
     const customerId = await getOrAssignCustomerId(phone);
-    const items = [{ bookId: null, title: details, price, qty: 1 }];
-    const totalPrice = price + deliveryFee;
+    const subtotal = unitPrice * qty;
+    const items = [{ bookId: null, title: details, price: unitPrice, qty }];
+    const totalPrice = subtotal + deliveryFee;
     const createdAt = Date.now();
     const orderRef = await db.collection('orders').add({
       studentName: name, studentPhone: phone, phone, altPhone: '',
-      items, subtotal: price, deliveryFee, totalPrice, province, district,
+      items, subtotal, deliveryFee, totalPrice, province, district,
       customerId, fulfillment: 'library', source: 'external', externalPlatform: source,
       deliveringThresholdAt: computeDeliveringThresholdAt(createdAt),
       addedBy: currentStaffName || 'موظف', status: 'pending', seenByStaff: true, createdAt
     });
     const link = window.location.origin + window.location.pathname + '#o=' + orderRef.id;
-    const waText = encodeURIComponent('مرحباً ' + name + ' \nتم تسجيل طلبك بمكتبة الكوثر:\n' + details + '\nالمبلغ الكلي (شامل التوصيل): ' + totalPrice + ' د.ع\n\nتقدر تتابع حالة طلبك من هذا الرابط:\n' + link);
+    const itemLine = details + ': ' + unitPrice + ' × ' + qty + ' = ' + subtotal + ' د.ع';
+    const waText = encodeURIComponent(
+      'مرحباً بك ' + name + ' 🌸\n' +
+      'طلبك الآن قيد التنفيذ بمكتبة الكوثر:\n' +
+      itemLine + '\n' +
+      'التوصيل: ' + deliveryFee + ' د.ع\n' +
+      'الإجمالي: ' + totalPrice + ' د.ع\n\n' +
+      'اضغط على الرابط للتأكد من طلبك الآن:\n' + link
+    );
     document.getElementById('extOrderResult').innerHTML =
       '<div class="card" style="background:#ecfdf3;border:2px solid #16a34a;">' +
         '<p style="font-weight:bold;color:#15803d;margin:0 0 8px;">✅ تم إنشاء الطلب — رقم الزبون: ' + customerId + '</p>' +
@@ -4987,7 +5013,9 @@ document.getElementById('createExtOrderBtn').onclick = async () => {
           '<button class="small-btn" style="background:#25d366;color:#fff;" onclick="window.open(\'https://wa.me/?text=' + waText + '\',\'_blank\')">💬 إرسال عبر واتساب</button>' +
         '</div>' +
       '</div>';
-    ['extOrderName','extOrderPhone','extOrderDistrict','extOrderDetails','extOrderPrice'].forEach(function(id){ document.getElementById(id).value = ''; });
+    ['extOrderName','extOrderPhone','extOrderDistrict','extOrderDetails','extOrderUnitPrice'].forEach(function(id){ document.getElementById(id).value = ''; });
+    document.getElementById('extOrderQty').value = '1';
+    document.getElementById('extOrderSubtotalPreview').textContent = '';
     document.getElementById('extOrderProvince').value = '';
     document.getElementById('extOrderDelivery').value = '5000';
     setMsg('extOrderMsg','', true);
@@ -5030,8 +5058,8 @@ async function openOrderView(orderId) {
       const parts = [it.title];
       if (stageLabel) parts.push(stageLabel);
       if (it.grade) parts.push(it.grade);
-      return parts.join(' — ') + ' ×' + it.qty;
-    }).join('، ');
+      return parts.join(' — ') + ': ' + it.price + ' × ' + it.qty + ' = ' + (it.price*it.qty) + ' د.ع';
+    }).join('<br>');
     box.innerHTML =
       '<div class="card">' +
         '<h3 style="margin:0 0 10px;">👋 مرحباً ' + o.studentName + '</h3>' +
@@ -5209,8 +5237,8 @@ function renderOrderCard(id, o, unreadCount, mode) {
     const parts = [it.title];
     if (stageLabel) parts.push(stageLabel);
     if (it.grade) parts.push(it.grade);
-    return `${parts.join(' — ')} ×${it.qty} — ${it.price} د.ع`;
-  }).join('، ');
+    return `${parts.join(' — ')}: ${it.price} × ${it.qty} = ${it.price*it.qty} د.ع`;
+  }).join('<br>');
   const fulfillmentLabel = o.fulfillment === 'teacher'
     ? `🚚 التوصيل: الأستاذ ${o.fulfillmentTeacherName||''} (توصيله الخاص)`
     : '🚚 التوصيل: المكتبة';
@@ -5973,7 +6001,7 @@ function renderTeacherOrderCard(id, o, useOwnStatus) {
     const parts = [`📦 ${it.title}`];
     if (stageLabel) parts.push(stageLabel);
     if (it.grade) parts.push(it.grade);
-    return `${parts.join(' — ')} × ${it.qty} — ${it.price} د.ع`;
+    return `${parts.join(' — ')}: ${it.price} × ${it.qty} = ${it.price*it.qty} د.ع`;
   }).join('<br>');
   const isAdminViewing = !!teacherOrdersContextName; // المشرف/الموظف يشاهد بس، ما يتحكم
   let actionsHtml = '';
