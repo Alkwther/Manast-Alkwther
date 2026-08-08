@@ -6879,17 +6879,26 @@ async function openStaffMessagesInbox() {
       const m = d.data();
       const phone = (m.threadId||'').slice('libcustomer_'.length);
       if (!phone) return;
-      if (!byPhone[phone] || (m.createdAt||0) > byPhone[phone].lastAt) {
-        byPhone[phone] = { phone, lastText: m.text || (m.image ? '📷 صورة' : ''), lastAt: m.createdAt||0, lastFromRole: m.fromRole, fromName: m.fromName };
+      if (!byPhone[phone]) byPhone[phone] = { phone, lastText:'', lastAt:0, lastFromRole:null, customerName: phone };
+      const row = byPhone[phone];
+      if ((m.createdAt||0) > row.lastAt) {
+        row.lastText = m.text || (m.image ? '📷 صورة' : '');
+        row.lastAt = m.createdAt||0;
+        row.lastFromRole = m.fromRole;
+      }
+      // اسم الزبون ياخذ فقط من رسائله هو (مو من ردود الموظف)، ونحتفظ بأحدث اسم قاله عن نفسه
+      if (m.fromRole !== 'staff' && m.fromName && (m.createdAt||0) >= (row.customerNameAt||0)) {
+        row.customerName = m.fromName;
+        row.customerNameAt = m.createdAt||0;
       }
     });
     const rows = Object.values(byPhone).sort((a,b) => b.lastAt - a.lastAt);
     if (rows.length === 0) { list.innerHTML = '<div class="card"><p>ما فيه محادثات بعد.</p></div>'; return; }
     list.innerHTML = rows.map(r => `
-      <div class="card" style="cursor:pointer;" onclick="openChat('libcustomer_${r.phone}','💬 مراسلة ${(r.fromName||r.phone).replace(/'/g,"")}')">
+      <div class="card" style="cursor:pointer;" onclick="openChat('libcustomer_${r.phone}','💬 مراسلة ${(r.customerName||r.phone).replace(/'/g,"")}')">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
-            <p style="font-weight:bold;margin:0;">👤 ${r.fromName || r.phone}</p>
+            <p style="font-weight:bold;margin:0;">👤 ${r.customerName || r.phone}</p>
             <p style="margin:4px 0 0;color:#8a90a3;font-size:13px;">${r.lastFromRole === 'staff' ? 'أنت: ' : ''}${r.lastText}</p>
           </div>
           <button class="small-btn" onclick="event.stopPropagation(); openCustomerProfile('${r.phone}')">📦 طلباته</button>
@@ -7937,7 +7946,7 @@ async function refreshBellBadge() {
     const msgsSnap = await db.collection('messages').where('readByStaff','==', false).get();
     const relevantMsgs = msgsSnap.docs.filter(d => {
       const tid = d.data().threadId || '';
-      return (tid.startsWith('order_') || tid.startsWith('support_')) && d.data().fromRole !== 'staff';
+      return (tid.startsWith('order_') || tid.startsWith('support_') || tid.startsWith('libcustomer_')) && d.data().fromRole !== 'staff';
     });
     const total = ordersSnap.size + relevantMsgs.length;
     const badge = document.getElementById('bellUnreadBadge');
@@ -7962,7 +7971,7 @@ async function openNotificationCenter() {
     const msgsSnap = await db.collection('messages').where('readByStaff','==', false).get();
     const relevantMsgs = msgsSnap.docs.filter(d => {
       const tid = d.data().threadId || '';
-      return (tid.startsWith('order_') || tid.startsWith('support_')) && d.data().fromRole !== 'staff';
+      return (tid.startsWith('order_') || tid.startsWith('support_') || tid.startsWith('libcustomer_')) && d.data().fromRole !== 'staff';
     });
 
     const items = [];
@@ -7972,8 +7981,11 @@ async function openNotificationCenter() {
     });
     relevantMsgs.forEach(d => {
       const m = d.data();
-      const isOrderMsg = (m.threadId||'').startsWith('order_');
-      items.push({ type: isOrderMsg ? 'ordermsg' : 'supportmsg', id: d.id, orderId: isOrderMsg ? m.threadId.slice('order_'.length) : null, threadId: m.threadId, createdAt: m.createdAt, title: `💬 رسالة من ${m.fromName}`, body: m.text });
+      const tid = m.threadId || '';
+      const isOrderMsg = tid.startsWith('order_');
+      const isLibCustomerMsg = tid.startsWith('libcustomer_');
+      const type = isOrderMsg ? 'ordermsg' : (isLibCustomerMsg ? 'libcustomermsg' : 'supportmsg');
+      items.push({ type, id: d.id, orderId: isOrderMsg ? tid.slice('order_'.length) : null, threadId: tid, createdAt: m.createdAt, title: `💬 رسالة من ${m.fromName}`, body: m.text });
     });
     items.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
 
@@ -7997,6 +8009,9 @@ async function openNotificationItem(type, id, orderId, threadId) {
     } else if (type === 'ordermsg') {
       await db.collection('messages').doc(id).update({ readByStaff: true });
       openChat(threadId, '💬 محادثة الطلب');
+    } else if (type === 'libcustomermsg') {
+      await db.collection('messages').doc(id).update({ readByStaff: true });
+      openChat(threadId, '💬 مراسلة زبون');
     } else if (type === 'supportmsg') {
       await db.collection('messages').doc(id).update({ readByStaff: true });
       openChat(threadId, '💬 خدمة العملاء');
