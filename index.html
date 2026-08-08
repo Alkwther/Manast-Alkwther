@@ -4998,11 +4998,11 @@ document.getElementById('createExtOrderBtn').onclick = async () => {
     const itemLine = details + ': ' + unitPrice + ' × ' + qty + ' = ' + subtotal + ' د.ع';
     const waText = encodeURIComponent(
       'مرحباً بك ' + name + ' 🌸\n' +
-      'طلبك الآن قيد التنفيذ بمكتبة الكوثر:\n' +
+      'طلبك قيد التنفيذ الآن بمكتبة الكوثر:\n' +
       itemLine + '\n' +
       'التوصيل: ' + deliveryFee + ' د.ع\n' +
       'الإجمالي: ' + totalPrice + ' د.ع\n\n' +
-      'اضغط على الرابط للتأكد من طلبك الآن:\n' + link
+      'ادخل على الرابط لمعرفة وقت وصول طلبك:\n' + link
     );
     document.getElementById('extOrderResult').innerHTML =
       '<div class="card" style="background:#ecfdf3;border:2px solid #16a34a;">' +
@@ -5032,11 +5032,23 @@ async function loadExtOrdersList() {
     list.innerHTML = snap.docs.map(function(d) {
       const o = d.data();
       const link = window.location.origin + window.location.pathname + '#o=' + d.id;
+      const itemLine = (o.items && o.items[0]) ? (o.items[0].title + ': ' + o.items[0].price + ' × ' + o.items[0].qty + ' = ' + (o.items[0].price*o.items[0].qty) + ' د.ع') : '';
+      const waText = encodeURIComponent(
+        'مرحباً بك ' + o.studentName + ' 🌸\n' +
+        'طلبك قيد التنفيذ الآن بمكتبة الكوثر:\n' +
+        itemLine + '\n' +
+        'التوصيل: ' + (o.deliveryFee||0) + ' د.ع\n' +
+        'الإجمالي: ' + o.totalPrice + ' د.ع\n\n' +
+        'ادخل على الرابط لمعرفة وقت وصول طلبك:\n' + link
+      );
       return '<div class="card">' +
         '<p style="margin:0;font-weight:bold;">' + (sourceLabels[o.externalPlatform]||'') + ' — ' + o.studentName + '</p>' +
         '<p style="margin:4px 0;color:#8a90a3;">📞 ' + o.phone + ' — 🪪 ' + (o.customerId||'—') + ' — ' + (ORDER_STATUS_LABELS[computeEffectiveStatus(o)]||o.status) + '</p>' +
         '<p style="margin:4px 0;font-weight:bold;color:#b8903c;">' + o.totalPrice + ' د.ع</p>' +
-        '<button class="small-btn" onclick="navigator.clipboard.writeText(\'' + link + '\').then(function(){alert(\'تم نسخ الرابط ✅\')})">📋 نسخ رابط المتابعة</button>' +
+        '<div style="display:flex;gap:8px;">' +
+          '<button class="small-btn" onclick="navigator.clipboard.writeText(\'' + link + '\').then(function(){alert(\'تم نسخ الرابط ✅\')})">📋 نسخ الرابط</button>' +
+          '<button class="small-btn" style="background:#25d366;color:#fff;" onclick="window.open(\'https://wa.me/?text=' + waText + '\',\'_blank\')">💬 إرسال عبر واتساب</button>' +
+        '</div>' +
       '</div>';
     }).join('');
   } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
@@ -5230,6 +5242,10 @@ function renderOrdersGroupedByDate(rows, list, unreadByOrderId, mode) {
   }).join('');
 }
 
+function copyOrderLink(id) {
+  const link = window.location.origin + window.location.pathname + '#o=' + id;
+  navigator.clipboard.writeText(link).then(() => alert('تم نسخ رابط الطلب ✅ — أرسله للزبون وبيشوف طلبه مباشرة')).catch(() => alert('تعذّر النسخ'));
+}
 function renderOrderCard(id, o, unreadCount, mode) {
   // mode: undefined = وضع كامل (جديدة/قيد التنفيذ)، 'delivering' = مراسلة + رفض، 'arrived' = مراسلة فقط
   const itemsText = o.items.map(it => {
@@ -5276,6 +5292,7 @@ function renderOrderCard(id, o, unreadCount, mode) {
        <button class="small-btn" onclick="setOrderStatus('${id}','cancelled')" style="background:#000;color:#fff;">❌ إلغاء الطلب</button>
        <button class="small-btn" onclick="deleteOrder('${id}')">🗑️ حذف الطلب</button>`;
   }
+  actionsHtml += `<button class="small-btn" onclick="copyOrderLink('${id}')">🔗 نسخ رابط الطلب</button>`;
   return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;${cardStyle}">
       <div style="margin-bottom:6px;${textColor}">
         ${isNew ? '<span style="background:#dc2626;color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">🆕 جديد</span> ' : ''}
@@ -6018,6 +6035,7 @@ function renderTeacherOrderCard(id, o, useOwnStatus) {
     } else if (effectiveTab === 'delivering') {
       actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','completed')" style="background:#16a34a;color:#fff;">✅ تم التوصيل</button>`;
     }
+    actionsHtml += `<button class="small-btn" onclick="copyOrderLink('${id}')">🔗 نسخ رابط الطلب</button>`;
   }
   const statusBadge = useOwnStatus ? `<span style="background:#eef1f8;color:#10203f;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">${ORDER_STATUS_LABELS[o.status]||o.status}</span>` : '';
   return `<div class="card">
