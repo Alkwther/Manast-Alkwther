@@ -5116,18 +5116,43 @@ async function openQuickOrderForm() {
   renderQoCart();
   const gradeSel = document.getElementById('qoGrade');
   gradeSel.innerHTML = '<option value="">جاري تحميل الصفوف...</option>';
-  try { await tbLoadData(); } catch(e) { console.error(e); }
-  // ضمان مطلق: لو ما انحملت الصفوف من قاعدة البيانات لأي سبب (نت ضعيف أو غيره)، نستخدم القائمة الافتراضية المدمجة بالكود نفسه — الزبون لازم يشوف الصفوف دائماً
-  if (Object.keys(TB_GRADES).length === 0) {
+
+  function fillDefaultGrades() {
     const defaultStagePkg = { primary: 20000, middle: 24000, secondary: 28000 };
-    TB_GRADES = {};
+    const grades = {};
     Object.entries(DEFAULT_TB_GRADES).forEach(([stage, names]) => {
-      names.forEach(name => { TB_GRADES[tbSafeId(name)] = { name, stage, pkg: defaultStagePkg[stage] || 20000, books: [] }; });
+      names.forEach(name => { grades[tbSafeId(name)] = { name, stage, pkg: defaultStagePkg[stage] || 20000, books: [] }; });
     });
+    return grades;
   }
-  const entries = Object.entries(TB_GRADES);
-  gradeSel.innerHTML = '<option value="">اختر الصف</option>' + entries.map(([id, g]) => `<option value="${id}">${g.name}</option>`).join('');
-  updateQoPricePreview();
+
+  // مهلة قصوى صارمة 6 ثواني — إذا ما خلص التحميل بهالوقت، نعرض القائمة الاحتياطية فوراً بدون أي انتظار إضافي
+  const hardTimeout = new Promise(resolve => setTimeout(() => resolve('timeout'), 6000));
+  try {
+    const result = await Promise.race([
+      tbLoadData().then(() => 'loaded').catch(() => 'failed'),
+      hardTimeout
+    ]);
+    if (result !== 'loaded' || !TB_GRADES || Object.keys(TB_GRADES).length === 0) {
+      TB_GRADES = fillDefaultGrades();
+    }
+  } catch(e) {
+    console.error('openQuickOrderForm grades load failed', e);
+    TB_GRADES = fillDefaultGrades();
+  }
+
+  try {
+    const entries = Object.entries(TB_GRADES || {});
+    if (entries.length === 0) TB_GRADES = fillDefaultGrades();
+    const finalEntries = Object.entries(TB_GRADES);
+    gradeSel.innerHTML = '<option value="">اختر الصف</option>' + finalEntries.map(([id, g]) => `<option value="${id}">${g.name}</option>`).join('');
+    updateQoPricePreview();
+  } catch(e) {
+    console.error('openQuickOrderForm render failed', e);
+    TB_GRADES = fillDefaultGrades();
+    const finalEntries = Object.entries(TB_GRADES);
+    gradeSel.innerHTML = '<option value="">اختر الصف</option>' + finalEntries.map(([id, g]) => `<option value="${id}">${g.name}</option>`).join('');
+  }
 }
 function updateQoPricePreview() {
   const gradeId = document.getElementById('qoGrade').value;
