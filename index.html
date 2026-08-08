@@ -1207,10 +1207,17 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <input id="qoName" placeholder="الاسم الكامل">
       <label>رقم الهاتف</label>
       <input id="qoPhone" placeholder="07xxxxxxxxx" inputmode="tel">
+
       <label>الصف</label>
       <select id="qoGrade"><option value="">جاري تحميل الصفوف...</option></select>
       <label>الكمية (عدد البكجات)</label>
       <input id="qoQty" type="number" value="1" min="1">
+      <div id="qoPricePreview" style="background:#f6f7fb;border-radius:10px;padding:12px 14px;margin:10px 0;font-weight:bold;color:#0e6fa8;"></div>
+      <button class="btn secondary" id="qoAddItemBtn" type="button">➕ إضافة هذا الصف للطلب</button>
+
+      <div id="qoCartList" style="margin:14px 0;"></div>
+      <div id="qoCartTotal" style="font-weight:bold;color:#b8903c;font-size:16px;margin-bottom:14px;"></div>
+
       <label>المحافظة</label>
       <select id="qoProvince">
         <option value="">اختر المحافظة</option>
@@ -1224,7 +1231,6 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <input id="qoDistrict" placeholder="القضاء أو الناحية">
       <label>نقطة دالّة (اختياري)</label>
       <input id="qoLandmark" placeholder="اختياري">
-      <div id="qoPricePreview" style="background:#f6f7fb;border-radius:10px;padding:12px 14px;margin:10px 0;font-weight:bold;color:#0e6fa8;"></div>
       <div id="qoMsg"></div>
       <button class="btn" id="qoSubmitBtn">📤 إرسال الطلب</button>
     </div>
@@ -5095,6 +5101,7 @@ async function loadExtOrdersList() {
 
 // ---------- عرض طلب واحد عبر رابط مباشر (بدون تسجيل دخول) ----------
 // ---------- قائمة حجز سريعة يعبّيها الزبون بنفسه (رابط يُرسل له عبر واتساب/فيسبوك/إنستغرام) ----------
+let qoCart = []; // [{gradeId, name, stage, pkg, qty}]
 async function openQuickOrderForm() {
   show('screen-quick-order');
   document.getElementById('qoName').value = '';
@@ -5105,14 +5112,22 @@ async function openQuickOrderForm() {
   document.getElementById('qoLandmark').value = '';
   document.getElementById('qoPricePreview').textContent = '';
   document.getElementById('qoMsg').innerHTML = '';
-  try {
-    await tbLoadData();
-    const gradeSel = document.getElementById('qoGrade');
-    const entries = Object.entries(TB_GRADES);
-    if (entries.length === 0) { gradeSel.innerHTML = '<option value="">تعذّر تحميل الصفوف</option>'; return; }
-    gradeSel.innerHTML = '<option value="">اختر الصف</option>' + entries.map(([id, g]) => `<option value="${id}">${g.name}</option>`).join('');
-    updateQoPricePreview();
-  } catch(e) { console.error(e); document.getElementById('qoGrade').innerHTML = '<option value="">تعذّر تحميل الصفوف</option>'; }
+  qoCart = [];
+  renderQoCart();
+  const gradeSel = document.getElementById('qoGrade');
+  gradeSel.innerHTML = '<option value="">جاري تحميل الصفوف...</option>';
+  try { await tbLoadData(); } catch(e) { console.error(e); }
+  // ضمان مطلق: لو ما انحملت الصفوف من قاعدة البيانات لأي سبب (نت ضعيف أو غيره)، نستخدم القائمة الافتراضية المدمجة بالكود نفسه — الزبون لازم يشوف الصفوف دائماً
+  if (Object.keys(TB_GRADES).length === 0) {
+    const defaultStagePkg = { primary: 20000, middle: 24000, secondary: 28000 };
+    TB_GRADES = {};
+    Object.entries(DEFAULT_TB_GRADES).forEach(([stage, names]) => {
+      names.forEach(name => { TB_GRADES[tbSafeId(name)] = { name, stage, pkg: defaultStagePkg[stage] || 20000, books: [] }; });
+    });
+  }
+  const entries = Object.entries(TB_GRADES);
+  gradeSel.innerHTML = '<option value="">اختر الصف</option>' + entries.map(([id, g]) => `<option value="${id}">${g.name}</option>`).join('');
+  updateQoPricePreview();
 }
 function updateQoPricePreview() {
   const gradeId = document.getElementById('qoGrade').value;
@@ -5120,28 +5135,56 @@ function updateQoPricePreview() {
   const el = document.getElementById('qoPricePreview');
   const g = TB_GRADES[gradeId];
   if (!g) { el.textContent = ''; return; }
-  el.textContent = `💰 بكج ${g.name}: ${g.pkg} × ${qty} = ${g.pkg * qty} د.ع (+ أجور التوصيل)`;
+  el.textContent = `💰 بكج ${g.name}: ${g.pkg} × ${qty} = ${g.pkg * qty} د.ع`;
 }
 document.addEventListener('change', (e) => { if (e.target && e.target.id === 'qoGrade') updateQoPricePreview(); });
 document.addEventListener('input', (e) => { if (e.target && e.target.id === 'qoQty') updateQoPricePreview(); });
 
+function renderQoCart() {
+  const list = document.getElementById('qoCartList');
+  const totalEl = document.getElementById('qoCartTotal');
+  if (!list) return;
+  if (qoCart.length === 0) { list.innerHTML = ''; totalEl.textContent = ''; return; }
+  list.innerHTML = qoCart.map((it, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;background:#f6f7fb;border-radius:10px;padding:10px 14px;margin-bottom:6px;">
+      <span>${it.name} — ${it.pkg} × ${it.qty} = ${it.pkg*it.qty} د.ع</span>
+      <button type="button" class="small-btn" onclick="removeQoItem(${i})">🗑️ حذف</button>
+    </div>`).join('');
+  const total = qoCart.reduce((s,it) => s + it.pkg*it.qty, 0);
+  totalEl.textContent = `💵 مجموع المواد: ${total} د.ع (+ أجور التوصيل تُحسب مرة وحدة)`;
+}
+function removeQoItem(i) { qoCart.splice(i,1); renderQoCart(); }
+
+document.getElementById('qoAddItemBtn').onclick = () => {
+  const gradeId = document.getElementById('qoGrade').value;
+  const qty = +document.getElementById('qoQty').value || 1;
+  const g = TB_GRADES[gradeId];
+  if (!g) { setMsg('qoMsg','اختر الصف أولاً', false); return; }
+  const existing = qoCart.find(it => it.gradeId === gradeId);
+  if (existing) existing.qty += qty;
+  else qoCart.push({ gradeId, name: g.name, stage: g.stage, pkg: g.pkg, qty });
+  renderQoCart();
+  setMsg('qoMsg','', true);
+  document.getElementById('qoGrade').value = '';
+  document.getElementById('qoQty').value = '1';
+  updateQoPricePreview();
+};
+
 document.getElementById('qoSubmitBtn').onclick = async () => {
   const name = document.getElementById('qoName').value.trim();
   const phone = toEnglishDigits(document.getElementById('qoPhone').value.trim());
-  const gradeId = document.getElementById('qoGrade').value;
-  const qty = +document.getElementById('qoQty').value || 1;
   const province = document.getElementById('qoProvince').value;
   const district = document.getElementById('qoDistrict').value.trim();
   const landmark = document.getElementById('qoLandmark').value.trim();
-  const g = TB_GRADES[gradeId];
-  if (!name || !phone || !g || !province || !district) { setMsg('qoMsg','الرجاء تعبئة كل الحقول (الاسم، الهاتف، الصف، المحافظة، القضاء)', false); return; }
+  if (qoCart.length === 0) { setMsg('qoMsg','أضف صف واحد على الأقل للطلب قبل الإرسال', false); return; }
+  if (!name || !phone || !province || !district) { setMsg('qoMsg','الرجاء تعبئة كل الحقول (الاسم، الهاتف، المحافظة، القضاء)', false); return; }
   try {
     await ensureAuthed();
     const customerId = await getOrAssignCustomerId(phone);
-    const subtotal = g.pkg * qty;
+    const items = qoCart.map(it => ({ bookId: null, title: `بكج ${it.name} كامل`, price: it.pkg, qty: it.qty, stage: it.stage, grade: it.name }));
+    const subtotal = items.reduce((s,it) => s + it.price*it.qty, 0);
     const deliveryFee = DELIVERY_FEE || 5000;
     const totalPrice = subtotal + deliveryFee;
-    const items = [{ bookId: null, title: `بكج ${g.name} كامل`, price: g.pkg, qty, stage: g.stage, grade: g.name }];
     const createdAt = Date.now();
     await db.collection('orders').add({
       studentName: name, studentPhone: phone, phone, altPhone: '',
