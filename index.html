@@ -1936,12 +1936,12 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           </div>
 
           <div id="ordersTabsRow" style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;">
-            <button class="small-btn" id="ordersTabNew" style="flex:1;background:#dc2626;color:#fff;">🆕 جديدة</button>
-            <button class="small-btn" id="ordersTabProcessing" style="flex:1;">⚙️ قيد التنفيذ</button>
-            <button class="small-btn" id="ordersTabDelivering" style="flex:1;">🚚 قيد التوصيل</button>
-            <button class="small-btn" id="ordersTabArrived" style="flex:1;">📬 الطلبات الواصلة</button>
-            <button class="small-btn" id="ordersTabCancelled" style="flex:1;">🚫 الملغية</button>
-            <button class="small-btn" id="ordersTabProblems" style="flex:1;">⚠️ المشاكل</button>
+            <button class="small-btn" id="ordersTabNew" style="flex:1;background:#dc2626;color:#fff;">🆕 جديدة <span id="ordersTabNewCount"></span></button>
+            <button class="small-btn" id="ordersTabProcessing" style="flex:1;">⚙️ قيد التنفيذ <span id="ordersTabProcessingCount"></span></button>
+            <button class="small-btn" id="ordersTabDelivering" style="flex:1;">🚚 قيد التوصيل <span id="ordersTabDeliveringCount"></span></button>
+            <button class="small-btn" id="ordersTabArrived" style="flex:1;">📬 الطلبات الواصلة <span id="ordersTabArrivedCount"></span></button>
+            <button class="small-btn" id="ordersTabCancelled" style="flex:1;">🚫 الملغية <span id="ordersTabCancelledCount"></span></button>
+            <button class="small-btn" id="ordersTabProblems" style="flex:1;">⚠️ المشاكل <span id="ordersTabProblemsCount"></span></button>
           </div>
           <button class="btn secondary hidden" id="convertAllToDeliveringBtn" style="margin-top:10px;">🔄 اضغط لتحويل جميع الطلبات قيد التنفيذ إلى قيد التوصيل</button>
           <button class="btn secondary hidden" id="convertAllToArrivedBtn" style="margin-top:10px;">✅ اضغط لتحويل جميع الطلبات قيد التوصيل إلى الطلبات الواصلة</button>
@@ -4912,6 +4912,21 @@ function loadOrdersAdmin() {
   });
 
   if (allRows.length === 0) { list.innerHTML = '<p>لا توجد طلبات بعد.</p>'; return; }
+
+  // عدد الطلبات بكل تصنيف (تظهر كرقم فوق كل تبويب)
+  const tabCounts = {
+    new: allRows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed' && !o.hasProblem).length,
+    processing: allRows.filter(({o}) => !!o.processingAt && o.status === 'processing' && !o.hasProblem).length,
+    delivering: allRows.filter(({o}) => o.status === 'delivering' && !o.hasProblem).length,
+    arrived: allRows.filter(({o}) => o.status === 'completed' && !o.hasProblem).length,
+    cancelled: allRows.filter(({o}) => o.status === 'cancelled' && !o.hasProblem).length,
+    problems: allRows.filter(({o}) => !!o.hasProblem).length,
+  };
+  Object.entries(tabCounts).forEach(([key, count]) => {
+    const countIdMap = { new:'ordersTabNewCount', processing:'ordersTabProcessingCount', delivering:'ordersTabDeliveringCount', arrived:'ordersTabArrivedCount', cancelled:'ordersTabCancelledCount', problems:'ordersTabProblemsCount' };
+    const el = document.getElementById(countIdMap[key]);
+    if (el) el.textContent = count > 0 ? `(${count})` : '';
+  });
 
   // تصنيف الطلبات للتبويبات (أي طلب فيه مشكلة ينتقل لتبويب "المشاكل" فقط، ويُستثنى من تبويبه العادي)
   let rows;
