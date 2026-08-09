@@ -7495,9 +7495,11 @@ async function openStaffMessagesInbox() {
 let libCustomerBadgeListenerPhone = null;
 function updateLibraryCustomerChatBadge(count) {
   const badge = document.getElementById('libCustomerChatBadge');
-  if (!badge) return;
-  if (count > 0) { badge.textContent = count; badge.classList.remove('hidden'); }
-  else badge.classList.add('hidden');
+  if (badge) {
+    if (count > 0) { badge.textContent = count; badge.classList.remove('hidden'); }
+    else badge.classList.add('hidden');
+  }
+  if (typeof setAppIconBadge === 'function') setAppIconBadge(count);
 }
 function setupLibraryCustomerChatBadge(phone) {
   if (!phone || libCustomerBadgeListenerPhone === phone) return;
@@ -8539,6 +8541,15 @@ function fireStaffNotification(title, body, onClickTarget) {
 }
 
 // ---------- مركز الإشعارات ----------
+// رقم أحمر على أيقونة البرنامج نفسها بالشاشة الرئيسية (متل واتساب) — يشتغل إذا المتصفح يدعمها (كروم أندرويد ودسكتوب أساساً)
+function setAppIconBadge(count) {
+  try {
+    if (!('setAppBadge' in navigator)) return;
+    if (count > 0) navigator.setAppBadge(count).catch(() => {});
+    else navigator.clearAppBadge().catch(() => {});
+  } catch(e) { /* المتصفح ما يدعمها، نتجاهل بصمت */ }
+}
+
 async function refreshBellBadge() {
   try {
     const allOrdersSnap = await db.collection('orders').get();
@@ -8555,6 +8566,7 @@ async function refreshBellBadge() {
       if (total > 0) { badge.textContent = total; badge.classList.remove('hidden'); }
       else badge.classList.add('hidden');
     }
+    setAppIconBadge(total);
   } catch(e) { console.error(e); }
 }
 
