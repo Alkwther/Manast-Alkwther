@@ -5247,11 +5247,12 @@ async function loadPoLookupResult(promoterName) {
         ${itemsHtml}
       </div>`;
     }).join('');
-    const historySnap = await db.collection('settlements').where('type','==','promoter').where('promoterId','==', promoterId).orderBy('settledAt','desc').limit(20).get();
-    const historyHtml = historySnap.empty ? '' : `
+    const historySnap = await db.collection('settlements').where('type','==','promoter').where('promoterId','==', promoterId).get();
+    const historyDocs = historySnap.docs.sort((a,b) => (b.data().settledAt||0) - (a.data().settledAt||0)).slice(0, 20);
+    const historyHtml = historyDocs.length === 0 ? '' : `
       <div style="margin-top:14px;">
         <p style="font-weight:bold;color:#10203f;margin:0 0 6px;">📜 سجل التحاسبات السابقة</p>
-        ${historySnap.docs.map(d => { const s = d.data(); return `
+        ${historyDocs.map(d => { const s = d.data(); return `
           <div style="background:#f6f7fb;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:13px;">
             📅 ${formatOrderTime(s.settledAt)} — <b style="color:#b8903c;">${s.amount} د.ع</b> (${s.orderCount} طلب) — بواسطة ${s.settledBy||''}
           </div>`; }).join('')}
@@ -5560,14 +5561,15 @@ async function openPromoterView(promoterId) {
           <p style="margin:0;color:#c4c8d3;font-size:12px;">🕒 ${formatOrderTime(o.createdAt)}</p>
         </div>`;
       }).join('');
-      db.collection('settlements').where('type','==','promoter').where('promoterId','==', promoterId).orderBy('settledAt','desc').limit(20).get().then(historySnap => {
+      db.collection('settlements').where('type','==','promoter').where('promoterId','==', promoterId).get().then(historySnap => {
         const historyEl = document.getElementById('promoterSettlementHistory');
         if (!historyEl) return;
-        if (historySnap.empty) { historyEl.innerHTML = ''; return; }
+        const historyDocs = historySnap.docs.sort((a,b) => (b.data().settledAt||0) - (a.data().settledAt||0)).slice(0, 20);
+        if (historyDocs.length === 0) { historyEl.innerHTML = ''; return; }
         historyEl.innerHTML = `
           <div class="card">
             <p style="font-weight:bold;color:#10203f;margin:0 0 8px;">📜 سجل التحاسبات السابقة</p>
-            ${historySnap.docs.map(d => { const s = d.data(); return `
+            ${historyDocs.map(d => { const s = d.data(); return `
               <div style="background:#f6f7fb;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:13px;">
                 📅 ${formatOrderTime(s.settledAt)} — <b style="color:#16a34a;">${s.amount} د.ع</b> (${s.orderCount} طلب)
               </div>`; }).join('')}
