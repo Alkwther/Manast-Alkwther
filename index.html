@@ -5194,6 +5194,22 @@ async function loadPromoterNamesDatalist() {
   } catch(e) { console.error(e); }
 }
 document.getElementById('poLookupSelect').addEventListener('change', (e) => loadPoLookupResult(e.target.value));
+async function settlePromoterAmount(promoterId, promoterName, expectedAmount, expectedCount) {
+  if (!confirm(`تأكيد التحاسب مع ${promoterName} على مبلغ ${expectedAmount} د.ع (${expectedCount} طلب)؟`)) return;
+  try {
+    const snap = await db.collection('orders').where('promoterId','==', promoterId).where('status','==','completed').get();
+    const unsettled = snap.docs.filter(d => !d.data().promoterShareSettled);
+    if (unsettled.length === 0) { alert('ما فيه مبلغ غير محاسب حالياً.'); loadPoLookupResult(promoterName); return; }
+    const amount = unsettled.reduce((s,d) => s + (d.data().promoterShareAmount||0), 0);
+    await Promise.all(unsettled.map(d => d.ref.update({ promoterShareSettled: true })));
+    await db.collection('settlements').add({
+      type: 'promoter', promoterId, promoterName, amount, orderCount: unsettled.length,
+      settledAt: Date.now(), settledBy: currentStaffName || 'موظف'
+    });
+    alert(`تم التحاسب على ${amount} د.ع ✅`);
+    loadPoLookupResult(promoterName);
+  } catch(e) { console.error(e); alert('صار خطأ أثناء التحاسب'); }
+}
 async function loadPoLookupResult(promoterName) {
   const box = document.getElementById('poLookupResult');
   if (!promoterName) { box.innerHTML = ''; return; }
@@ -5205,10 +5221,10 @@ async function loadPoLookupResult(promoterName) {
     const rows = snap.docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
       .sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
     const groups = { processing: [], delivering: [], completed: [], cancelled: [], pending: [] };
-    let owedTotal = 0;
+    let owedTotal = 0, unsettledOrderIds = [];
     rows.forEach(({id,o}) => {
       (groups[o.status] || (groups[o.status] = [])).push({id,o});
-      if (o.status === 'completed') owedTotal += (o.promoterShareAmount||0);
+      if (o.status === 'completed' && !o.promoterShareSettled) { owedTotal += (o.promoterShareAmount||0); unsettledOrderIds.push(id); }
     });
     const statusMeta = [
       { key: 'pending', label: '🆕 جديدة', color: '#dc2626' },
@@ -5224,17 +5240,29 @@ async function loadPoLookupResult(promoterName) {
         <div style="background:#f6f7fb;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:13px;">
           👤 ${o.studentName} — 📞 ${o.phone} — 📍 ${o.province||''}<br>
           حصة المروّج: <b style="color:#b8903c;">${o.promoterShareAmount||0} د.ع</b>
+          ${key === 'completed' ? (o.promoterShareSettled ? ' — <span style="color:#16a34a;">✅ تم التحاسب</span>' : ' — <span style="color:#dc2626;">⏳ لسا ما تحاسبنا</span>') : ''}
         </div>`).join('');
       return `<div style="margin-top:10px;">
         <p style="font-weight:bold;color:${color};margin:0 0 6px;">${label} (${items.length})</p>
         ${itemsHtml}
       </div>`;
     }).join('');
+    const historySnap = await db.collection('settlements').where('type','==','promoter').where('promoterId','==', promoterId).orderBy('settledAt','desc').limit(20).get();
+    const historyHtml = historySnap.empty ? '' : `
+      <div style="margin-top:14px;">
+        <p style="font-weight:bold;color:#10203f;margin:0 0 6px;">📜 سجل التحاسبات السابقة</p>
+        ${historySnap.docs.map(d => { const s = d.data(); return `
+          <div style="background:#f6f7fb;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:13px;">
+            📅 ${formatOrderTime(s.settledAt)} — <b style="color:#b8903c;">${s.amount} د.ع</b> (${s.orderCount} طلب) — بواسطة ${s.settledBy||''}
+          </div>`; }).join('')}
+      </div>`;
     box.innerHTML = `
       <div style="background:#ecfdf3;border:2px solid #16a34a;border-radius:10px;padding:12px 14px;margin-top:10px;">
-        <p style="margin:0;font-weight:bold;color:#15803d;">💰 المبلغ المستحق للمروّج (من الطلبات الواصلة): ${owedTotal} د.ع</p>
+        <p style="margin:0 0 8px;font-weight:bold;color:#15803d;">💰 المبلغ المستحق للمروّج (غير محاسب): ${owedTotal} د.ع</p>
+        ${owedTotal > 0 ? `<button class="small-btn" style="background:#16a34a;color:#fff;" onclick="settlePromoterAmount('${promoterId}','${promoterName.replace(/'/g,"")}', ${owedTotal}, ${unsettledOrderIds.length})">✅ تم التحاسب</button>` : ''}
       </div>
       ${sectionsHtml}
+      ${historyHtml}
     `;
   } catch(e) { console.error(e); box.innerHTML = '<p style="color:#b91c1c;margin-top:10px;">تعذّر التحميل.</p>'; }
 }
@@ -5491,11 +5519,12 @@ async function openPromoterView(promoterId) {
         .sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
       const promoterName = rows[0].o.promoterName || promoterId;
       const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-      let todayShare = 0, pendingShare = 0, totalShare = 0;
+      let todayShare = 0, pendingShare = 0, totalShare = 0, unsettledShare = 0, settledShare = 0;
       rows.forEach(({o}) => {
         const share = o.promoterShareAmount || 0;
         if (o.status === 'completed') {
           totalShare += share;
+          if (o.promoterShareSettled) settledShare += share; else unsettledShare += share;
           if ((o.completedAt||0) >= todayStart.getTime()) todayShare += share;
         } else if (o.status !== 'cancelled') {
           pendingShare += share;
@@ -5527,17 +5556,33 @@ async function openPromoterView(promoterId) {
           <p style="margin:4px 0;">${itemsText}</p>
           <p style="margin:4px 0;font-weight:bold;color:#b8903c;">حصتك من هذا الطلب: ${o.promoterShareAmount||0} د.ع</p>
           <p style="margin:4px 0;font-weight:bold;color:${statusColor};">${ORDER_STATUS_LABELS[o.status]||o.status}</p>
+          ${o.status === 'completed' ? (o.promoterShareSettled ? '<p style="margin:0;color:#16a34a;font-weight:bold;">✅ تم التحاسب عليه</p>' : '<p style="margin:0;color:#dc2626;font-weight:bold;">⏳ لسا ما تحاسبنا عليه</p>') : ''}
           <p style="margin:0;color:#c4c8d3;font-size:12px;">🕒 ${formatOrderTime(o.createdAt)}</p>
         </div>`;
       }).join('');
+      db.collection('settlements').where('type','==','promoter').where('promoterId','==', promoterId).orderBy('settledAt','desc').limit(20).get().then(historySnap => {
+        const historyEl = document.getElementById('promoterSettlementHistory');
+        if (!historyEl) return;
+        if (historySnap.empty) { historyEl.innerHTML = ''; return; }
+        historyEl.innerHTML = `
+          <div class="card">
+            <p style="font-weight:bold;color:#10203f;margin:0 0 8px;">📜 سجل التحاسبات السابقة</p>
+            ${historySnap.docs.map(d => { const s = d.data(); return `
+              <div style="background:#f6f7fb;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:13px;">
+                📅 ${formatOrderTime(s.settledAt)} — <b style="color:#16a34a;">${s.amount} د.ع</b> (${s.orderCount} طلب)
+              </div>`; }).join('')}
+          </div>`;
+      }).catch(e => console.error(e));
       box.innerHTML = `
         <div class="card" style="background:#f2f7fa;border-inline-start:4px solid #0e6fa8;">
           <h3 style="margin:0 0 6px;">👋 مرحباً ${promoterName}</h3>
           <p style="margin:0 0 6px;color:#8a90a3;">عدد طلباتك: ${rows.length}</p>
           <p style="margin:0 0 4px;">📅 حصتك اليوم (طلبات وصلت اليوم): <b style="color:#15803d;">${todayShare} د.ع</b></p>
           <p style="margin:0 0 4px;">⏳ حصة معلّقة (لسا ما وصلت): <b style="color:#b8903c;">${pendingShare} د.ع</b></p>
-          <p style="margin:0;">💰 إجمالي حصتك من كل الطلبات الواصلة: <b style="color:#0e6fa8;">${totalShare} د.ع</b></p>
+          <p style="margin:0 0 4px;">💰 مستحق لك الآن (غير محاسب): <b style="color:#dc2626;">${unsettledShare} د.ع</b></p>
+          <p style="margin:0;">✅ تم التحاسب معك عليه سابقاً: <b style="color:#16a34a;">${settledShare} د.ع</b></p>
         </div>
+        <div id="promoterSettlementHistory"></div>
         ${cardsHtml}
       `;
     }, e => { console.error(e); box.innerHTML = '<div class="card"><p>تعذّر تحميل طلباتك. تأكد من اتصالك بالإنترنت.</p></div>'; });
