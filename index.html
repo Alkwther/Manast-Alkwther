@@ -3652,6 +3652,28 @@ document.getElementById('adminLoginBtn').onclick = async () => {
   }
 };
 
+// مراقب مستقل وبسيط لعدد الطلبات الجديدة (منفصل تماماً عن أي كود ثاني، حتى ما يتأثر بأي خلل بمكان ثاني)
+let newOrdersBadgeListenerStarted = false;
+function setupNewOrdersBadgeWatcher() {
+  if (newOrdersBadgeListenerStarted) return;
+  newOrdersBadgeListenerStarted = true;
+  let firstSnap = true;
+  db.collection('orders').where('status','==','pending').onSnapshot(snap => {
+    const count = snap.docs.filter(d => d.data().fulfillment !== 'teacher').length;
+    ['ordersUnreadBadge','ordersUnreadBadge2'].forEach(bid => {
+      const badge = document.getElementById(bid);
+      if (!badge) return;
+      if (count > 0) { badge.textContent = count; badge.classList.remove('hidden'); }
+      else badge.classList.add('hidden');
+    });
+    if (!firstSnap) {
+      const hasNew = snap.docChanges().some(ch => ch.type === 'added' && ch.doc.data().fulfillment !== 'teacher');
+      if (hasNew && isNotificationSoundEnabled()) playNotificationBeep();
+    }
+    firstSnap = false;
+  }, e => console.error('setupNewOrdersBadgeWatcher failed', e));
+}
+
 function enterAdminPanel() {
   document.getElementById('adminLoginCard').classList.add('hidden');
   document.getElementById('adminUser').value = '';
@@ -3661,6 +3683,7 @@ function enterAdminPanel() {
     currentStaffRole === 'admin' ? '👋 مسجّل دخول كـ: المشرف الرئيسي' : `👋 مسجّل دخول كـ: ${currentStaffName} (موظف)`;
   document.getElementById('adminMenu').classList.remove('hidden');
   setupAdminNotifications();
+  setupNewOrdersBadgeWatcher();
   refreshBellBadge();
 
   if (currentStaffRole === 'admin') {
@@ -5176,7 +5199,7 @@ function renderQoCart() {
       <button type="button" class="small-btn" onclick="removeQoItem(${i})">🗑️ حذف</button>
     </div>`).join('');
   const total = qoCart.reduce((s,it) => s + it.pkg*it.qty, 0);
-  totalEl.textContent = `💵 مجموع المواد: ${total} د.ع (+ أجور التوصيل تُحسب مرة وحدة)`;
+  totalEl.textContent = `💵 مجموع المواد: ${total} د.ع — 🚚 التوصيل مجاني`;
 }
 function removeQoItem(i) { qoCart.splice(i,1); renderQoCart(); }
 
@@ -5208,7 +5231,7 @@ document.getElementById('qoSubmitBtn').onclick = async () => {
     const customerId = await getOrAssignCustomerId(phone);
     const items = qoCart.map(it => ({ bookId: null, title: `بكج ${it.name} كامل`, price: it.pkg, qty: it.qty, stage: it.stage, grade: it.name }));
     const subtotal = items.reduce((s,it) => s + it.price*it.qty, 0);
-    const deliveryFee = DELIVERY_FEE || 5000;
+    const deliveryFee = 0; // بكج كامل = توصيل مجاني، نفس قاعدة المكتبة بالضبط
     const totalPrice = subtotal + deliveryFee;
     const createdAt = Date.now();
     await db.collection('orders').add({
@@ -8087,9 +8110,23 @@ function isNotificationSoundEnabled() {
 function setNotificationSoundEnabled(enabled) {
   localStorage.setItem('kawthar_staff_notif_sound', enabled ? 'on' : 'off');
 }
+let sharedNotifAudioCtx = null;
+function getNotifAudioCtx() {
+  if (!sharedNotifAudioCtx) {
+    try { sharedNotifAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e) { console.error(e); return null; }
+  }
+  if (sharedNotifAudioCtx.state === 'suspended') sharedNotifAudioCtx.resume().catch(e => console.error(e));
+  return sharedNotifAudioCtx;
+}
+// أول ضغطة بأي مكان تفك "قفل" الصوت (سياسة المتصفحات تمنع تشغيل صوت بدون تفاعل مباشر من المستخدم أول مرة)
+// حتى يشتغل الصوت لاحقاً من إشعارات تجي بالخلفية (مثل طلب جديد) بدون ما يحتاج المستخدم يضغط شي وقتها بالذات
+document.addEventListener('click', () => { getNotifAudioCtx(); }, { once: true, capture: true });
+
 function playNotificationBeep() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = getNotifAudioCtx();
+    if (!ctx) return;
     const playTone = (freq, start, dur) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
