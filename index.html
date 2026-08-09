@@ -5209,7 +5209,7 @@ document.getElementById('createPromoterOrderBtn').onclick = async () => {
       addedBy: currentStaffName || 'موظف', status: 'pending', seenByStaff: true, createdAt
     });
     const link = window.location.origin + window.location.pathname + '#o=' + orderRef.id;
-    const promoterLink = window.location.origin + window.location.pathname + '#promoter=' + promoterId;
+    const promoterLink = window.location.origin + window.location.pathname + '#promoter=' + encodeURIComponent(promoterId);
     document.getElementById('poResult').innerHTML =
       '<div class="card" style="background:#ecfdf3;border:2px solid #16a34a;">' +
         '<p style="font-weight:bold;color:#15803d;margin:0 0 8px;">✅ تم إنشاء الطلب — رقم الزبون: ' + customerId + '</p>' +
@@ -5415,50 +5415,73 @@ document.getElementById('qoSubmitBtn').onclick = async () => {
 };
 
 // ---------- تتبع كل طلبات مكتب شريك (يشمل كل المحافظات) ----------
+let promoterViewUnsubscribe = null;
 async function openPromoterView(promoterId) {
   show('screen-promoter-view');
   const box = document.getElementById('promoterViewContent');
   box.innerHTML = '<p style="text-align:center;padding:30px;">جاري التحميل...</p>';
+  if (promoterViewUnsubscribe) { promoterViewUnsubscribe(); promoterViewUnsubscribe = null; }
   try {
     await ensureAuthed();
-    const snap = await db.collection('orders').where('promoterId','==', promoterId).get();
-    if (snap.empty) { box.innerHTML = '<div class="card"><p>ما فيه طلبات مسجّلة لهذا المروّج بعد.</p></div>'; return; }
-    const rows = snap.docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
-      .sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
-    const promoterName = rows[0].o.promoterName || promoterId;
-    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-    let todayShare = 0, pendingShare = 0, totalShare = 0;
-    rows.forEach(({o}) => {
-      const share = o.promoterShareAmount || 0;
-      if (o.status === 'completed') {
-        totalShare += share;
-        if ((o.completedAt||0) >= todayStart.getTime()) todayShare += share;
-      } else if (o.status !== 'cancelled') {
-        pendingShare += share;
+    requestNotificationPermissionQuietly();
+    let firstSnap = true;
+    const knownStatus = {};
+    promoterViewUnsubscribe = db.collection('orders').where('promoterId','==', promoterId).onSnapshot(snap => {
+      if (snap.empty) { box.innerHTML = '<div class="card"><p>ما فيه طلبات مسجّلة لهذا المروّج بعد.</p></div>'; firstSnap = false; return; }
+      const rows = snap.docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
+        .sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
+      const promoterName = rows[0].o.promoterName || promoterId;
+      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      let todayShare = 0, pendingShare = 0, totalShare = 0;
+      rows.forEach(({o}) => {
+        const share = o.promoterShareAmount || 0;
+        if (o.status === 'completed') {
+          totalShare += share;
+          if ((o.completedAt||0) >= todayStart.getTime()) todayShare += share;
+        } else if (o.status !== 'cancelled') {
+          pendingShare += share;
+        }
+      });
+
+      if (!firstSnap) {
+        snap.docChanges().forEach(change => {
+          const o = change.doc.data();
+          const eff = computeEffectiveStatus(o);
+          if (change.type === 'added') {
+            playNotificationBeep();
+            fireNotification(`🎯 طلب جديد باسمك`, `حصتك من هذا الطلب: ${o.promoterShareAmount||0} د.ع`, null);
+          } else if (knownStatus[change.doc.id] && knownStatus[change.doc.id] !== 'completed' && eff === 'completed') {
+            playNotificationBeep();
+            fireNotification(`💰 وصل طلب وتحسبت حصتك`, `${o.promoterShareAmount||0} د.ع — إجمالي حصتك اليوم: ${todayShare} د.ع`, null);
+          }
+        });
       }
-    });
-    const cardsHtml = rows.map(({id,o}) => {
-      const itemsText = (o.items||[]).map(it => `${it.title}: ${it.price} × ${it.qty}`).join('<br>');
-      const statusColor = o.status === 'cancelled' ? '#374151' : (o.status === 'completed' ? '#16a34a' : (o.status === 'delivering' ? '#0e6fa8' : '#b8903c'));
-      return `<div class="card" style="border-inline-start:4px solid ${statusColor};">
-        <p style="margin:0;font-weight:bold;">👤 ${o.studentName} — 📞 ${o.phone}</p>
-        <p style="margin:4px 0;color:#8a90a3;">📍 ${o.province||''} ${o.district?'- '+o.district:''}</p>
-        <p style="margin:4px 0;">${itemsText}</p>
-        <p style="margin:4px 0;font-weight:bold;color:#b8903c;">حصتك من هذا الطلب: ${o.promoterShareAmount||0} د.ع</p>
-        <p style="margin:4px 0;font-weight:bold;color:${statusColor};">${ORDER_STATUS_LABELS[o.status]||o.status}</p>
-        <p style="margin:0;color:#c4c8d3;font-size:12px;">🕒 ${formatOrderTime(o.createdAt)}</p>
-      </div>`;
-    }).join('');
-    box.innerHTML = `
-      <div class="card" style="background:#f2f7fa;border-inline-start:4px solid #0e6fa8;">
-        <h3 style="margin:0 0 6px;">🎯 طلباتك — ${promoterName}</h3>
-        <p style="margin:0 0 6px;">عدد الطلبات: ${rows.length}</p>
-        <p style="margin:0 0 4px;">📅 حصتك اليوم (طلبات وصلت اليوم): <b style="color:#15803d;">${todayShare} د.ع</b></p>
-        <p style="margin:0 0 4px;">⏳ حصة معلّقة (لسا ما وصلت): <b style="color:#b8903c;">${pendingShare} د.ع</b></p>
-        <p style="margin:0;">💰 إجمالي حصتك من الطلبات الواصلة: <b style="color:#0e6fa8;">${totalShare} د.ع</b></p>
-      </div>
-      ${cardsHtml}
-    `;
+      snap.docs.forEach(d => { knownStatus[d.id] = computeEffectiveStatus(d.data()); });
+      firstSnap = false;
+
+      const cardsHtml = rows.map(({id,o}) => {
+        const itemsText = (o.items||[]).map(it => `${it.title}: ${it.price} × ${it.qty}`).join('<br>');
+        const statusColor = o.status === 'cancelled' ? '#374151' : (o.status === 'completed' ? '#16a34a' : (o.status === 'delivering' ? '#0e6fa8' : '#b8903c'));
+        return `<div class="card" style="border-inline-start:4px solid ${statusColor};">
+          <p style="margin:0;font-weight:bold;">👤 ${o.studentName} — 📞 ${o.phone}</p>
+          <p style="margin:4px 0;color:#8a90a3;">📍 ${o.province||''} ${o.district?'- '+o.district:''}</p>
+          <p style="margin:4px 0;">${itemsText}</p>
+          <p style="margin:4px 0;font-weight:bold;color:#b8903c;">حصتك من هذا الطلب: ${o.promoterShareAmount||0} د.ع</p>
+          <p style="margin:4px 0;font-weight:bold;color:${statusColor};">${ORDER_STATUS_LABELS[o.status]||o.status}</p>
+          <p style="margin:0;color:#c4c8d3;font-size:12px;">🕒 ${formatOrderTime(o.createdAt)}</p>
+        </div>`;
+      }).join('');
+      box.innerHTML = `
+        <div class="card" style="background:#f2f7fa;border-inline-start:4px solid #0e6fa8;">
+          <h3 style="margin:0 0 6px;">👋 مرحباً ${promoterName}</h3>
+          <p style="margin:0 0 6px;color:#8a90a3;">عدد طلباتك: ${rows.length}</p>
+          <p style="margin:0 0 4px;">📅 حصتك اليوم (طلبات وصلت اليوم): <b style="color:#15803d;">${todayShare} د.ع</b></p>
+          <p style="margin:0 0 4px;">⏳ حصة معلّقة (لسا ما وصلت): <b style="color:#b8903c;">${pendingShare} د.ع</b></p>
+          <p style="margin:0;">💰 إجمالي حصتك من كل الطلبات الواصلة: <b style="color:#0e6fa8;">${totalShare} د.ع</b></p>
+        </div>
+        ${cardsHtml}
+      `;
+    }, e => { console.error(e); box.innerHTML = '<div class="card"><p>تعذّر تحميل طلباتك. تأكد من اتصالك بالإنترنت.</p></div>'; });
   } catch(e) { console.error(e); box.innerHTML = '<div class="card"><p>تعذّر تحميل طلباتك. تأكد من اتصالك بالإنترنت.</p></div>'; }
 }
 
@@ -8094,7 +8117,7 @@ if (inAppBrowser && !localStorage.getItem('kawthar_inapp_dismissed')) {
 function routeFromHash() {
   const hash = (window.location.hash || '').replace('#','');
   if (hash.startsWith('o=')) { openOrderView(hash.slice(2)); return true; }
-  if (hash.startsWith('promoter=')) { openPromoterView(hash.slice('promoter='.length)); return true; }
+  if (hash.startsWith('promoter=')) { openPromoterView(decodeURIComponent(hash.slice('promoter='.length))); return true; }
   if (hash === 'quick-order') { openQuickOrderForm(); return true; }
   const routes = {
     'library': () => show('screen-library'),
