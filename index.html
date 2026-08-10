@@ -4832,51 +4832,60 @@ async function robustCopy(text) {
 let currentOrdersTab = 'new';
 
 let ordersAdminUnsubscribe = null;
+let ordersAdminCache = { allRows: [], unreadByOrderId: {} };
 function loadOrdersAdmin() {
-  // نلغي أي مستمع لحظي سابق قبل ما نفتح وحد جديد (تبديل تبويب مثلاً)
-  if (ordersAdminUnsubscribe) { ordersAdminUnsubscribe(); ordersAdminUnsubscribe = null; }
+  // أول مرة بس نفتح المستمع الحي؛ تبديل التبويبات بعدها يعيد الرسم من الذاكرة المخزّنة فوراً بدون ما يعيد الاتصال بقاعدة البيانات
+  if (ordersAdminUnsubscribe) { renderOrdersFromCache(); return; }
   const list = document.getElementById('ordersAdminList');
 
   ordersAdminUnsubscribe = db.collection('orders').orderBy('createdAt','desc').limit(200)
-    .onSnapshot(async (snap) => {
+    .onSnapshot((snap) => {
 
-  // إحصائية الطلبات (يومي/شهري/سنوي) — نحسبها من كل الطلبات وليس فقط آخر 200
-  try {
-    const allSnap = await db.collection('orders').get();
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-    const startOfYear = new Date(now.getFullYear(), 0, 1).getTime();
-    let todayCount = 0, monthCount = 0, yearCount = 0;
-    allSnap.docs.forEach(d => {
-      const t = d.data().createdAt || 0;
-      if (t >= startOfToday) todayCount++;
-      if (t >= startOfMonth) monthCount++;
-      if (t >= startOfYear) yearCount++;
-    });
-    const elToday = document.getElementById('statOrdersToday');
-    const elMonth = document.getElementById('statOrdersMonth');
-    const elYear = document.getElementById('statOrdersYear');
-    if (elToday) elToday.textContent = todayCount;
-    if (elMonth) elMonth.textContent = monthCount;
-    if (elYear) elYear.textContent = yearCount;
-  } catch(e) { console.error(e); }
+  // إحصائية الطلبات (يومي/شهري/سنوي) — بالخلفية بدون ما توقف عرض الطلبات
+  (async () => {
+    try {
+      const allSnap = await db.collection('orders').get();
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+      const startOfYear = new Date(now.getFullYear(), 0, 1).getTime();
+      let todayCount = 0, monthCount = 0, yearCount = 0;
+      allSnap.docs.forEach(d => {
+        const t = d.data().createdAt || 0;
+        if (t >= startOfToday) todayCount++;
+        if (t >= startOfMonth) monthCount++;
+        if (t >= startOfYear) yearCount++;
+      });
+      const elToday = document.getElementById('statOrdersToday');
+      const elMonth = document.getElementById('statOrdersMonth');
+      const elYear = document.getElementById('statOrdersYear');
+      if (elToday) elToday.textContent = todayCount;
+      if (elMonth) elMonth.textContent = monthCount;
+      if (elYear) elYear.textContent = yearCount;
+    } catch(e) { console.error(e); }
+  })();
 
-  // عدّ رسائل طلبات التعديل غير المقروءة لكل طلب (استعلام واحد بدل استعلام لكل طلب)
-  const unreadByOrderId = {};
-  try {
-    const unreadMsgsSnap = await db.collection('messages').where('readByStaff','==', false).get();
-    unreadMsgsSnap.docs.forEach(d => {
-      const tid = d.data().threadId || '';
-      if (tid.startsWith('order_')) {
-        const oid = tid.slice('order_'.length);
-        unreadByOrderId[oid] = (unreadByOrderId[oid] || 0) + 1;
-      }
-    });
-  } catch(e) { console.error(e); }
+  // عدّ رسائل طلبات التعديل غير المقروءة لكل طلب — بالخلفية، يحدّث العرض لما يخلص بدون ما يوقف الرسم الأول
+  (async () => {
+    const unreadByOrderId = {};
+    try {
+      const unreadMsgsSnap = await db.collection('messages').where('readByStaff','==', false).get();
+      unreadMsgsSnap.docs.forEach(d => {
+        const tid = d.data().threadId || '';
+        if (tid.startsWith('order_')) {
+          const oid = tid.slice('order_'.length);
+          unreadByOrderId[oid] = (unreadByOrderId[oid] || 0) + 1;
+        }
+      });
+      ordersAdminCache.unreadByOrderId = unreadByOrderId;
+      renderOrdersFromCache();
+    } catch(e) { console.error(e); }
+  })();
 
-  // ترقية تلقائية للحالة (الطلبات الملغاة تبقى ضمن تبويب "الملغية" إلى أن يحذفها الموظف/المشرف يدوياً)
+  // نحسب الحالة الفعلية فوراً (سريع، بدون انتظار) ونعرض الطلبات على أساسها مباشرة،
+  // وبنفس الوقت نرسل أي تصحيحات حالة لازمة لقاعدة البيانات بالخلفية بدون ما ننتظرها
   const allRows = [];
+  const pendingWrites = [];
   for (const d of snap.docs) {
     const o = d.data();
     if (o.fulfillment === 'teacher') continue; // هذي طلبات يوصّلها الأستاذ بنفسه، تظهر له هو فقط بلوحته
@@ -4884,21 +4893,34 @@ function loadOrdersAdmin() {
     const effectiveStatus = computeEffectiveStatus(o);
 
     if (effectiveStatus !== o.status && (o.status === 'pending' || o.status === 'processing' || o.status === 'delivering')) {
-      const update = { status: effectiveStatus };
-      if (effectiveStatus === 'completed' && !o.teacherPayoutsComputed) {
-        update.teacherPayouts = await computeTeacherPayoutsForOrder(o);
-        update.teacherPayoutsSettled = {};
-        update.teacherPayoutsComputed = true;
-        if (o.fulfillment === 'teacher') {
-          update.platformOwedToLibrary = await computePlatformOwedForOrder(o);
-          update.platformOwedSettled = false;
+      pendingWrites.push((async () => {
+        const update = { status: effectiveStatus };
+        if (effectiveStatus === 'completed' && !o.teacherPayoutsComputed) {
+          update.teacherPayouts = await computeTeacherPayoutsForOrder(o);
+          update.teacherPayoutsSettled = {};
+          update.teacherPayoutsComputed = true;
+          if (o.fulfillment === 'teacher') {
+            update.platformOwedToLibrary = await computePlatformOwedForOrder(o);
+            update.platformOwedSettled = false;
+          }
         }
-      }
-      await db.collection('orders').doc(d.id).update(update);
+        await db.collection('orders').doc(d.id).update(update);
+      })());
     }
     o.status = effectiveStatus;
     allRows.push({ id: d.id, o });
   }
+  if (pendingWrites.length > 0) Promise.all(pendingWrites).catch(e => console.error('order status auto-correction failed', e));
+
+  ordersAdminCache.allRows = allRows;
+  renderOrdersFromCache();
+    }, (err) => console.error('orders live listener failed', err));
+}
+
+function renderOrdersFromCache() {
+  const list = document.getElementById('ordersAdminList');
+  if (!list) return;
+  const { allRows, unreadByOrderId } = ordersAdminCache;
 
   // شارة موحّدة: عدد الطلبات الجديدة + عدد الرسائل غير المقروءة المرتبطة بالطلبات (تبقى ظاهرة لين يفتحها الموظف فعلياً)
   const newCount = allRows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed').length;
@@ -4956,7 +4978,6 @@ function loadOrdersAdmin() {
   }
 
   list.innerHTML = rows.map(({id, o}) => renderOrderCard(id, o, unreadByOrderId[id] || 0)).join('');
-    }, (err) => console.error('orders live listener failed', err));
 }
 
 document.getElementById('ordersTabNew').onclick = () => switchOrdersTab('new');
@@ -5148,7 +5169,14 @@ document.getElementById('createExtOrderBtn').onclick = async () => {
   const unitPrice = +document.getElementById('extOrderUnitPrice').value || 0;
   const qty = +document.getElementById('extOrderQty').value || 1;
   const deliveryFee = +document.getElementById('extOrderDelivery').value || 0;
-  if (!name || !phone || !province || !details || !unitPrice || !qty) { setMsg('extOrderMsg','عبّئ الاسم ورقم الهاتف والمحافظة وتفاصيل الطلب وسعر القطعة والكمية', false); return; }
+  const missing = [];
+  if (!name) missing.push('اسم الزبون');
+  if (!phone) missing.push('رقم الهاتف');
+  if (!province) missing.push('المحافظة');
+  if (!details) missing.push('تفاصيل الطلب');
+  if (!unitPrice) missing.push('سعر القطعة الواحدة (لازم يكون أكبر من صفر)');
+  if (!qty) missing.push('الكمية');
+  if (missing.length > 0) { setMsg('extOrderMsg','ناقص: ' + missing.join('، '), false); return; }
   try {
     await ensureAuthed();
     const customerId = await getOrAssignCustomerId(phone);
@@ -5295,7 +5323,14 @@ document.getElementById('createPromoterOrderBtn').onclick = async () => {
   const deliveryFee = +document.getElementById('poDelivery').value || 0;
   const promoterShareAmount = +document.getElementById('poShare').value || 0;
   if (!promoterName) { setMsg('poMsg','اكتب اسم المروّج', false); return; }
-  if (!name || !phone || !province || !details || !unitPrice || !qty) { setMsg('poMsg','عبّئ اسم الزبون وهاتفه والمحافظة وتفاصيل الطلب وسعر القطعة والكمية', false); return; }
+  const missing = [];
+  if (!name) missing.push('اسم الزبون');
+  if (!phone) missing.push('رقم الهاتف');
+  if (!province) missing.push('المحافظة');
+  if (!details) missing.push('تفاصيل الطلب');
+  if (!unitPrice) missing.push('سعر القطعة الواحدة (لازم يكون أكبر من صفر)');
+  if (!qty) missing.push('الكمية');
+  if (missing.length > 0) { setMsg('poMsg','ناقص: ' + missing.join('، '), false); return; }
   try {
     await ensureAuthed();
     const customerId = await getOrAssignCustomerId(phone);
