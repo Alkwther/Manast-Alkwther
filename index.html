@@ -6045,6 +6045,10 @@ function renderOrderCard(id, o, unreadCount, mode) {
         </div>
         <label>أجور التوصيل</label>
         <input id="eoDelivery-${id}" type="number" value="${o.deliveryFee||0}">
+        ${o.fulfillment !== 'teacher' ? `
+        <label>تاريخ الاستلام المتوقع</label>
+        <input id="eoDeliveryDate-${id}" type="date" value="${new Date(o.deliveringThresholdAt || computeDeliveringThresholdAt(o.createdAt)).toISOString().slice(0,10)}">
+        ` : ''}
         <button class="btn" onclick="saveOrderEdit('${id}')">💾 حفظ التعديلات</button>
       </div>` : ''}
     </div>`;
@@ -6065,6 +6069,13 @@ async function saveOrderEdit(id) {
   const district = document.getElementById(`eoDistrict-${id}`).value.trim();
   const landmark = document.getElementById(`eoLandmark-${id}`).value.trim();
   const deliveryFee = +document.getElementById(`eoDelivery-${id}`).value || 0;
+  const deliveryDateInput = document.getElementById(`eoDeliveryDate-${id}`);
+  let deliveringThresholdAt = o.deliveringThresholdAt;
+  if (deliveryDateInput && deliveryDateInput.value) {
+    const [y,m,d] = deliveryDateInput.value.split('-').map(Number);
+    const newDate = new Date(y, m-1, d, 8, 0, 0, 0);
+    deliveringThresholdAt = newDate.getTime();
+  }
 
   const items = o.items.map((it, i) => {
     const titleEl = document.getElementById(`eoTitle-${id}-${i}`);
@@ -6092,7 +6103,7 @@ async function saveOrderEdit(id) {
   try {
     await db.collection('orders').doc(id).update({
       studentName, studentPhone: phone, phone, altPhone, province, district, landmark,
-      items, subtotal, deliveryFee, totalPrice, edited: true, editedAt: Date.now()
+      items, subtotal, deliveryFee, totalPrice, deliveringThresholdAt, edited: true, editedAt: Date.now()
     });
     alert('تم حفظ التعديلات ✅ — الزبون بيشوف الطلب المعدّل وعلامة "تم التعديل" بمجرد ما يفتح "طلباتي"');
     loadOrdersAdmin();
