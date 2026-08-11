@@ -1202,6 +1202,12 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     <div id="promoterViewContent"><p style="text-align:center;padding:30px;">جاري التحميل...</p></div>
   </div>
 
+  <!-- عرض مباشر لملزمة واحدة عبر رابط -->
+  <div class="screen hidden" id="screen-book-view">
+    <button class="btn secondary" onclick="show('screen-welcome')">← الصفحة الرئيسية</button>
+    <div id="bookViewContent"><p style="text-align:center;padding:30px;">جاري التحميل...</p></div>
+  </div>
+
   <!-- قائمة حجز سريعة يملؤها الزبون بنفسه (تُرسل له كرابط عبر واتساب/فيسبوك/إنستغرام) -->
   <div class="screen hidden" id="screen-quick-order">
     <button class="btn secondary" onclick="show('screen-welcome')">← الصفحة الرئيسية</button>
@@ -1803,9 +1809,13 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
         <div class="card" style="border-inline-start:4px solid #b8903c;">
           <h3>🎯 إضافة طلب مروّج</h3>
           <p>لأشخاص يبعثونك طلبات زبائنهم من كل المحافظات — تضيف الطلب هنا، وتتحدد حصة المروّج، ويوصله رابط يشوف فيه كل طلباته اليومية والمبلغ المستحق له.</p>
-          <label>اسم المروّج</label>
-          <input id="poName" list="poNamesList" placeholder="اكتب اسم المروّج أو اختر من القائمة">
-          <datalist id="poNamesList"></datalist>
+          <label>المروّج</label>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <button type="button" id="poNewPromoterBtn" class="small-btn" style="flex:1;background:#b8903c;color:#fff;">🆕 مروّج جديد</button>
+            <button type="button" id="poExistingPromoterBtn" class="small-btn" style="flex:1;">📋 مروّج موجود</button>
+          </div>
+          <input id="poName" placeholder="اكتب اسم المروّج الجديد">
+          <select id="poNameSelect" class="hidden"><option value="">اختر المروّج</option></select>
           <label>اسم الزبون</label>
           <input id="poCustomerName" placeholder="الاسم الكامل">
           <label>رقم الهاتف</label>
@@ -3217,8 +3227,9 @@ function renderLibraryNav() {
       : `<div style="width:90px;height:90px;border-radius:12px;background:#eef1f8;display:flex;align-items:center;justify-content:center;font-size:32px;margin-inline-end:14px;flex-shrink:0;">📘</div>`;
     return `<div class="card">
       <div style="display:flex;align-items:flex-start;">${thumb}<div class="title" style="flex:1;">${b.title}${b.teacherName ? `<br><span style="font-size:12px;color:#8a90a3;">أ. ${b.teacherName}</span>` : ''}<br><span style="color:#b8903c;font-weight:bold;">${b.price} د.ع</span></div></div>
-      <div style="display:flex;gap:8px;margin-top:10px;">
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
         ${images.length ? `<button class="small-btn" onclick='openImageGallery(${JSON.stringify(images)})'>📷 مشاهدة الصور${images.length>1?' ('+images.length+')':''}</button>` : ''}
+        <button class="small-btn" onclick="navigator.clipboard.writeText(window.location.origin + window.location.pathname + '#book=${b.id}').then(()=>alert('تم نسخ رابط الملزمة ✅'))">🔗 نسخ الرابط</button>
         <button class="play" style="margin:0;flex:1;" onclick="addToCart('${b.id}','${b.title.replace(/'/g,"\\'")} — ${libraryNavGrade.replace(/'/g,"\\'")}',${b.price})">أضف للسلة</button>
       </div>
     </div>`;
@@ -4132,7 +4143,24 @@ document.getElementById('addEmployeeBtn').onclick = async () => {
   try {
     // نستخدم تطبيق Firebase ثانوي لإنشاء حساب الموظف حتى ما ينسحب المالك من جلسته الحالية
     const secAuth = getSecondaryAuth();
-    await secAuth.createUserWithEmailAndPassword(staffEmailFromUsername(username), password);
+    const email = staffEmailFromUsername(username);
+    try {
+      await secAuth.createUserWithEmailAndPassword(email, password);
+    } catch(createErr) {
+      if (createErr.code === 'auth/email-already-in-use') {
+        // ربما حساب "يتيم" من محاولة سابقة انقطع فيها النت بعد إنشاء حساب الدخول وقبل حفظ بيانات الموظف —
+        // نتأكد بمحاولة الدخول بنفس كلمة السر المكتوبة الآن؛ لو نجحت فهذا نفس الحساب، نكمّل عادي
+        try {
+          await secAuth.signInWithEmailAndPassword(email, password);
+        } catch(signInErr) {
+          await secAuth.signOut().catch(()=>{});
+          alert('اسم المستخدم هذا مستخدم مسبقاً بكلمة سر مختلفة — اختر اسم مستخدم آخر');
+          return;
+        }
+      } else {
+        throw createErr;
+      }
+    }
     await secAuth.signOut();
     await db.collection('staff').add({ name, username, permissions, createdAt: Date.now() });
     alert('تمت إضافة الموظف ✅');
@@ -4142,8 +4170,7 @@ document.getElementById('addEmployeeBtn').onclick = async () => {
     loadEmployeesAdmin();
   } catch(e) {
     console.error(e);
-    if (e.code === 'auth/email-already-in-use') alert('اسم المستخدم هذا مستخدم مسبقاً');
-    else alert('صار خطأ أثناء إنشاء حساب الموظف');
+    alert('صار خطأ أثناء إنشاء حساب الموظف');
   }
 };
 async function loadEmployeesAdmin() {
@@ -5222,21 +5249,46 @@ document.getElementById('createExtOrderBtn').onclick = async () => {
 
 // ---------- طلبات المروجين (أشخاص يبعثون طلبات من كل المحافظات) ----------
 async function loadPromoterNamesDatalist() {
-  const dl = document.getElementById('poNamesList');
   const lookupSel = document.getElementById('poLookupSelect');
+  const nameSel = document.getElementById('poNameSelect');
   try {
     const snap = await db.collection('orders').where('source','==','promoter').get();
     const names = new Set();
     snap.docs.forEach(d => { const n = d.data().promoterName; if (n) names.add(n); });
-    if (dl) dl.innerHTML = Array.from(names).map(n => `<option value="${n}">`).join('');
     if (lookupSel) {
       const prevValue = lookupSel.value;
       lookupSel.innerHTML = '<option value="">اختر مروّج</option>' + Array.from(names).map(n => `<option value="${n}">${n}</option>`).join('');
       if (prevValue && names.has(prevValue)) lookupSel.value = prevValue;
     }
+    if (nameSel) {
+      const prevValue = nameSel.value;
+      nameSel.innerHTML = '<option value="">اختر المروّج</option>' + Array.from(names).map(n => `<option value="${n}">${n}</option>`).join('');
+      if (prevValue && names.has(prevValue)) nameSel.value = prevValue;
+    }
   } catch(e) { console.error(e); }
 }
 document.getElementById('poLookupSelect').addEventListener('change', (e) => loadPoLookupResult(e.target.value));
+
+function setPoPromoterMode(mode) {
+  const newBtn = document.getElementById('poNewPromoterBtn');
+  const existingBtn = document.getElementById('poExistingPromoterBtn');
+  const nameInput = document.getElementById('poName');
+  const nameSelect = document.getElementById('poNameSelect');
+  if (mode === 'new') {
+    newBtn.style.background = '#b8903c'; newBtn.style.color = '#fff';
+    existingBtn.style.background = ''; existingBtn.style.color = '';
+    nameInput.classList.remove('hidden'); nameSelect.classList.add('hidden');
+    nameInput.value = '';
+  } else {
+    existingBtn.style.background = '#b8903c'; existingBtn.style.color = '#fff';
+    newBtn.style.background = ''; newBtn.style.color = '';
+    nameSelect.classList.remove('hidden'); nameInput.classList.add('hidden');
+    loadPromoterNamesDatalist();
+  }
+}
+document.getElementById('poNewPromoterBtn').onclick = () => setPoPromoterMode('new');
+document.getElementById('poExistingPromoterBtn').onclick = () => setPoPromoterMode('existing');
+
 async function settlePromoterAmount(promoterId, promoterName, expectedAmount, expectedCount) {
   if (!confirm(`تأكيد التحاسب مع ${promoterName} على مبلغ ${expectedAmount} د.ع (${expectedCount} طلب)؟`)) return;
   try {
@@ -5311,7 +5363,8 @@ async function loadPoLookupResult(promoterName) {
   } catch(e) { console.error(e); box.innerHTML = '<p style="color:#b91c1c;margin-top:10px;">تعذّر التحميل.</p>'; }
 }
 document.getElementById('createPromoterOrderBtn').onclick = async () => {
-  const promoterName = document.getElementById('poName').value.trim();
+  const nameInputVisible = !document.getElementById('poName').classList.contains('hidden');
+  const promoterName = (nameInputVisible ? document.getElementById('poName').value : document.getElementById('poNameSelect').value).trim();
   const promoterId = promoterName ? tbSafeId(promoterName) : null;
   const name = document.getElementById('poCustomerName').value.trim();
   const phone = toEnglishDigits(document.getElementById('poPhone').value.trim());
@@ -5639,6 +5692,36 @@ async function openPromoterView(promoterId) {
       `;
     }, e => { console.error(e); box.innerHTML = '<div class="card"><p>تعذّر تحميل طلباتك. تأكد من اتصالك بالإنترنت.</p></div>'; });
   } catch(e) { console.error(e); box.innerHTML = '<div class="card"><p>تعذّر تحميل طلباتك. تأكد من اتصالك بالإنترنت.</p></div>'; }
+}
+
+// ---------- عرض مباشر لملزمة واحدة عبر رابط ----------
+async function openBookView(bookId) {
+  show('screen-book-view');
+  const box = document.getElementById('bookViewContent');
+  box.innerHTML = '<p style="text-align:center;padding:30px;">جاري التحميل...</p>';
+  try {
+    await ensureAuthed();
+    const doc = await db.collection('books').doc(bookId).get();
+    if (!doc.exists) { box.innerHTML = '<div class="card"><p>ما لقينا هذي المادة. تأكد من الرابط.</p></div>'; return; }
+    const b = { id: doc.id, ...doc.data() };
+    const images = (b.images && b.images.length) ? b.images : (b.image ? [b.image] : []);
+    const typeLabel = b.itemType === 'notebook' ? '📓 دفتر' : '📦 ملزمة';
+    const galleryBtn = images.length ? `<button class="small-btn" onclick='openImageGallery(${JSON.stringify(images)})'>📷 مشاهدة الصور${images.length>1?' ('+images.length+')':''}</button>` : '';
+    const storeBtn = b.teacherName ? `<button class="small-btn" onclick="openTeacherStoreDetail('${b.teacherName.replace(/'/g,"")}')">🏪 مشاهدة كل متجر الأستاذ</button>` : '';
+    box.innerHTML = `
+      <div class="card">
+        ${images[0] ? `<img src="${images[0]}" style="width:100%;max-width:260px;border-radius:12px;display:block;margin:0 auto 14px;cursor:pointer;" onclick='openImageGallery(${JSON.stringify(images)})'>` : ''}
+        <h3 style="margin:0 0 6px;">${b.title}</h3>
+        <p style="margin:0 0 6px;color:#8a90a3;">${typeLabel} — ${b.grade||''}${b.teacherName ? ' — أ. '+b.teacherName : ''}</p>
+        <p style="margin:0 0 14px;font-weight:bold;color:#b8903c;font-size:18px;">${b.price} د.ع</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${galleryBtn}
+          ${storeBtn}
+        </div>
+        <button class="btn" style="margin-top:14px;" onclick='addToCart("${b.id}", ${JSON.stringify((b.title||"").replace(/"/g,""))}, ${b.price}, 1, {teacherName: ${JSON.stringify(b.teacherName||null)}, deliveryMode: ${JSON.stringify(b.deliveryMode||null)}, teacherDeliveryFee: ${JSON.stringify(b.teacherDeliveryFee||null)}, stage: ${JSON.stringify(b.stage||null)}, grade: ${JSON.stringify(b.grade||null)}}); alert("تمت إضافتها للسلة ✅")'>🛒 أضف للسلة</button>
+      </div>
+    `;
+  } catch(e) { console.error(e); box.innerHTML = '<div class="card"><p>تعذّر تحميل المادة. تأكد من اتصالك بالإنترنت.</p></div>'; }
 }
 
 async function openOrderView(orderId) {
@@ -6945,9 +7028,11 @@ async function openTeacherStoreDetail(teacherName) {
   show('screen-teacher-store-detail');
   const teacherSnap = await db.collection('teachers').where('name','==', teacherName).limit(1).get();
   const t = teacherSnap.empty ? {} : teacherSnap.docs[0].data();
+  const storeLink = window.location.origin + window.location.pathname + '#store=' + encodeURIComponent(teacherName);
   document.getElementById('teacherStoreDetailHeader').innerHTML = `
     <h3 style="margin-bottom:6px;">🏪 متجر الأستاذ ${teacherName}</h3>
-    <p style="color:#8a90a3;margin:0;">${t.storeDescription || ''}</p>
+    <p style="color:#8a90a3;margin:0 0 10px;">${t.storeDescription || ''}</p>
+    <button class="small-btn" onclick="navigator.clipboard.writeText('${storeLink}').then(()=>alert('تم نسخ رابط المتجر ✅'))">🔗 نسخ رابط المتجر</button>
   `;
   const list = document.getElementById('teacherStoreDetailList');
   list.innerHTML = '<p>جاري التحميل...</p>';
@@ -6964,8 +7049,9 @@ async function openTeacherStoreDetail(teacherName) {
         : `<div style="width:96px;height:96px;border-radius:12px;background:#eef1f8;display:flex;align-items:center;justify-content:center;font-size:32px;margin-inline-end:14px;flex-shrink:0;">📘</div>`;
       return `<div class="card">
         <div style="display:flex;align-items:flex-start;">${thumb}<div class="title" style="flex:1;">${b.title}<br><span style="font-size:12px;color:#8a90a3;">${typeLabel} — ${b.grade||''}</span><br><span style="color:#b8903c;font-weight:bold;">${b.price} د.ع</span></div></div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
           ${images.length ? `<button class="small-btn" onclick="openImageGalleryEnc('${encodeURIComponent(JSON.stringify(images))}')">📷 مشاهدة الصور${images.length>1?' ('+images.length+')':''}</button>` : ''}
+          <button class="small-btn" onclick="navigator.clipboard.writeText(window.location.origin + window.location.pathname + '#book=${b.id}').then(()=>alert('تم نسخ رابط الملزمة ✅'))">🔗 نسخ الرابط</button>
           <button class="play" style="margin:0;flex:1;" onclick="addStoreItemToCart('${b.id}')">أضف للسلة</button>
         </div>
       </div>`;
@@ -8277,6 +8363,8 @@ function routeFromHash() {
   if (hash.startsWith('o=')) { openOrderView(hash.slice(2)); return true; }
   if (hash.startsWith('promoter=')) { openPromoterView(decodeURIComponent(hash.slice('promoter='.length))); return true; }
   if (hash === 'quick-order') { openQuickOrderForm(); return true; }
+  if (hash.startsWith('book=')) { openBookView(hash.slice('book='.length)); return true; }
+  if (hash.startsWith('store=')) { openTeacherStoreDetail(decodeURIComponent(hash.slice('store='.length))); return true; }
   const routes = {
     'library': () => show('screen-library'),
     'books': () => show('screen-print-shop'),
