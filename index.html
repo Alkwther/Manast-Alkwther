@@ -889,6 +889,39 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <p style="margin:0;font-size:13px;color:#8a6a1f;">💡 نقدر نضيفلك ميزة ترفع فيها المحاضرات بنفسك مباشرة من لوحتك بدون ما تحتاج ترسلها للمكتبة كل مرة — إذا تريدها، خبر الإدارة.</p>
         </div>
       </div>
+
+      <div class="card" style="border-inline-start:4px solid #b8903c;">
+        <h3>5️⃣ بيع ملازمك داخل المكتبة (اختياري)</h3>
+        <p>إذا عندك ملزمة أو كتاب من تأليفك تريد تبيعه، تقدر ترفعه داخل المكتبة بطريقتين — من لوحتك "ارفع ملزمة/دفتر":</p>
+        <p><b>أ) عرضها ضمن صفوف المكتبة العامة</b> — يشوفها كل زبون يتصفح المكتبة عادي.</p>
+        <p><b>ب) عرضها بمتجرك الخاص</b> — صفحة مستقلة باسمك، ولها رابط تقدر ترسله لطلابك مباشرة.</p>
+        <p style="margin-top:8px;"><b>📷 الصور:</b> ارفع حتى 4 صور واضحة (الغلاف + صفحات من الداخل) — كل ما كانت الصور أوضح، كل ما زادت ثقة الزبون بالشراء.</p>
+      </div>
+
+      <div class="card" style="border-inline-start:4px solid #b8903c;">
+        <h3>6️⃣ من يوصّل الطلب؟ وشنو نسبة المكتبة؟</h3>
+        <p>عندك خيارين وقت رفع الملزمة، وكل وحدة إلها نسبة مختلفة تحسب من سعر البيع:</p>
+        <p><b>🚚 أنت توصّل الطلب بنفسك:</b> المكتبة تاخذ <b>20%</b> من سعر البيع، والباقي (80%) حصتك أنت. أنت المسؤول عن التوصيل الفعلي وتحصيل المبلغ من الزبون، وتحدد أنت أجرة توصيل ثابتة لمتجرك.</p>
+        <p><b>📦 المكتبة توصّل الطلب:</b> المكتبة تاخذ <b>30%</b> من سعر البيع، والباقي (70%) حصتك أنت. المكتبة تستلم الطلب، تطبع، توصّل، وتحصّل المبلغ من الزبون، وتتحاسب معك على حصتك لاحقاً.</p>
+        <div style="background:#fff8e6;border:1px dashed #cda44e;border-radius:8px;padding:10px;margin-top:8px;">
+          <p style="margin:0;font-size:13px;color:#8a6a1f;">💡 هذي النسب حسب الاتفاق الافتراضي، والمكتبة تقدر تخصصها لك بنسبة مختلفة حسب اتفاقك الخاص معهم.</p>
+        </div>
+      </div>
+
+      <div class="card" style="border-inline-start:4px solid #0e6fa8;">
+        <h3>7️⃣ كيف يصير الحجز؟</h3>
+        <p>الزبون يتصفح ملزمتك (من صفوف المكتبة أو من متجرك)، يضيفها لسلته، ويكمل الطلب بكتابة اسمه وهاتفه وعنوانه.</p>
+        <p>الطلب يوصلك إشعار فوري (لو أنت الموصّل) أو يوصل المكتبة (لو هي الموصّلة) — وتقدر تتابع حالته: جديد ← قيد التنفيذ ← قيد التوصيل ← تم التسليم.</p>
+      </div>
+
+      <div class="card" style="border-inline-start:4px solid #16a34a;">
+        <h3>8️⃣ متابعة كل حجوزاتك ومبلغك الكلي</h3>
+        <p>من لوحتك اضغط على <b>"💰 المحفظة"</b> — تشوف فيها:</p>
+        <p>• كل طلب وصلك (لو توصيلك الذاتي) أو باعته المكتبة نيابة عنك — بتفاصيله الكاملة.</p>
+        <p>• المبلغ الكلي، حصتك أنت، وحصة المكتبة — لكل نموذج توصيل على حدة (توصيلك الذاتي / توصيل المكتبة).</p>
+        <p>• عدد الطلبات المعلّقة (لسا ما تحاسبت عليها) والمحاسَبة سابقاً.</p>
+        <p>• سجل كامل لكل عملية تحاسب صارت بينك وبين المكتبة، بتاريخها ومبلغها بالضبط.</p>
+      </div>
     </div>
   </div>
 
@@ -2210,6 +2243,10 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <input id="tchName" placeholder="اسم المدرّس">
           <input id="tchPhone" type="tel" placeholder="رقم هاتف المدرّس">
           <input id="tchPass" placeholder="كلمة السر">
+          <select id="tchGenderNew">
+            <option value="male">ذكر</option>
+            <option value="female">أنثى</option>
+          </select>
           <button class="btn" id="addTeacherBtn">إضافة مدرّس</button>
         </div>
         <div class="card">
@@ -2329,6 +2366,11 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <input id="teacherRegPhone" type="tel" placeholder="07xxxxxxxxx">
       <label>كلمة السر</label>
       <input id="teacherRegPass" type="password" placeholder="اختر كلمة سر">
+      <label>الجنس</label>
+      <select id="teacherRegGender">
+        <option value="male">ذكر</option>
+        <option value="female">أنثى</option>
+      </select>
       <label>نوع النشاط</label>
       <select id="teacherRegMode">
         <option value="teaching">📖 التدريس بالمنصة</option>
@@ -4037,7 +4079,7 @@ document.getElementById('addTeacherBtn').onclick = async () => {
     alert('تعذّر إنشاء حساب الدخول: ' + (e.message || 'خطأ غير معروف'));
     return;
   }
-  await db.collection('teachers').add({ name, phone, password, addedBy: currentStaffName, createdAt: Date.now() });
+  await db.collection('teachers').add({ name, phone, password, gender: document.getElementById('tchGenderNew').value, addedBy: currentStaffName, createdAt: Date.now() });
   await db.collection('teacherPhoneIndex').doc(phone).set({ name });
   alert(`تمت الإضافة ✅ — بواسطة: ${currentStaffName}`);
   document.getElementById('tchName').value=''; document.getElementById('tchPhone').value=''; document.getElementById('tchPass').value='';
@@ -4094,6 +4136,16 @@ async function loadTeachersAdmin() {
         <button class="small-btn" onclick="copyTeacherPassword('${d.id}')">📋 نسخ</button>
         <button class="small-btn" onclick="changeTeacherPassword('${d.id}','${t.phone}')">✏️ تغيير كلمة السر</button>
       </div>
+      <div style="background:#f2f7fa;border-radius:10px;padding:10px;margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:150px;">
+          <label style="font-size:12px;margin-bottom:2px;">الجنس (ذكر/أنثى)</label>
+          <select id="tchGender-${d.id}" style="margin-bottom:0;">
+            <option value="male" ${t.gender !== 'female' ? 'selected' : ''}>ذكر</option>
+            <option value="female" ${t.gender === 'female' ? 'selected' : ''}>أنثى</option>
+          </select>
+        </div>
+        <button class="small-btn" onclick="saveTeacherGender('${d.id}')" style="height:44px;">💾 حفظ</button>
+      </div>
       <div style="background:#fbf7ec;border-radius:10px;padding:10px;margin-top:6px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
         <div style="flex:1;min-width:150px;">
           <label style="font-size:12px;margin-bottom:2px;">🚚 نسبة المكتبة — يوصّل الأستاذ بنفسه (%)</label>
@@ -4106,7 +4158,7 @@ async function loadTeachersAdmin() {
         <button class="small-btn" onclick="saveTeacherPercents('${d.id}')" style="height:44px;">💾 حفظ النسب</button>
       </div>
       <div id="tchLecturePanel-${d.id}" class="hidden" style="background:#f6f7fb;border-radius:10px;padding:10px;margin-top:6px;">
-        <p style="font-weight:bold;color:#10203f;margin-bottom:8px;">إضافة محاضرة للأستاذ ${t.name}</p>
+        <p style="font-weight:bold;color:#10203f;margin-bottom:8px;">إضافة محاضرة لل${teacherTitle(t.gender)} ${t.name}</p>
         <select id="tchLecGrade-${d.id}">${gradeOptions}</select>
         <input id="tchLecSubject-${d.id}" placeholder="اسم المادة">
         <input id="tchLecTitle-${d.id}" placeholder="اسم المحاضرة">
@@ -4121,6 +4173,12 @@ async function loadTeachersAdmin() {
 async function deleteTeacherLecture(lessonId, teacherId) {
   if (!confirm('حذف هذي المحاضرة؟')) return;
   await db.collection('lessons').doc(lessonId).delete();
+  loadTeachersAdmin();
+}
+async function saveTeacherGender(teacherId) {
+  const gender = document.getElementById(`tchGender-${teacherId}`).value;
+  await db.collection('teachers').doc(teacherId).update({ gender });
+  alert('تم حفظ الجنس ✅');
   loadTeachersAdmin();
 }
 async function saveTeacherPercents(teacherId) {
@@ -6598,6 +6656,7 @@ document.getElementById('teacherRegisterBtn').onclick = async () => {
   const name = document.getElementById('teacherRegName').value.trim();
   const phone = toEnglishDigits(document.getElementById('teacherRegPhone').value.trim().replace(/[\s\-]/g,''));
   const password = document.getElementById('teacherRegPass').value;
+  const gender = document.getElementById('teacherRegGender').value; // male | female
   const mode = document.getElementById('teacherRegMode').value; // teaching | booklets | both
   const grade = document.getElementById('teacherRegGrade').value;
   const subject = document.getElementById('teacherRegSubject').value.trim();
@@ -6606,7 +6665,7 @@ document.getElementById('teacherRegisterBtn').onclick = async () => {
   if (mode !== 'booklets' && (!grade || !subject)) { setMsg('teacherRegisterMsg','اختر الصف والمادة اللي تدرّسها', false); return; }
   try {
     await auth.createUserWithEmailAndPassword(teacherEmailFromPhone(phone), password);
-    await db.collection('teachers').add({ name, phone, password, mode, addedBy: 'تسجيل ذاتي', createdAt: Date.now() });
+    await db.collection('teachers').add({ name, phone, password, gender, mode, addedBy: 'تسجيل ذاتي', createdAt: Date.now() });
     await db.collection('teacherPhoneIndex').doc(phone).set({ name });
     if (mode !== 'booklets') {
       await db.collection('teacherClasses').add({ teacherName: name, teacherPhone: phone, grade, subject, createdAt: Date.now() });
@@ -6624,6 +6683,8 @@ document.getElementById('teacherRegisterBtn').onclick = async () => {
   }
 };
 
+function teacherTitle(gender) { return gender === 'female' ? 'أستاذة' : 'أستاذ'; }
+
 document.getElementById('teacherLoginBtn').onclick = async () => {
   const phone = toEnglishDigits(document.getElementById('teacherPhone').value.trim().replace(/[\s\-]/g,''));
   const pass = document.getElementById('teacherPass').value;
@@ -6634,7 +6695,7 @@ document.getElementById('teacherLoginBtn').onclick = async () => {
     if (q.empty) { setMsg('teacherLoginMsg','حسابك موجود لكن بياناتك ناقصة، تواصل مع الإدارة', false); return; }
     const t = q.docs[0].data();
     currentTeacher = { id: q.docs[0].id, ...t };
-    document.getElementById('teacherWelcomeText').textContent = `👋 مرحباً أستاذ ${t.name}`;
+    document.getElementById('teacherWelcomeText').textContent = `👋 مرحباً ${teacherTitle(t.gender)} ${t.name}`;
     document.getElementById('teacherPhotoPreview').src = t.photo || DEFAULT_AVATAR;
     db.collection('teacherPhoneIndex').doc(t.phone).set({ name: t.name }).catch(e => console.error(e));
     applyTeacherModeUI();
@@ -6976,7 +7037,7 @@ document.getElementById('tchBookletImageInput').addEventListener('change', async
   const files = Array.from(e.target.files || []).slice(0, 4);
   const preview = document.getElementById('tchBookletImagePreview');
   if (files.length === 0) { preview.innerHTML = ''; preview.dataset.images = ''; return; }
-  const dataUrls = await Promise.all(files.map(f => resizeImageToBase64(f, 800, 0.8)));
+  const dataUrls = await Promise.all(files.map(f => resizeImageToBase64(f, 1100, 0.82)));
   preview.innerHTML = dataUrls.map(u => `<img src="${u}" style="width:100px;height:100px;object-fit:cover;border-radius:10px;border:1px solid #e2e5ec;">`).join('');
   preview.dataset.images = JSON.stringify(dataUrls);
 });
@@ -7087,7 +7148,7 @@ async function saveStoreItemEdit(id) {
   const update = { title, price, teacherShare };
   const files = Array.from(imageInput.files || []).slice(0, 4);
   if (files.length > 0) {
-    const dataUrls = await Promise.all(files.map(f => resizeImageToBase64(f, 800, 0.8)));
+    const dataUrls = await Promise.all(files.map(f => resizeImageToBase64(f, 1100, 0.82)));
     update.images = dataUrls;
     update.image = dataUrls[0];
   }
@@ -7139,7 +7200,7 @@ async function openTeacherStoreDetail(teacherName) {
   const t = teacherSnap.empty ? {} : teacherSnap.docs[0].data();
   const storeLink = window.location.origin + window.location.pathname + '#store=' + encodeURIComponent(teacherName);
   document.getElementById('teacherStoreDetailHeader').innerHTML = `
-    <h3 style="margin-bottom:6px;">🏪 متجر الأستاذ ${teacherName}</h3>
+    <h3 style="margin-bottom:6px;">🏪 متجر ${teacherTitle(t.gender)} ${teacherName}</h3>
     <p style="color:#8a90a3;margin:0 0 10px;">${t.storeDescription || ''}</p>
     <button class="small-btn" onclick="navigator.clipboard.writeText('${storeLink}').then(()=>alert('تم نسخ رابط المتجر ✅'))">🔗 نسخ رابط المتجر</button>
   `;
@@ -8696,7 +8757,7 @@ async function autoEscalateOrderStatuses() {
         if (!q.empty) {
           const t = q.docs[0].data();
           currentTeacher = { id: q.docs[0].id, ...t };
-          document.getElementById('teacherWelcomeText').textContent = `👋 مرحباً أستاذ ${t.name}`;
+          document.getElementById('teacherWelcomeText').textContent = `👋 مرحباً ${teacherTitle(t.gender)} ${t.name}`;
           document.getElementById('teacherPhotoPreview').src = t.photo || DEFAULT_AVATAR;
           db.collection('teacherPhoneIndex').doc(t.phone).set({ name: t.name }).catch(e => console.error(e));
           applyTeacherModeUI();
