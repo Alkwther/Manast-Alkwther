@@ -5145,6 +5145,17 @@ function renderOrdersFromCache() {
   }
 
   list.innerHTML = rows.map(({id, o}) => renderOrderCard(id, o, unreadByOrderId[id] || 0)).join('');
+
+  // بمجرد ما الموظف/المشرف يفتح تبويب "جديدة" ويشوف الطلبات فعلياً، تعتبر "مفتوحة" وتختفي من الجرس —
+  // بغض النظر شلون وصل لهاي الطلبات (من الجرس مباشرة أو من التصفح العادي)
+  if (currentOrdersTab === 'new') {
+    const unseenNew = rows.filter(({o}) => o.seenByStaff !== true);
+    if (unseenNew.length > 0) {
+      Promise.all(unseenNew.map(({id}) => db.collection('orders').doc(id).update({ seenByStaff: true })))
+        .then(() => refreshBellBadge())
+        .catch(e => console.error('auto mark seenByStaff failed', e));
+    }
+  }
 }
 
 document.getElementById('ordersTabNew').onclick = () => switchOrdersTab('new');
@@ -7790,12 +7801,13 @@ async function openStaffMessagesInbox() {
       const m = d.data();
       const phone = (m.threadId||'').slice('libcustomer_'.length);
       if (!phone) return;
-      if (!byPhone[phone]) byPhone[phone] = { phone, lastText:'', lastAt:0, lastFromRole:null, customerName: phone };
+      if (!byPhone[phone]) byPhone[phone] = { phone, lastText:'', lastAt:0, lastFromRole:null, lastFromName:'', customerName: phone };
       const row = byPhone[phone];
       if ((m.createdAt||0) > row.lastAt) {
         row.lastText = m.text || (m.image ? '📷 صورة' : '');
         row.lastAt = m.createdAt||0;
         row.lastFromRole = m.fromRole;
+        row.lastFromName = m.fromName || '';
       }
       // اسم الزبون ياخذ فقط من رسائله هو (مو من ردود الموظف)، ونحتفظ بأحدث اسم قاله عن نفسه
       if (m.fromRole !== 'staff' && m.fromName && (m.createdAt||0) >= (row.customerNameAt||0)) {
@@ -7810,7 +7822,7 @@ async function openStaffMessagesInbox() {
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
             <p style="font-weight:bold;margin:0;">👤 ${r.customerName || r.phone}</p>
-            <p style="margin:4px 0 0;color:#8a90a3;font-size:13px;">${r.lastFromRole === 'staff' ? 'أنت: ' : ''}${r.lastText}</p>
+            <p style="margin:4px 0 0;color:#8a90a3;font-size:13px;">${r.lastFromRole === 'staff' ? `بواسطة ${r.lastFromName}: ` : ''}${r.lastText}</p>
           </div>
           <button class="small-btn" onclick="event.stopPropagation(); openCustomerProfile('${r.phone}')">📦 طلباته</button>
         </div>
@@ -8912,7 +8924,7 @@ async function openNotificationCenter() {
     const msgsSnap = await db.collection('messages').where('readByStaff','==', false).get();
     const relevantMsgs = msgsSnap.docs.filter(d => {
       const tid = d.data().threadId || '';
-      return (tid.startsWith('order_') || tid.startsWith('support_') || tid.startsWith('libcustomer_')) && d.data().fromRole !== 'staff';
+      return (tid.startsWith('order_') || tid.startsWith('support_') || tid.startsWith('libcustomer_'));
     });
 
     const items = [];
@@ -8920,13 +8932,33 @@ async function openNotificationCenter() {
       const o = d.data();
       items.push({ type:'order', id: d.id, createdAt: o.createdAt, title: `🆕 طلب جديد من ${o.studentName}`, body: `${o.totalPrice} د.ع` });
     });
+
+    // لأي رسالة أرسلها الموظف/المشرف لزبون (نادراً ما تظهر هنا أصلاً، لكن كحماية إضافية):
+    // نعرض اسم الزبون صاحب المحادثة، لا اسم الموظف المرسل، مع توضيح "بواسطة" تحته
+    const orderIdsNeeded = [...new Set(relevantMsgs.filter(d => (d.data().threadId||'').startsWith('order_') && d.data().fromRole === 'staff').map(d => d.data().threadId.slice('order_'.length)))];
+    const orderNameById = {};
+    if (orderIdsNeeded.length > 0) {
+      await Promise.all(orderIdsNeeded.map(async oid => {
+        try { const doc = await db.collection('orders').doc(oid).get(); if (doc.exists) orderNameById[oid] = doc.data().studentName; } catch(e) { console.error(e); }
+      }));
+    }
+
     relevantMsgs.forEach(d => {
       const m = d.data();
       const tid = m.threadId || '';
       const isOrderMsg = tid.startsWith('order_');
       const isLibCustomerMsg = tid.startsWith('libcustomer_');
       const type = isOrderMsg ? 'ordermsg' : (isLibCustomerMsg ? 'libcustomermsg' : 'supportmsg');
-      items.push({ type, id: d.id, orderId: isOrderMsg ? tid.slice('order_'.length) : null, threadId: tid, createdAt: m.createdAt, title: `💬 رسالة من ${m.fromName}`, body: m.text });
+      let title;
+      if (m.fromRole === 'staff') {
+        // رسالة صادرة من طاقم المكتبة (نادر أن تصل هنا) — نعرّف الزبون صاحب المحادثة، مو اسم الموظف
+        const orderId = isOrderMsg ? tid.slice('order_'.length) : null;
+        const customerLabel = isOrderMsg ? (orderNameById[orderId] || 'زبون') : (isLibCustomerMsg ? tid.slice('libcustomer_'.length) : 'زبون');
+        title = `💬 رسالة إلى ${customerLabel} — بواسطة ${m.fromName}`;
+      } else {
+        title = `💬 رسالة من ${m.fromName}`;
+      }
+      items.push({ type, id: d.id, orderId: isOrderMsg ? tid.slice('order_'.length) : null, threadId: tid, createdAt: m.createdAt, title, body: m.text });
     });
     items.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
 
