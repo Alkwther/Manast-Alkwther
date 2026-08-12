@@ -6285,12 +6285,15 @@ async function copySingleOrder(id) {
   // لو أول مرة تُنسخ، نسجّل وقت النسخ (يبدأ حساب تطور الحالة تلقائياً من هذا الوقت)
   // ولو انسخت من قبل، نسمح بإعادة النسخ العادية بدون ما نغيّر وقت النسخ الأصلي
   if (!o.processingAt) {
-    const update = { status:'processing', processingAt: Date.now() };
+    const update = { status:'processing', processingAt: Date.now(), seenByStaff: true };
     if (o.fulfillment !== 'teacher' && !o.deliveringThresholdAt) {
       update.deliveringThresholdAt = computeDeliveringThresholdAt(o.createdAt);
     }
     await db.collection('orders').doc(id).update(update);
+  } else if (o.seenByStaff !== true) {
+    await db.collection('orders').doc(id).update({ seenByStaff: true });
   }
+  refreshBellBadge();
   loadOrdersAdmin();
 }
 
@@ -6320,7 +6323,7 @@ async function computeTeacherPayoutsForOrder(order) {
   return teacherPayouts;
 }
 async function setOrderStatus(id, status) {
-  const update = { status };
+  const update = { status, seenByStaff: true };
   if (status === 'processing') update.processingAt = Date.now();
   if (status === 'delivering') update.deliveringAt = Date.now();
   if (status === 'cancelled') update.cancelledAt = Date.now();
@@ -6340,6 +6343,7 @@ async function setOrderStatus(id, status) {
     }
   }
   await db.collection('orders').doc(id).update(update);
+  refreshBellBadge();
   loadOrdersAdmin();
   loadTeacherEarningsAdmin();
 }
@@ -6444,7 +6448,8 @@ document.getElementById('copyAllOrdersBtn').onclick = async () => {
   await robustCopy(fullText);
   // تحديث وقت النسخ فقط — الحالة المعروضة للزبون تُحسب تلقائياً بمرور الوقت عبر computeEffectiveStatus
   const now = Date.now();
-  await Promise.all(notCopiedDocs.map(d => db.collection('orders').doc(d.id).update({ processingAt: now })));
+  await Promise.all(notCopiedDocs.map(d => db.collection('orders').doc(d.id).update({ processingAt: now, seenByStaff: true })));
+  refreshBellBadge();
   const btn = document.getElementById('copyAllOrdersBtn');
   const original = btn.textContent;
   btn.textContent = '✅ تم النسخ — الحالة تتحدّث تلقائياً للزبون';
@@ -7817,6 +7822,18 @@ async function openStaffMessagesInbox() {
     });
     const rows = Object.values(byPhone).sort((a,b) => b.lastAt - a.lastAt);
     if (rows.length === 0) { list.innerHTML = '<div class="card"><p>ما فيه محادثات بعد.</p></div>'; return; }
+
+    // لأي رقم ما عنده اسم (لأنه ما راسل بنفسه، بس استلم رسالة جماعية مثلاً) — نجيب اسمه من طلباته السابقة لو موجودة
+    const unresolvedPhones = rows.filter(r => r.customerName === r.phone).map(r => r.phone);
+    if (unresolvedPhones.length > 0) {
+      await Promise.all(unresolvedPhones.map(async phone => {
+        try {
+          const orderSnap = await db.collection('orders').where('phone','==', phone).limit(1).get();
+          if (!orderSnap.empty) byPhone[phone].customerName = orderSnap.docs[0].data().studentName;
+        } catch(e) { console.error(e); }
+      }));
+    }
+
     list.innerHTML = rows.map(r => `
       <div class="card" style="cursor:pointer;" onclick="openChat('libcustomer_${r.phone}','💬 مراسلة ${(r.customerName||r.phone).replace(/'/g,"")}')">
         <div style="display:flex;justify-content:space-between;align-items:center;">
