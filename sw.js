@@ -1,5 +1,40 @@
-const CACHE_NAME = 'kawthar-platform-v111';
+const CACHE_NAME = 'kawthar-platform-v112';
 const APP_SHELL = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+
+// ==== إشعارات حقيقية (Firebase Cloud Messaging) — تستلم وتعرض إشعار حتى لو التطبيق مقفول تماماً ====
+try {
+  importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
+  firebase.initializeApp({
+    apiKey: "AIzaSyBJ-YT2-WmgvHm8MQ-tUgFoUFkhTyY9Ur8",
+    authDomain: "mnsat-alkwther.firebaseapp.com",
+    projectId: "mnsat-alkwther",
+    storageBucket: "mnsat-alkwther.firebasestorage.app",
+    messagingSenderId: "276288995799",
+    appId: "1:276288995799:web:262f8a466f6c6409814b92"
+  });
+  const messaging = firebase.messaging();
+  messaging.onBackgroundMessage((payload) => {
+    const title = (payload.notification && payload.notification.title) || 'مكتبة الكوثر';
+    const body = (payload.notification && payload.notification.body) || '';
+    self.registration.showNotification(title, {
+      body, icon: 'icon-192.png', badge: 'icon-192.png',
+      data: { url: (payload.data && payload.data.url) || './index.html' }
+    });
+  });
+} catch(e) { console.log('FCM setup in service worker failed', e); }
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || './index.html';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then((clientsArr) => {
+      const existing = clientsArr.find((c) => c.url.includes(self.location.origin));
+      if (existing) return existing.focus();
+      return self.clients.openWindow(targetUrl);
+    })
+  );
+});
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

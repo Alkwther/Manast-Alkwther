@@ -1397,6 +1397,28 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       </div>
       <div class="badge">فتح</div>
     </div>
+
+    <div class="subject-tile" onclick="openWorkbookFoldersScreen()">
+      <div class="tile-row">
+        <div class="tile-icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg></div>
+        <div class="tile-text"><b>الكراسات التعليمية</b><span>كراسات مصنّفة حسب المادة</span></div>
+      </div>
+      <div class="badge">فتح</div>
+    </div>
+  </div>
+
+  <!-- فولدرات الكراسات التعليمية -->
+  <div class="screen hidden" id="screen-workbook-folders">
+    <button class="btn secondary" onclick="show('screen-library')">← رجوع للمكتبة</button>
+    <h2 style="margin:14px 0;color:#10203f;">📔 الكراسات التعليمية</h2>
+    <div id="workbookFoldersList"><p>جاري التحميل...</p></div>
+  </div>
+
+  <!-- كراسات فولدر معيّن -->
+  <div class="screen hidden" id="screen-workbook-items">
+    <button class="btn secondary" onclick="show('screen-workbook-folders')">← رجوع للفولدرات</button>
+    <h2 id="workbookItemsTitle" style="margin:14px 0;color:#10203f;">📔</h2>
+    <div id="workbookItemsList"><p>جاري التحميل...</p></div>
   </div>
 
   <!-- الملازم -->
@@ -1802,6 +1824,11 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <div class="admin-menu-text"><b>الدفاتر</b><span>إضافة وتعديل الدفاتر وأسعارها</span></div>
           <div class="admin-menu-arrow">‹</div>
         </div>
+        <div class="admin-menu-item" data-section="library-workbooks">
+          <div class="admin-menu-icon">📔</div>
+          <div class="admin-menu-text"><b>الكراسات التعليمية</b><span>فولدرات باسم، وارفع كراسات بسعر وصورة بداخل كل فولدر</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
         <div class="admin-menu-item" data-section="library-orders">
           <div class="admin-menu-icon">🧾</div>
           <div class="admin-menu-text"><b>طلبات المكتبة <span id="ordersUnreadBadge2" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></b><span>كل طلبات الملازم والكتب والدفاتر</span></div>
@@ -2165,6 +2192,38 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <h3>📓 الدفاتر الحالية</h3>
           <div id="notebooksAdminList"></div>
         </div>
+      </div>
+
+      <div class="admin-section hidden" data-section="library-workbooks">
+        <button class="btn secondary admin-back-btn" data-back-to="library-hub">← رجوع للمكتبة</button>
+
+        <div class="card">
+          <h3>📔 إضافة فولدر جديد</h3>
+          <p>مثال: كراسات الرياضيات، كراسات اللغة العربية...</p>
+          <input id="wbFolderName" placeholder="اسم الفولدر">
+          <button class="btn" id="addWorkbookFolderBtn">➕ إضافة الفولدر</button>
+        </div>
+
+        <h3 style="margin:16px 0 10px;color:#10203f;">📂 الفولدرات الحالية</h3>
+        <div id="workbookFoldersAdminList"><p>جاري التحميل...</p></div>
+      </div>
+
+      <!-- إدارة كراسات فولدر معيّن -->
+      <div class="admin-section hidden" data-section="library-workbook-folder-detail">
+        <button class="btn secondary admin-back-btn" data-back-to="library-workbooks">← رجوع للفولدرات</button>
+        <div class="card">
+          <h3 id="wbFolderDetailTitle">📔 فولدر</h3>
+          <label>اسم الكراسة</label>
+          <input id="wbItemTitle" placeholder="اسم الكراسة">
+          <label>السعر (دينار)</label>
+          <input id="wbItemPrice" type="number" placeholder="السعر">
+          <label>صورة الكراسة (اختياري)</label>
+          <input id="wbItemImage" type="file" accept="image/*">
+          <div id="wbItemImagePreview" style="margin-bottom:10px;"></div>
+          <button class="btn" id="addWorkbookItemBtn">➕ إضافة الكراسة</button>
+        </div>
+        <h3 style="margin:16px 0 10px;color:#10203f;">📔 كراسات هذا الفولدر</h3>
+        <div id="workbookItemsAdminList"><p>جاري التحميل...</p></div>
       </div>
 
       <div class="admin-section hidden" data-section="subscriptions">
@@ -2695,6 +2754,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
 <script>
 /* ============================================================
    إعدادات Firebase — لازم تستبدلها بإعدادات مشروعك الخاص
@@ -2726,6 +2786,29 @@ function getSecondaryAuth() {
 }
 const WHATSAPP_NUMBER = "9647809677257"; // رقم واتساب مكتبة الكوثر (بالصيغة الدولية بدون + أو صفر بالبداية)
 const DELIVERY_FEE = 5000; // أجور التوصيل الثابتة بالدينار العراقي، تُضاف تلقائياً لكل طلب مكتبة
+
+// ==== إشعارات حقيقية (Push Notifications) — تشتغل حتى لو التطبيق مقفول تماماً ====
+// المفتاح تحصل عليه من: Firebase Console → ⚙️ Project settings → تبويب Cloud Messaging →
+// انزل لتحت لـ "Web configuration" → اضغط "Generate key pair" → انسخ القيمة والصقها هنا بدل النص
+const FCM_VAPID_KEY = "BDeaiJPwxbIprqLIyxBQ-PNGwXwwL5ShKJAxrEBHmCf25or6a63EaKdDpCohww_xlTzS31b-S9KBvUoV2fK2qoc";
+let messaging = null;
+async function registerFcmToken(identityType, identityId) {
+  // identityType: 'staff' | 'teacher' | 'customer' | 'promoter'
+  if (!identityId) return;
+  if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
+  if (FCM_VAPID_KEY === 'PASTE_YOUR_VAPID_KEY_HERE') return; // ما ضاف المفتاح بعد، نتجاهل بصمت
+  try {
+    if (Notification.permission === 'default') await Notification.requestPermission();
+    if (Notification.permission !== 'granted') return;
+    if (!messaging) messaging = firebase.messaging();
+    const registration = await navigator.serviceWorker.ready;
+    const token = await messaging.getToken({ vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: registration });
+    if (!token) return;
+    await db.collection('fcmTokens').doc(token).set({
+      token, identityType, identityId, updatedAt: Date.now(), userAgent: navigator.userAgent.slice(0,200)
+    });
+  } catch(e) { console.error('registerFcmToken failed', e); }
+}
 
 let db, auth, currentStudent = null;
 const GRADES = ["الأول ابتدائي","الثاني ابتدائي","الثالث ابتدائي","الرابع ابتدائي","الخامس ابتدائي","السادس ابتدائي","الأول متوسط","الثاني متوسط","الثالث متوسط","الرابع علمي","الرابع أدبي","الخامس علمي","الخامس أدبي","السادس علمي","السادس أدبي","الرابع الصناعي","الخامس الصناعي","السادس الصناعي","الرابع التجاري","الخامس التجاري","السادس التجاري","الرابع الزراعي","الخامس الزراعي","السادس الزراعي"];
@@ -3898,6 +3981,7 @@ function enterAdminPanel() {
   setupAdminNotifications();
   setupNewOrdersBadgeWatcher();
   refreshBellBadge();
+  registerFcmToken('staff', currentStaffRole === 'admin' ? 'owner' : currentStaffName);
 
   if (currentStaffRole === 'admin') {
     document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
@@ -3929,6 +4013,7 @@ function enterAdminPanel() {
   loadAnnouncementsAdmin();
   loadTbGradesAdmin();
   loadNotebooksAdmin();
+  loadWorkbookFoldersAdmin();
   if (currentStaffRole === 'admin') loadSubscriberTotals();
   db.collection('settings').doc('library').get().then(doc => {
     if (doc.exists && doc.data().phone) document.getElementById('libraryPhoneInput').value = doc.data().phone;
@@ -4799,6 +4884,141 @@ async function deleteNotebook(id) {
   await db.collection('notebooks').doc(id).delete();
   loadNotebooksAdmin();
 }
+
+// ---------- الكراسات التعليمية (فولدرات) ----------
+let currentWorkbookFolderId = null, currentWorkbookFolderName = '';
+
+document.getElementById('addWorkbookFolderBtn').onclick = async () => {
+  const name = document.getElementById('wbFolderName').value.trim();
+  if (!name) { alert('اكتب اسم الفولدر'); return; }
+  await db.collection('workbookFolders').add({ name, addedBy: currentStaffName, createdAt: Date.now() });
+  document.getElementById('wbFolderName').value = '';
+  loadWorkbookFoldersAdmin();
+};
+
+async function loadWorkbookFoldersAdmin() {
+  const list = document.getElementById('workbookFoldersAdminList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('workbookFolders').orderBy('createdAt','desc').get();
+    if (snap.empty) { list.innerHTML = '<p>ما فيه فولدرات مضافة بعد.</p>'; return; }
+    list.innerHTML = snap.docs.map(d => {
+      const f = d.data();
+      return `<div class="admin-list-item">
+        <div>📂 ${f.name}</div>
+        <div style="display:flex;gap:6px;">
+          <button class="small-btn" onclick="openWorkbookFolderDetailAdmin('${d.id}','${f.name.replace(/'/g,"")}')">📔 إدارة الكراسات</button>
+          <button class="small-btn" onclick="deleteWorkbookFolder('${d.id}')">🗑️ حذف</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+}
+async function deleteWorkbookFolder(id) {
+  if (!confirm('حذف هذا الفولدر وكل الكراسات اللي بداخله؟')) return;
+  const itemsSnap = await db.collection('workbooks').where('folderId','==',id).get();
+  await Promise.all(itemsSnap.docs.map(d => d.ref.delete()));
+  await db.collection('workbookFolders').doc(id).delete();
+  loadWorkbookFoldersAdmin();
+}
+function openWorkbookFolderDetailAdmin(folderId, folderName) {
+  currentWorkbookFolderId = folderId;
+  currentWorkbookFolderName = folderName;
+  document.getElementById('wbFolderDetailTitle').textContent = `📔 ${folderName}`;
+  document.getElementById('wbItemTitle').value = '';
+  document.getElementById('wbItemPrice').value = '';
+  document.getElementById('wbItemImage').value = '';
+  document.getElementById('wbItemImagePreview').innerHTML = '';
+  delete document.getElementById('wbItemImagePreview').dataset.image;
+  openAdminSection('library-workbook-folder-detail');
+  loadWorkbookItemsAdmin();
+}
+document.getElementById('wbItemImage').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  const preview = document.getElementById('wbItemImagePreview');
+  if (!file) { preview.innerHTML = ''; return; }
+  const dataUrl = await resizeImageToBase64(file, 900, 0.82);
+  preview.innerHTML = `<img src="${dataUrl}" style="width:100px;border-radius:8px;">`;
+  preview.dataset.image = dataUrl;
+});
+document.getElementById('addWorkbookItemBtn').onclick = async () => {
+  const title = document.getElementById('wbItemTitle').value.trim();
+  const price = +document.getElementById('wbItemPrice').value;
+  const image = document.getElementById('wbItemImagePreview').dataset.image || null;
+  if (!title || !price) { alert('اكتب اسم الكراسة والسعر'); return; }
+  await db.collection('workbooks').add({
+    folderId: currentWorkbookFolderId, folderName: currentWorkbookFolderName,
+    title, price, image, addedBy: currentStaffName, createdAt: Date.now()
+  });
+  alert('تمت إضافة الكراسة ✅');
+  document.getElementById('wbItemTitle').value = '';
+  document.getElementById('wbItemPrice').value = '';
+  document.getElementById('wbItemImage').value = '';
+  document.getElementById('wbItemImagePreview').innerHTML = '';
+  delete document.getElementById('wbItemImagePreview').dataset.image;
+  loadWorkbookItemsAdmin();
+};
+async function loadWorkbookItemsAdmin() {
+  const list = document.getElementById('workbookItemsAdminList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('workbooks').where('folderId','==', currentWorkbookFolderId).orderBy('createdAt','desc').get();
+    if (snap.empty) { list.innerHTML = '<p>ما فيه كراسات مضافة بهذا الفولدر بعد.</p>'; return; }
+    list.innerHTML = snap.docs.map(d => {
+      const w = d.data();
+      const thumb = w.image ? `<img src="${w.image}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;margin-inline-end:10px;">` : '';
+      return `<div class="admin-list-item">
+        <div style="display:flex;align-items:center;">${thumb}<div>${w.title} — <span style="color:#b8903c;">${w.price} د.ع</span></div></div>
+        <button class="small-btn" onclick="deleteWorkbookItem('${d.id}')">🗑️ حذف</button>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+}
+async function deleteWorkbookItem(id) {
+  if (!confirm('حذف هذي الكراسة؟')) return;
+  await db.collection('workbooks').doc(id).delete();
+  loadWorkbookItemsAdmin();
+}
+
+// عرض للزبون
+async function openWorkbookFoldersScreen() {
+  show('screen-workbook-folders');
+  const list = document.getElementById('workbookFoldersList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('workbookFolders').orderBy('createdAt','desc').get();
+    if (snap.empty) { list.innerHTML = '<div class="card" style="text-align:center;"><p style="font-size:15px;font-weight:bold;color:#10203f;">📔 سوف تتوفر الكراسات قريباً</p></div>'; return; }
+    list.innerHTML = snap.docs.map(d => {
+      const f = d.data();
+      return `<div class="lesson-row" style="cursor:pointer;" onclick="openWorkbookItemsScreen('${d.id}','${f.name.replace(/'/g,"")}')">
+        <div class="title">📂 ${f.name}</div>
+        <div class="badge">فتح</div>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<div class="card"><p>تعذّر تحميل الفولدرات.</p></div>'; }
+}
+async function openWorkbookItemsScreen(folderId, folderName) {
+  show('screen-workbook-items');
+  document.getElementById('workbookItemsTitle').textContent = `📔 ${folderName}`;
+  const list = document.getElementById('workbookItemsList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('workbooks').where('folderId','==', folderId).orderBy('createdAt','desc').get();
+    if (snap.empty) { list.innerHTML = '<div class="card" style="text-align:center;"><p>ما فيه كراسات بهذا الفولدر بعد.</p></div>'; return; }
+    list.innerHTML = snap.docs.map(d => {
+      const w = d.data();
+      const thumb = w.image
+        ? `<img src="${w.image}" style="width:52px;height:52px;object-fit:cover;border-radius:9px;margin-inline-end:12px;flex-shrink:0;">`
+        : `<div style="width:52px;height:52px;border-radius:9px;background:#eef1f8;display:flex;align-items:center;justify-content:center;font-size:22px;margin-inline-end:12px;flex-shrink:0;">📔</div>`;
+      return `<div class="lesson-row">
+        <div style="display:flex;align-items:center;">${thumb}<div class="title">${w.title}<br><span style="color:#b8903c;font-weight:bold;">${w.price} د.ع</span></div></div>
+        <button class="play" onclick="addToCart('wb_${d.id}','📔 ${w.title.replace(/'/g,"\\'")}',${w.price})">أضف للسلة</button>
+      </div>`;
+    }).join('');
+    renderCartBar();
+  } catch(e) { console.error(e); list.innerHTML = '<div class="card"><p>تعذّر تحميل الكراسات.</p></div>'; }
+}
+
 async function openNotebooksScreen() {
   show('screen-notebooks');
   const list = document.getElementById('notebooksList');
@@ -5766,6 +5986,7 @@ async function openPromoterView(promoterId) {
   try {
     await ensureAuthed();
     requestNotificationPermissionQuietly();
+    registerFcmToken('promoter', promoterId);
     let firstSnap = true;
     const knownStatus = {};
     promoterViewUnsubscribe = db.collection('orders').where('promoterId','==', promoterId).onSnapshot(snap => {
@@ -6717,6 +6938,7 @@ document.getElementById('teacherLoginBtn').onclick = async () => {
     applyTeacherModeUI();
     setupTeacherOrderMessageNotifications();
     refreshTeacherBellBadge();
+    registerFcmToken('teacher', t.phone);
     show('screen-teacher-dashboard'); // نعرض اللوحة فوراً، والبيانات تكمل تحميلها بالخلفية بدون ما تعطّل الدخول
     (async () => {
       const activeList = await getActiveGradesList();
@@ -8792,6 +9014,7 @@ async function autoEscalateOrderStatuses() {
           applyTeacherModeUI();
           setupTeacherOrderMessageNotifications();
           refreshTeacherBellBadge();
+          registerFcmToken('teacher', t.phone);
           show('screen-teacher-dashboard');
           (async () => {
             const activeList = await getActiveGradesList();
@@ -9281,6 +9504,7 @@ function setupCustomerNotifications(phone) {
   if (!phone) return;
   setupLibraryCustomerChatBadge(phone);
   selfEscalateMyOrders(phone);
+  registerFcmToken('customer', phone);
   if (customerOrdersListenerStarted) return;
   setInterval(() => selfEscalateMyOrders(phone), 180000); // كل 3 دقائق، بس لطلبات هذا الزبون نفسه
   customerOrdersListenerStarted = true;
