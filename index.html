@@ -3021,6 +3021,9 @@ function daysRemaining(expiryMs) {
 
 function afterLogin() {
   document.getElementById('bottomNav').classList.remove('hidden');
+  // إذا فتح الزبون رابط مشاركة (فولدر/كراسة/صف/ملزمة/طلب...)، نوديه له مباشرة
+  // حتى لو كانت جلسته محفوظة أصلاً — قبل أي تحويل تلقائي للصفحة الرئيسية أو صفحة التفعيل
+  if (typeof routeFromHash === 'function' && routeFromHash()) return;
   if (!isActivationValid()) {
     show('screen-activate');
   } else {
