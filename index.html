@@ -3325,7 +3325,20 @@ document.getElementById('showFreeLessonsBtn').onclick = async () => {
   show('screen-free-lessons');
 };
 
-document.getElementById('settingsBtn').onclick = () => show('screen-admin');
+document.getElementById('settingsBtn').onclick = async () => {
+  show('screen-admin'); // نفتح الشاشة فوراً حتى ما يحس المستخدم بأي تأخير
+  if (!initialAuthCheckDone) {
+    document.getElementById('adminLoginCard').classList.add('hidden');
+    document.getElementById('adminPanel').classList.add('hidden');
+    await initialAuthCheckPromise; // ننتظر بصمت لين يخلص فحص الجلسة المحفوظة (يأخذ أجزاء من الثانية عادةً)
+  }
+  if (currentStaffRole) {
+    enterAdminPanel(); // مسجّل دخول أصلاً — يدخل مباشرة بدون طلب اسم مستخدم/كلمة سر من جديد
+  } else {
+    document.getElementById('adminPanel').classList.add('hidden');
+    document.getElementById('adminLoginCard').classList.remove('hidden');
+  }
+};
 
 
 // ---------- الاختبار ----------
@@ -9041,6 +9054,17 @@ async function autoEscalateOrderStatuses() {
   } catch(e) { console.error('autoEscalateOrderStatuses failed', e); }
 }
 
+// مؤشر جاهزية فحص الجلسة المحفوظة عند فتح التطبيق — يخلي زر "دخول المشرف/الموظف" ينتظر
+// نتيجة استرجاع الجلسة المحفوظة (لو موجودة) قبل ما يقرر يوريك نموذج الدخول أو يوديك للوحة مباشرة
+let initialAuthCheckDone = false;
+let resolveInitialAuthCheck;
+const initialAuthCheckPromise = new Promise(res => { resolveInitialAuthCheck = res; });
+function markInitialAuthCheckDone() {
+  if (initialAuthCheckDone) return;
+  initialAuthCheckDone = true;
+  resolveInitialAuthCheck();
+}
+
 (async function init() {
   loadFreeModeStatus(); // بالخلفية بدون انتظار — ما توقف فتح البرنامج
   loadLibraryStructure(); // نفس الشي: القيم الافتراضية جاهزة أصلاً، وتتحدث بالخلفية لو تغيّرت
@@ -9057,8 +9081,11 @@ async function autoEscalateOrderStatuses() {
       // زائر يتصفح المكتبة أو الدروس المجانية بدون تسجيل: نسجّله دخول مجهول
       // حتى تشتغل معه قواعد الأمان (تتطلب مصادقة لأي كتابة)
       auth.signInAnonymously().catch(e => console.error('anon auth failed', e));
+      markInitialAuthCheckDone();
       return;
+
     }
+    try {
     if (!user.email) return; // مستخدم مجهول (Anonymous)، ما فيه شي نسترجعه له
 
     // استرجاع جلسة الطالب
@@ -9131,6 +9158,9 @@ async function autoEscalateOrderStatuses() {
           return;
         }
       } catch(e) { console.error(e); }
+    }
+    } finally {
+      markInitialAuthCheckDone(); // يخلي زر "دخول المشرف/الموظف" يعرف متى تنتهي محاولة استرجاع الجلسة المحفوظة
     }
   });
   loadAnnouncements();
