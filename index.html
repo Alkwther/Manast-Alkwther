@@ -1837,6 +1837,11 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <div class="admin-menu-text"><b>الكراسات التعليمية</b><span>فولدرات باسم، وارفع كراسات بسعر وصورة بداخل كل فولدر</span></div>
           <div class="admin-menu-arrow">‹</div>
         </div>
+        <div class="admin-menu-item" data-section="library-delivery-fees">
+          <div class="admin-menu-icon">🚚</div>
+          <div class="admin-menu-text"><b>أجور التوصيل</b><span>تحكّم بأجرة التوصيل لكل قسم — الملازم، الكتب، الدفاتر، وكل فولدر كراسات على حدة</span></div>
+          <div class="admin-menu-arrow">‹</div>
+        </div>
         <div class="admin-menu-item" data-section="library-orders">
           <div class="admin-menu-icon">🧾</div>
           <div class="admin-menu-text"><b>طلبات المكتبة <span id="ordersUnreadBadge2" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></b><span>كل طلبات الملازم والكتب والدفاتر</span></div>
@@ -2209,11 +2214,35 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <h3>📔 إضافة فولدر جديد</h3>
           <p>مثال: كراسات الرياضيات، كراسات اللغة العربية...</p>
           <input id="wbFolderName" placeholder="اسم الفولدر">
+          <label>أجرة توصيل هذا الفولدر (اختياري)</label>
+          <input id="wbFolderDeliveryFee" type="number" placeholder="اتركه فارغاً لاستخدام الأجرة الافتراضية">
           <button class="btn" id="addWorkbookFolderBtn">➕ إضافة الفولدر</button>
         </div>
 
         <h3 style="margin:16px 0 10px;color:#10203f;">📂 الفولدرات الحالية</h3>
         <div id="workbookFoldersAdminList"><p>جاري التحميل...</p></div>
+      </div>
+
+      <!-- أجور التوصيل: تحكّم عام بكل قسم، وأجرة كل فولدر كراسات على حدة -->
+      <div class="admin-section hidden" data-section="library-delivery-fees">
+        <button class="btn secondary admin-back-btn" data-back-to="library-hub">← رجوع للمكتبة</button>
+        <div class="card">
+          <h3>🚚 أجور التوصيل العامة</h3>
+          <p>تُطبّق تلقائياً على كل الطلبات حسب نوعها. أجرة الفولدر (بشاشة الكراسات) تلغي هذي القيمة لو محدّدة.</p>
+          <label>الملازم (دينار)</label>
+          <input id="dfBooklets" type="number" placeholder="5000">
+          <label>الكتب المدرسية المفردة (دينار)</label>
+          <input id="dfBooks" type="number" placeholder="4000">
+          <label>الدفاتر (دينار)</label>
+          <input id="dfNotebooks" type="number" placeholder="4000">
+          <label>الكراسات التعليمية — الأجرة الافتراضية لأي فولدر بدون أجرة خاصة (دينار)</label>
+          <input id="dfWorkbooksDefault" type="number" placeholder="5000">
+          <button class="btn" id="saveDeliveryFeesBtn">💾 حفظ</button>
+        </div>
+        <div class="card">
+          <h3>🏪 متاجر الأساتذة</h3>
+          <p>أجرة توصيل كل متجر أستاذ تُضبط من داخل صفحة الأستاذ نفسه (كل أستاذ يحدد أجرته الخاصة من إعدادات متجره).</p>
+        </div>
       </div>
 
       <!-- إدارة كراسات فولدر معيّن -->
@@ -2793,7 +2822,15 @@ function getSecondaryAuth() {
   return secondaryApp.auth();
 }
 const WHATSAPP_NUMBER = "9647809677257"; // رقم واتساب مكتبة الكوثر (بالصيغة الدولية بدون + أو صفر بالبداية)
-const DELIVERY_FEE = 5000; // أجور التوصيل الثابتة بالدينار العراقي، تُضاف تلقائياً لكل طلب مكتبة
+const DELIVERY_FEE = 5000; // قيمة احتياطية قديمة (fallback) — الأجور الفعلية الحين تُدار من DELIVERY_FEES
+// أجور التوصيل القابلة للتعديل من لوحة الإدارة (🚚 أجور التوصيل) — القيم هذي افتراضية لحد ما تنحمّل الإعدادات الحقيقية من السيرفر
+let DELIVERY_FEES = { booklets: 5000, books: 4000, notebooks: 4000, workbooksDefault: 5000 };
+async function loadDeliveryFeesSettings() {
+  try {
+    const doc = await db.collection('settings').doc('deliveryFees').get();
+    if (doc.exists) Object.assign(DELIVERY_FEES, doc.data());
+  } catch(e) { console.error('loadDeliveryFeesSettings failed', e); }
+}
 
 // ==== إشعارات حقيقية (Push Notifications) — تشتغل حتى لو التطبيق مقفول تماماً ====
 // المفتاح تحصل عليه من: Firebase Console → ⚙️ Project settings → تبويب Cloud Messaging →
@@ -3487,7 +3524,7 @@ function addToCart(id, title, price, qty, meta) {
       return;
     }
   }
-  if (!cart[id]) cart[id] = { title, price, qty: 0, teacherName: meta.teacherName || null, deliveryMode: meta.deliveryMode || null, teacherDeliveryFee: meta.teacherDeliveryFee || 0, stage: meta.stage || null, grade: meta.grade || null };
+  if (!cart[id]) cart[id] = { title, price, qty: 0, teacherName: meta.teacherName || null, deliveryMode: meta.deliveryMode || null, teacherDeliveryFee: meta.teacherDeliveryFee || 0, stage: meta.stage || null, grade: meta.grade || null, folderDeliveryFee: (meta.folderDeliveryFee != null ? meta.folderDeliveryFee : null) };
   cart[id].qty += qty;
   saveCartToStorage();
   renderCartBar();
@@ -3541,9 +3578,17 @@ function calcCartDeliveryFee() {
   if (firstItem.teacherName && firstItem.deliveryMode === 'teacher') return firstItem.teacherDeliveryFee || 0;
   const hasPkg = ids.some(id => id.startsWith('pkg_'));
   if (hasPkg) return 0; // أي بكج كامل بالسلة = توصيل مجاني للطلب كامل
+  const wbIds = ids.filter(id => id.startsWith('wb_'));
+  const hasWorkbook = wbIds.length > 0;
   const hasIndividualOrNotebook = ids.some(id => id.startsWith('subj_') || id.startsWith('nb_'));
-  if (hasIndividualOrNotebook) return 4000; // كتب مفردة أو دفاتر (بدون بكج) = 4000
-  return DELIVERY_FEE; // ملازم فقط بدون أي شي ثاني = السعر القديم (5000)
+  const hasBooklet = ids.some(id => !id.startsWith('subj_') && !id.startsWith('nb_') && !id.startsWith('wb_') && !id.startsWith('pkg_'));
+  if (hasWorkbook && !hasIndividualOrNotebook && !hasBooklet) {
+    // بس كراسات بالسلة: نأخذ أعلى أجرة بين الفولدرات المختارة (تضمن تغطية توصيل الجميع بطلب وحد)
+    const fees = wbIds.map(id => (cart[id].folderDeliveryFee != null ? cart[id].folderDeliveryFee : DELIVERY_FEES.workbooksDefault));
+    return Math.max(...fees);
+  }
+  if (hasIndividualOrNotebook || hasWorkbook) return DELIVERY_FEES.books; // كتب مفردة أو دفاتر أو مزيج معهم = سعر الكتب المفردة
+  return DELIVERY_FEES.booklets; // ملازم فقط بدون أي شي ثاني
 }
 function renderCartItems() {
   const ids = Object.keys(cart);
@@ -4915,10 +4960,43 @@ let currentWorkbookFolderId = null, currentWorkbookFolderName = '';
 document.getElementById('addWorkbookFolderBtn').onclick = async () => {
   const name = document.getElementById('wbFolderName').value.trim();
   if (!name) { alert('اكتب اسم الفولدر'); return; }
-  await db.collection('workbookFolders').add({ name, addedBy: currentStaffName, createdAt: Date.now() });
+  const feeInput = document.getElementById('wbFolderDeliveryFee').value.trim();
+  const folderData = { name, addedBy: currentStaffName, createdAt: Date.now() };
+  if (feeInput !== '') folderData.deliveryFee = +feeInput;
+  await db.collection('workbookFolders').add(folderData);
   document.getElementById('wbFolderName').value = '';
+  document.getElementById('wbFolderDeliveryFee').value = '';
   loadWorkbookFoldersAdmin();
 };
+
+function loadDeliveryFeesAdmin() {
+  document.getElementById('dfBooklets').value = DELIVERY_FEES.booklets;
+  document.getElementById('dfBooks').value = DELIVERY_FEES.books;
+  document.getElementById('dfNotebooks').value = DELIVERY_FEES.notebooks;
+  document.getElementById('dfWorkbooksDefault').value = DELIVERY_FEES.workbooksDefault;
+}
+document.querySelector('.admin-menu-item[data-section="library-delivery-fees"]').addEventListener('click', () => loadDeliveryFeesAdmin());
+document.getElementById('saveDeliveryFeesBtn').onclick = async () => {
+  const updated = {
+    booklets: +document.getElementById('dfBooklets').value || 0,
+    books: +document.getElementById('dfBooks').value || 0,
+    notebooks: +document.getElementById('dfNotebooks').value || 0,
+    workbooksDefault: +document.getElementById('dfWorkbooksDefault').value || 0
+  };
+  try {
+    await db.collection('settings').doc('deliveryFees').set(updated, { merge: true });
+    Object.assign(DELIVERY_FEES, updated);
+    alert('تم حفظ أجور التوصيل ✅');
+  } catch(e) { console.error(e); alert('تعذّر الحفظ، تأكد من اتصالك بالنت'); }
+};
+
+async function editWorkbookFolderDeliveryFee(id, currentFee) {
+  const val = prompt('أجرة توصيل هذا الفولدر (دينار) — اتركه فارغاً للرجوع للأجرة الافتراضية:', currentFee != null ? currentFee : '');
+  if (val === null) return; // ألغى
+  const update = val.trim() === '' ? { deliveryFee: firebase.firestore.FieldValue.delete() } : { deliveryFee: +val.trim() };
+  await db.collection('workbookFolders').doc(id).update(update);
+  loadWorkbookFoldersAdmin();
+}
 
 async function loadWorkbookFoldersAdmin() {
   const list = document.getElementById('workbookFoldersAdminList');
@@ -4928,9 +5006,11 @@ async function loadWorkbookFoldersAdmin() {
     if (snap.empty) { list.innerHTML = '<p>ما فيه فولدرات مضافة بعد.</p>'; return; }
     list.innerHTML = snap.docs.map(d => {
       const f = d.data();
+      const feeLabel = f.deliveryFee != null ? `${f.deliveryFee} د.ع` : 'افتراضية';
       return `<div class="admin-list-item">
-        <div>📂 ${f.name}</div>
-        <div style="display:flex;gap:6px;">
+        <div>📂 ${f.name}<br><span style="color:#8a90a3;font-size:12px;">🚚 أجرة التوصيل: ${feeLabel}</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="small-btn" onclick="editWorkbookFolderDeliveryFee('${d.id}',${f.deliveryFee != null ? f.deliveryFee : 'null'})">🚚 تعديل الأجرة</button>
           <button class="small-btn" onclick="openWorkbookFolderDetailAdmin('${d.id}','${f.name.replace(/'/g,"")}')">📔 إدارة الكراسات</button>
           <button class="small-btn" onclick="deleteWorkbookFolder('${d.id}')">🗑️ حذف</button>
         </div>
@@ -5041,8 +5121,9 @@ async function openWorkbookFoldersScreen() {
   }
 }
 let currentCustomerWbFolderId = null, currentCustomerWbFolderName = '';
-function renderWorkbookItemsList(list, docs) {
+function renderWorkbookItemsList(list, docs, folderDeliveryFee) {
   if (!docs.length) { list.innerHTML = '<div class="card" style="text-align:center;"><p>ما فيه كراسات بهذا الفولدر بعد.</p></div>'; return; }
+  const feeArg = (folderDeliveryFee != null ? folderDeliveryFee : 'null');
   list.innerHTML = docs.map(w => {
     const images = (w.images && w.images.length) ? w.images : (w.image ? [w.image] : []);
     const thumb = images[0]
@@ -5052,7 +5133,7 @@ function renderWorkbookItemsList(list, docs) {
     const shareBtn = `<button class="small-btn" onclick="shareWorkbookItemLink('${w.id}','${w.title.replace(/'/g,"")}')">🔗 مشاركة</button>`;
     return `<div class="lesson-row">
         <div style="display:flex;align-items:center;">${thumb}<div class="title">${w.title}<br><span style="color:#b8903c;font-weight:bold;">${w.price} د.ع</span>${galleryBtn ? `<br>${galleryBtn}` : ''} ${shareBtn}</div></div>
-        <button class="play" onclick="addToCart('wb_${w.id}','📔 ${w.title.replace(/'/g,"\\'")}',${w.price})">أضف للسلة</button>
+        <button class="play" onclick="addToCart('wb_${w.id}','📔 ${w.title.replace(/'/g,"\\'")}',${w.price},1,{folderDeliveryFee:${feeArg}})">أضف للسلة</button>
       </div>`;
   }).join('');
   renderCartBar();
@@ -5064,14 +5145,23 @@ async function openWorkbookItemsScreen(folderId, folderName) {
   document.getElementById('workbookItemsTitle').textContent = `📔 ${folderName}`;
   const list = document.getElementById('workbookItemsList');
   const cacheKey = 'items_' + folderId;
+  // أجرة توصيل هذا الفولدر: من النسخة المحفوظة لقائمة الفولدرات إن وجدت، وإلا نجيبها من السيرفر
+  let folderDeliveryFee = null;
+  const cachedFolders = wbCacheGet('folders');
+  const cachedFolder = cachedFolders && cachedFolders.find(f => f.id === folderId);
+  if (cachedFolder && cachedFolder.deliveryFee != null) folderDeliveryFee = cachedFolder.deliveryFee;
   const cached = wbCacheGet(cacheKey);
-  if (cached) renderWorkbookItemsList(list, cached); // يظهر فوراً من النسخة المحفوظة
+  if (cached) renderWorkbookItemsList(list, cached, folderDeliveryFee); // يظهر فوراً من النسخة المحفوظة
   else list.innerHTML = '<p>جاري التحميل...</p>';
   try {
+    if (folderDeliveryFee == null) {
+      const folderDoc = await db.collection('workbookFolders').doc(folderId).get();
+      if (folderDoc.exists && folderDoc.data().deliveryFee != null) folderDeliveryFee = folderDoc.data().deliveryFee;
+    }
     const snap = await db.collection('workbooks').where('folderId','==', folderId).orderBy('createdAt','desc').get();
     const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     wbCacheSet(cacheKey, docs);
-    renderWorkbookItemsList(list, docs);
+    renderWorkbookItemsList(list, docs, folderDeliveryFee);
   } catch(e) {
     console.error(e);
     if (!cached) list.innerHTML = '<div class="card"><p>تعذّر تحميل الكراسات.</p></div>';
@@ -9067,6 +9157,7 @@ function markInitialAuthCheckDone() {
 
 (async function init() {
   loadFreeModeStatus(); // بالخلفية بدون انتظار — ما توقف فتح البرنامج
+  loadDeliveryFeesSettings(); // نفس الشي: القيم الافتراضية جاهزة أصلاً، وتتحدث بالخلفية لو تغيّرت
   loadLibraryStructure(); // نفس الشي: القيم الافتراضية جاهزة أصلاً، وتتحدث بالخلفية لو تغيّرت
   // تحميل فولدرات الكراسات التعليمية بالخلفية بمجرد فتح البرنامج، حتى تكون النسخة المحفوظة جاهزة
   // قبل ما يضغط الزبون عليها أصلاً (يفيد بالذات لما يفتح رابط مشاركة لفولدر معيّن)
