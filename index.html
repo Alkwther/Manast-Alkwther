@@ -1688,6 +1688,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
   <div class="screen hidden" id="screen-my-orders">
     <button class="btn secondary" id="backToLibrary2">← رجوع للمكتبة</button>
     <div id="myOrdersList"></div>
+    <button class="btn secondary" style="margin-top:14px;font-size:.78rem;" onclick="switchMyOrdersPhone()">🔄 هذا مو رقمي — تسجيل برقم هاتف آخر</button>
   </div>
 
   <!-- لوحة تحكم المشرف -->
@@ -1900,6 +1901,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <input id="extOrderName" placeholder="الاسم الكامل">
           <label>رقم الهاتف</label>
           <input id="extOrderPhone" placeholder="07xxxxxxxxx" inputmode="tel">
+          <div id="extOrderPrevOrders"></div>
           <label>المحافظة</label>
           <select id="extOrderProvince">
             <option value="">اختر المحافظة</option>
@@ -3821,6 +3823,15 @@ async function ensureAuthed() {
 
 let editingOrderId = null; // يبقى null دائماً الآن (التعديل الذاتي أُلغي بناءً على طلب المستخدم، التعديل يصير عبر مراسلة المكتبة فقط)
 
+function switchMyOrdersPhone() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null') || {};
+    delete saved.phone;
+    localStorage.setItem('kawthar_delivery_info', JSON.stringify(saved));
+  } catch(e) { console.error(e); }
+  const newPhone = prompt('أدخل رقم الهاتف الجديد:');
+  if (newPhone && newPhone.trim()) showMyOrders(newPhone.trim());
+}
 async function showMyOrders(phoneOverride) {
   let phone = phoneOverride || (currentStudent ? currentStudent.phone : null);
   if (!phone) {
@@ -3833,6 +3844,14 @@ async function showMyOrders(phoneOverride) {
     phone = prompt('أدخل رقم الهاتف اللي استخدمته بالطلب:');
     if (!phone) return;
     phone = phone.trim();
+  }
+  // نحفظ الرقم محلياً بشكل دائم — بالمرة الجاية اللي يفتح فيها التطبيق يدخل مباشرة لطلباته بدون ما يطلب الرقم أو الرابط من جديد
+  if (!currentStudent) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null') || {};
+      saved.phone = phone;
+      localStorage.setItem('kawthar_delivery_info', JSON.stringify(saved));
+    } catch(e) { console.error(e); }
   }
   show('screen-my-orders'); // نفتح الشاشة فوراً حتى لو صار تأخير أو خطأ بتحميل الطلبات
   const list = document.getElementById('myOrdersList');
@@ -5754,6 +5773,33 @@ document.querySelector('.admin-menu-item[data-section="library-external-orders"]
 document.querySelector('.admin-menu-item[data-section="library-promoter-orders"]').addEventListener('click', () => { loadPoOrdersList(); loadPromoterNamesDatalist(); });
 
 // ---------- طلبات خارجية (واتساب / فيسبوك / إنستغرام) ----------
+// إذا كتب الموظف رقم زبون سبق وطلب، نوريه طلباته القديمة فوراً قبل ما يكمل — يفيده يعرف الزبون ويتأكد من عنوانه
+let extOrderPhoneCheckTimer = null;
+document.getElementById('extOrderPhone').addEventListener('input', (e) => {
+  clearTimeout(extOrderPhoneCheckTimer);
+  const phone = toEnglishDigits(e.target.value.trim());
+  const box = document.getElementById('extOrderPrevOrders');
+  if (phone.length < 10) { box.innerHTML = ''; return; }
+  extOrderPhoneCheckTimer = setTimeout(async () => {
+    box.innerHTML = '<p style="font-size:12px;color:#8a90a3;">🔍 يفحص إذا هذا الزبون طلب من قبل...</p>';
+    try {
+      await ensureAuthed();
+      const snap = await db.collection('orders').where('studentPhone','==', phone).get();
+      if (snap.empty) { box.innerHTML = ''; return; }
+      const rows = snap.docs.map(d => d.data()).sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+      const itemsPreview = rows.slice(0,5).map(o => {
+        const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleDateString('ar-EG', { day:'numeric', month:'short' }) : '';
+        const firstItem = (o.items && o.items[0]) ? o.items[0].title : '';
+        return `<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:13px;">📦 ${firstItem} — ${o.totalPrice||0} د.ع <span style="color:#8a90a3;">(${dateStr})</span></div>`;
+      }).join('');
+      box.innerHTML = `<div class="card" style="background:#fff8e6;border:2px solid #cda44e;margin-top:8px;">
+        <p style="font-weight:bold;color:#8a6d1f;margin:0 0 6px;">⚠️ هذا الزبون طلب من قبل (${rows.length} طلب سابق):</p>
+        ${itemsPreview}
+      </div>`;
+    } catch(e) { console.error(e); box.innerHTML = ''; }
+  }, 600);
+});
+
 document.getElementById('createExtOrderBtn').onclick = async () => {
   const source = document.getElementById('extOrderSource').value;
   const name = document.getElementById('extOrderName').value.trim();
@@ -5786,7 +5832,7 @@ document.getElementById('createExtOrderBtn').onclick = async () => {
       deliveringThresholdAt: computeDeliveringThresholdAt(createdAt),
       addedBy: currentStaffName || 'موظف', status: 'pending', seenByStaff: true, createdAt
     });
-    const link = window.location.origin + window.location.pathname + '#o=' + orderRef.id;
+    const link = window.location.origin + window.location.pathname + '#myorders=' + encodeURIComponent(phone);
     const itemLine = details + ': ' + unitPrice + ' × ' + qty + ' = ' + subtotal + ' د.ع';
     const waText = encodeURIComponent(
       'مرحباً بك ' + name + ' 🌸\n' +
@@ -5794,18 +5840,19 @@ document.getElementById('createExtOrderBtn').onclick = async () => {
       itemLine + '\n' +
       'التوصيل: ' + deliveryFee + ' د.ع\n' +
       'الإجمالي: ' + totalPrice + ' د.ع\n\n' +
-      'ادخل على الرابط لمعرفة وقت وصول طلبك:\n' + link
+      'ادخل على الرابط لمتابعة كل طلباتك بأي وقت:\n' + link
     );
     document.getElementById('extOrderResult').innerHTML =
       '<div class="card" style="background:#ecfdf3;border:2px solid #16a34a;">' +
         '<p style="font-weight:bold;color:#15803d;margin:0 0 8px;">✅ تم إنشاء الطلب — رقم الزبون: ' + customerId + '</p>' +
         '<input readonly value="' + link + '" style="margin-bottom:8px;" onclick="this.select()">' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-          '<button class="small-btn" onclick="navigator.clipboard.writeText(\'' + link + '\').then(function(){alert(\'تم نسخ الرابط ✅\')})">📋 نسخ رابط الطلب</button>' +
+          '<button class="small-btn" onclick="navigator.clipboard.writeText(\'' + link + '\').then(function(){alert(\'تم نسخ الرابط ✅\')})">📋 نسخ رابط كل طلبات الزبون</button>' +
           '<button class="small-btn" style="background:#25d366;color:#fff;" onclick="window.open(\'https://wa.me/?text=' + waText + '\',\'_blank\')">💬 إرسال عبر واتساب</button>' +
         '</div>' +
       '</div>';
     ['extOrderName','extOrderPhone','extOrderDistrict','extOrderDetails','extOrderUnitPrice'].forEach(function(id){ document.getElementById(id).value = ''; });
+    document.getElementById('extOrderPrevOrders').innerHTML = '';
     document.getElementById('extOrderQty').value = '1';
     document.getElementById('extOrderSubtotalPreview').textContent = '';
     document.getElementById('extOrderProvince').value = '';
@@ -9014,6 +9061,7 @@ if (inAppBrowser && !localStorage.getItem('kawthar_inapp_dismissed')) {
 function routeFromHash() {
   const hash = (window.location.hash || '').replace('#','');
   if (hash.startsWith('o=')) { openOrderView(hash.slice(2)); return true; }
+  if (hash.startsWith('myorders=')) { showMyOrders(decodeURIComponent(hash.slice('myorders='.length))); return true; }
   if (hash.startsWith('promoter=')) { openPromoterView(decodeURIComponent(hash.slice('promoter='.length))); return true; }
   if (hash === 'quick-order') { openQuickOrderForm(); return true; }
   if (hash.startsWith('book=')) { openBookView(hash.slice('book='.length)); return true; }
@@ -9255,7 +9303,21 @@ function markInitialAuthCheckDone() {
     }
   });
   loadAnnouncements();
-  if (!routeFromHash()) show('screen-welcome');
+  if (!routeFromHash()) {
+    show('screen-welcome');
+    // إذا كان عندنا رقم هاتف زبون محفوظ محلياً (سبق فتح "طلباتي" من رابط أو بالكتابة اليدوية)،
+    // نوديه مباشرة لطلباته بدل الصفحة الرئيسية — بس لو ما صار أي تسجيل دخول رسمي (موظف/طالب/أستاذ) بالأثناء
+    initialAuthCheckPromise.then(() => {
+      if (currentStudent || currentStaffRole || currentTeacher) return; // فيه جلسة رسمية أهم، ما نتدخل
+      if (!document.getElementById('screen-welcome').classList.contains('hidden')) {
+        // لسا واقفين بالصفحة الرئيسية (ما تحرك المستخدم لمكان ثاني بالأثناء)
+        try {
+          const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
+          if (saved && saved.phone) showMyOrders(saved.phone);
+        } catch(e) { console.error(e); }
+      }
+    });
+  }
 })();
 
 async function selfEscalateMyOrders(phone) {
