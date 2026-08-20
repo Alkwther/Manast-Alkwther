@@ -5132,12 +5132,65 @@ async function loadWorkbookItemsAdmin() {
       const images = (w.images && w.images.length) ? w.images : (w.image ? [w.image] : []);
       const thumb = images[0] ? `<img src="${images[0]}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;margin-inline-end:10px;cursor:pointer;" onclick="openImageGalleryEnc('${encodeURIComponent(JSON.stringify(images))}')">` : '';
       const galleryBtn = images.length ? `<button class="small-btn" onclick="openImageGalleryEnc('${encodeURIComponent(JSON.stringify(images))}')">📷 مشاهدة${images.length>1?' ('+images.length+')':''}</button>` : '';
-      return `<div class="admin-list-item">
-        <div style="display:flex;align-items:center;">${thumb}<div>${w.title} — <span style="color:#b8903c;">${w.price} د.ع</span>${galleryBtn ? `<br>${galleryBtn}` : ''}</div></div>
-        <button class="small-btn" onclick="deleteWorkbookItem('${d.id}')">🗑️ حذف</button>
+      const imagesThumbsHtml = images.map((img, idx) => `
+        <div style="position:relative;display:inline-block;">
+          <img src="${img}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;">
+          <button type="button" onclick="removeEditWorkbookItemImage('${d.id}',${idx})" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;">✕</button>
+        </div>`).join('');
+      return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;align-items:center;">${thumb}<div>${w.title} — <span style="color:#b8903c;">${w.price} د.ع</span>${galleryBtn ? `<br>${galleryBtn}` : ''}</div></div>
+          <div style="display:flex;gap:6px;">
+            <button class="small-btn" onclick="toggleEditWorkbookItem('${d.id}')">✏️ تعديل</button>
+            <button class="small-btn" onclick="deleteWorkbookItem('${d.id}')">🗑️ حذف</button>
+          </div>
+        </div>
+        <div id="editWbItemPanel-${d.id}" class="hidden" style="background:#f6f7fb;border-radius:10px;padding:10px;margin-top:8px;">
+          <label>اسم الكراسة</label>
+          <input id="editWbItemTitle-${d.id}" value="${w.title.replace(/"/g,'&quot;')}">
+          <label>السعر</label>
+          <input id="editWbItemPrice-${d.id}" type="number" value="${w.price}">
+          <label>الصور الحالية (اضغط ✕ لحذف أي صورة)</label>
+          <div id="editWbItemImages-${d.id}" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;" data-images='${JSON.stringify(images).replace(/'/g,"&#39;")}'>${imagesThumbsHtml}</div>
+          <label>إضافة صور جديدة (تُضاف لباقي الصور، حتى 6 بالمجموع)</label>
+          <input id="editWbItemNewImages-${d.id}" type="file" accept="image/*" multiple>
+          <button class="btn" onclick="saveWorkbookItemEdit('${d.id}')">💾 حفظ</button>
+        </div>
       </div>`;
     }).join('');
   } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+}
+function toggleEditWorkbookItem(id) {
+  document.getElementById(`editWbItemPanel-${id}`).classList.toggle('hidden');
+}
+function removeEditWorkbookItemImage(id, idx) {
+  const box = document.getElementById(`editWbItemImages-${id}`);
+  const images = JSON.parse(box.dataset.images);
+  images.splice(idx, 1);
+  box.dataset.images = JSON.stringify(images);
+  box.innerHTML = images.map((img, i) => `
+        <div style="position:relative;display:inline-block;">
+          <img src="${img}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;">
+          <button type="button" onclick="removeEditWorkbookItemImage('${id}',${i})" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;">✕</button>
+        </div>`).join('');
+}
+async function saveWorkbookItemEdit(id) {
+  const title = document.getElementById(`editWbItemTitle-${id}`).value.trim();
+  const price = +document.getElementById(`editWbItemPrice-${id}`).value;
+  if (!title || !price) { alert('اكتب اسم الكراسة والسعر'); return; }
+  const imagesBox = document.getElementById(`editWbItemImages-${id}`);
+  let images = JSON.parse(imagesBox.dataset.images || '[]');
+  const newFilesInput = document.getElementById(`editWbItemNewImages-${id}`);
+  if (newFilesInput.files.length) {
+    const newFiles = Array.from(newFilesInput.files).slice(0, Math.max(0, 6 - images.length));
+    try {
+      const newUrls = await Promise.all(newFiles.map(f => uploadImageFile(f, 1600, 0.92)));
+      images = images.concat(newUrls);
+    } catch(err) { console.error(err); alert('تعذّر رفع الصور الجديدة، تأكد من اتصالك بالنت'); return; }
+  }
+  await db.collection('workbooks').doc(id).update({ title, price, images, image: images[0] || null });
+  alert('تم حفظ التعديل ✅');
+  loadWorkbookItemsAdmin();
 }
 async function deleteWorkbookItem(id) {
   if (!confirm('حذف هذي الكراسة؟')) return;
@@ -5916,14 +5969,14 @@ document.getElementById('createExtOrderBtn').onclick = async () => {
       addedBy: currentStaffName || 'موظف', status: 'pending', seenByStaff: true, createdAt
     });
     const link = window.location.origin + window.location.pathname + '#myorders=' + encodeURIComponent(phone);
-    const itemLine = details + ': ' + unitPrice + ' × ' + qty + ' = ' + subtotal + ' د.ع';
+    const itemLine = details + ' عدد ' + qty + ' سعر الوحدة ' + unitPrice + ' د.ع = ' + subtotal + ' د.ع';
     const waText = encodeURIComponent(
       'مرحباً بك ' + name + ' 🌸\n' +
-      'طلبك قيد التنفيذ الآن بمكتبة الكوثر:\n' +
+      'طلبك قيد التنفيذ الآن في مكتبة الكوثر\n\n' +
       itemLine + '\n' +
-      'التوصيل: ' + deliveryFee + ' د.ع\n' +
-      'الإجمالي: ' + totalPrice + ' د.ع\n\n' +
-      'ادخل على الرابط لمتابعة كل طلباتك بأي وقت:\n' + link
+      'سعر التوصيل: ' + deliveryFee + ' د.ع\n\n' +
+      'المبلغ الكلي: ' + totalPrice + ' د.ع\n\n' +
+      'ادخل على الرابط لمعرفة وقت وصول طلبكم:\n' + link
     );
     document.getElementById('extOrderResult').innerHTML =
       '<div class="card" style="background:#ecfdf3;border:2px solid #16a34a;">' +
@@ -6153,14 +6206,14 @@ function loadExtOrdersList() {
     list.innerHTML = snap.docs.map(function(d) {
       const o = d.data();
       const link = window.location.origin + window.location.pathname + '#myorders=' + encodeURIComponent(o.phone);
-      const itemLine = (o.items && o.items[0]) ? (o.items[0].title + ': ' + o.items[0].price + ' × ' + o.items[0].qty + ' = ' + (o.items[0].price*o.items[0].qty) + ' د.ع') : '';
+      const itemLine = (o.items && o.items[0]) ? (o.items[0].title + ' عدد ' + o.items[0].qty + ' سعر الوحدة ' + o.items[0].price + ' د.ع = ' + (o.items[0].price*o.items[0].qty) + ' د.ع') : '';
       const waText = encodeURIComponent(
         'مرحباً بك ' + o.studentName + ' 🌸\n' +
-        'طلبك قيد التنفيذ الآن بمكتبة الكوثر:\n' +
+        'طلبك قيد التنفيذ الآن في مكتبة الكوثر\n\n' +
         itemLine + '\n' +
-        'التوصيل: ' + (o.deliveryFee||0) + ' د.ع\n' +
-        'الإجمالي: ' + o.totalPrice + ' د.ع\n\n' +
-        'ادخل على الرابط لمتابعة كل طلباتك بأي وقت:\n' + link
+        'سعر التوصيل: ' + (o.deliveryFee||0) + ' د.ع\n\n' +
+        'المبلغ الكلي: ' + o.totalPrice + ' د.ع\n\n' +
+        'ادخل على الرابط لمعرفة وقت وصول طلبكم:\n' + link
       );
       return '<div class="card">' +
         '<p style="margin:0;font-weight:bold;">' + (sourceLabels[o.externalPlatform]||'') + ' — ' + o.studentName + '</p>' +
