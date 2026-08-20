@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kawthar-platform-v116';
+const CACHE_NAME = 'kawthar-platform-v120';
 const APP_SHELL = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 // ==== إشعارات حقيقية (Firebase Cloud Messaging) — تستلم وتعرض إشعار حتى لو التطبيق مقفول تماماً ====
