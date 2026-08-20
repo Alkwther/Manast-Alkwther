@@ -8952,17 +8952,39 @@ async function loadAnnouncementsAdmin() {
       </div>
       <div id="annEditPanel-${d.id}" class="hidden" style="margin-top:8px;background:#f6f7fb;border-radius:10px;padding:10px;">
         <textarea id="annEditText-${d.id}" rows="2" style="margin-bottom:6px;">${a.caption || ''}</textarea>
+        <label>الصورة الحالية</label>
+        <div style="margin-bottom:8px;"><img src="${a.image}" style="width:100px;border-radius:8px;border:1px solid #e2e5ec;"></div>
+        <label>استبدال الصورة (اختياري)</label>
+        <input id="annEditImageInput-${d.id}" type="file" accept="image/*">
+        <div id="annEditImagePreview-${d.id}" style="margin-bottom:8px;"></div>
         <button class="btn" onclick="saveAnnouncementEdit('${d.id}')">💾 حفظ التعديل</button>
       </div>
     </div>`;
   }).join('');
+  snap.docs.forEach(d => {
+    const input = document.getElementById(`annEditImageInput-${d.id}`);
+    if (input) input.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      const preview = document.getElementById(`annEditImagePreview-${d.id}`);
+      if (!file) { preview.innerHTML = ''; delete preview.dataset.image; return; }
+      preview.innerHTML = '<p>⏳ جاري رفع الصورة...</p>';
+      try {
+        const url = await uploadImageFile(file, 1600, 0.92);
+        preview.innerHTML = `<img src="${url}" style="width:100px;border-radius:8px;border:1px solid #e2e5ec;">`;
+        preview.dataset.image = url;
+      } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصورة</p>'; }
+    });
+  });
 }
 function toggleEditAnnouncement(id) {
   document.getElementById(`annEditPanel-${id}`).classList.toggle('hidden');
 }
 async function saveAnnouncementEdit(id) {
   const newCaption = document.getElementById(`annEditText-${id}`).value.trim();
-  await db.collection('announcements').doc(id).update({ caption: newCaption });
+  const update = { caption: newCaption };
+  const newImage = document.getElementById(`annEditImagePreview-${id}`).dataset.image;
+  if (newImage) update.image = newImage;
+  await db.collection('announcements').doc(id).update(update);
   alert('تم حفظ التعديل ✅');
   loadAnnouncementsAdmin();
   loadAnnouncements();
