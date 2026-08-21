@@ -5337,30 +5337,27 @@ async function openNotebooksScreen() {
   } catch(e) { console.error(e); list.innerHTML = '<div class="card"><p>تعذّر تحميل الدفاتر.</p></div>'; }
 }
 
-async function loadBooksAdmin() {
-  await populateBookTeacherSelect();
-  populateBkGradeSelect();
-  renderLibGradesCurrentList();
-  const snap = await db.collection('books').orderBy('createdAt','desc').get();
-  const list = document.getElementById('booksAdminList');
-  if (snap.empty) { list.innerHTML = '<p>لا توجد كتب مضافة بعد.</p>'; return; }
-  list.innerHTML = snap.docs.map(d => {
-    const b = d.data();
-    const images = (b.images && b.images.length) ? b.images : (b.image ? [b.image] : []);
-    const thumb = images[0] ? `<img src="${images[0]}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;margin-inline-end:10px;">` : '';
-    const teacherInfo = b.teacherName ? `<br><span style="color:#0e8fa8;">أ. ${b.teacherName} — حصته: ${b.teacherShare||0} د.ع</span>` : '';
-    const stageLabel = STAGE_LABELS_AR[b.stage] || b.stage || '';
-    const gradeInfo = `<br><span style="color:#8a90a3;font-size:12px;">${stageLabel}${b.grade ? ' — ' + b.grade : ''}</span>`;
-    const stageOptions = Object.keys(STAGE_LABELS_AR).map(s => `<option value="${s}" ${s===b.stage?'selected':''}>${STAGE_LABELS_AR[s]}</option>`).join('');
-    const gradeOptions = (LIBRARY_STAGE_GRADES[b.stage]||[]).map(g => `<option ${g===b.grade?'selected':''}>${g}</option>`).join('');
-    const imagesThumbsHtml = images.map((img, idx) => `
+function renderBookAdminItem(d) {
+  const b = d.data();
+  const images = (b.images && b.images.length) ? b.images : (b.image ? [b.image] : []);
+  const thumb = images[0] ? `<img src="${images[0]}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;margin-inline-end:10px;">` : '';
+  const teacherInfo = b.teacherName ? `<br><span style="color:#0e8fa8;">أ. ${b.teacherName} — حصته: ${b.teacherShare||0} د.ع</span>` : '';
+  // شارة التوصيل: على الأستاذ (لون برتقالي) أو على المكتبة (لون أخضر)
+  const deliveryBadge = b.teacherName
+    ? (b.deliveryMode === 'teacher'
+        ? `<span style="display:inline-block;background:#fff3e0;color:#b45309;border:1px solid #fcd9a8;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:bold;margin-top:4px;">🚚 التوصيل: على الأستاذ ${b.teacherName}</span>`
+        : `<span style="display:inline-block;background:#ecfdf3;color:#15803d;border:1px solid #86efac;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:bold;margin-top:4px;">🚚 التوصيل: على المكتبة</span>`)
+    : `<span style="display:inline-block;background:#ecfdf3;color:#15803d;border:1px solid #86efac;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:bold;margin-top:4px;">🚚 التوصيل: على المكتبة</span>`;
+  const stageOptions = Object.keys(STAGE_LABELS_AR).map(s => `<option value="${s}" ${s===b.stage?'selected':''}>${STAGE_LABELS_AR[s]}</option>`).join('');
+  const gradeOptions = (LIBRARY_STAGE_GRADES[b.stage]||[]).map(g => `<option ${g===b.grade?'selected':''}>${g}</option>`).join('');
+  const imagesThumbsHtml = images.map((img, idx) => `
         <div style="position:relative;display:inline-block;">
           <img src="${img}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;">
           <button type="button" onclick="removeEditBookImage('${d.id}',${idx})" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;">✕</button>
         </div>`).join('');
-    return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
+  return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div style="display:flex;align-items:center;">${thumb}<div>${b.title} — <span style="color:#b8903c;">${b.price} د.ع</span>${teacherInfo}${gradeInfo}<br><span style="color:#888;">أضافه: ${b.addedBy||'—'}</span></div></div>
+        <div style="display:flex;align-items:center;">${thumb}<div>${b.title} — <span style="color:#b8903c;">${b.price} د.ع</span>${teacherInfo}<br>${deliveryBadge}<br><span style="color:#888;">أضافه: ${b.addedBy||'—'}</span></div></div>
         <div style="display:flex;gap:6px;">
           <button class="small-btn" onclick="toggleEditBook('${d.id}')">✏️ تعديل</button>
           <button class="small-btn" onclick="deleteBook('${d.id}')">🗑️ حذف</button>
@@ -5383,7 +5380,45 @@ async function loadBooksAdmin() {
         <button class="btn" onclick="saveBookEdit('${d.id}')">💾 حفظ</button>
       </div>
     </div>`;
-  }).join('');
+}
+async function loadBooksAdmin() {
+  await populateBookTeacherSelect();
+  populateBkGradeSelect();
+  renderLibGradesCurrentList();
+  const snap = await db.collection('books').orderBy('createdAt','desc').get();
+  const list = document.getElementById('booksAdminList');
+  if (snap.empty) { list.innerHTML = '<p>لا توجد كتب مضافة بعد.</p>'; return; }
+
+  // ترتيب احترافي: تجميع حسب المرحلة ثم الصف، وأي ملزمة بدون تصنيف تروح آخر شي بقسم "غير مصنّفة"
+  const grouped = {}; // { stage: { grade: [docs] } }
+  const uncategorized = [];
+  snap.docs.forEach(d => {
+    const b = d.data();
+    if (!b.stage || !b.grade) { uncategorized.push(d); return; }
+    if (!grouped[b.stage]) grouped[b.stage] = {};
+    if (!grouped[b.stage][b.grade]) grouped[b.stage][b.grade] = [];
+    grouped[b.stage][b.grade].push(d);
+  });
+
+  let html = '';
+  Object.keys(LIBRARY_STAGE_GRADES).forEach(stageId => {
+    if (!grouped[stageId]) return;
+    const stageBooks = grouped[stageId];
+    const stageHasAny = Object.values(stageBooks).some(arr => arr.length);
+    if (!stageHasAny) return;
+    html += `<h3 style="margin:18px 0 8px;color:#10203f;background:#eef1f8;padding:8px 12px;border-radius:8px;">📘 ${STAGE_LABELS_AR[stageId]}</h3>`;
+    (LIBRARY_STAGE_GRADES[stageId] || []).forEach(grade => {
+      const docs = stageBooks[grade];
+      if (!docs || !docs.length) return;
+      html += `<h4 style="margin:10px 0 6px;color:#0e6fa8;">📗 ${grade} (${docs.length})</h4>`;
+      html += docs.map(renderBookAdminItem).join('');
+    });
+  });
+  if (uncategorized.length) {
+    html += `<h3 style="margin:18px 0 8px;color:#8a90a3;background:#f3f4f6;padding:8px 12px;border-radius:8px;">📂 غير مصنّفة (بدون مرحلة/صف)</h3>`;
+    html += uncategorized.map(renderBookAdminItem).join('');
+  }
+  list.innerHTML = html;
 }
 function toggleEditBook(id) {
   document.getElementById(`editBookPanel-${id}`).classList.toggle('hidden');
