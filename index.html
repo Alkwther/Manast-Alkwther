@@ -4628,34 +4628,19 @@ function resizeImageToBase64(file, maxSize, quality) {
   });
 }
 
-// ---------- رفع الصور لـ Freeimage.host (نفس بنية Chevereto اللي تستخدمها ImgBB) ----------
-// جرّبنا Cloudinary وImgBB وR2 كلها محجوبة أو تحتاج بطاقة ائتمان بالعراق — freeimage.host وiili.io (نطاق الصور الفعلي)
-// اتأكدنا يدوياً إنهم يفتحون ويرفعون صح من داخل العراق.
-// ⚠️ ملاحظة: هذا مفتاح عام (Guest API Key) منشور بصفحة freeimage.host/api نفسها لأي زائر — مو مفتاح خاص بحسابك.
-// معناته إنه مشترك مع مستخدمين كثيرين حول العالم، فاحتمال (بس مو مؤكد) يوصل لحد استخدام أو يتوقف بالمستقبل أعلى من مفتاح خاص.
-const FREEIMAGE_API_KEY = '6d207e02198a847aa98d0a2a901485a5';
-async function uploadImageToFreeimage(base64DataUrl) {
-  const base64Data = base64DataUrl.split(',')[1] || base64DataUrl;
-  const formData = new FormData();
-  formData.append('key', FREEIMAGE_API_KEY);
-  formData.append('action', 'upload');
-  formData.append('source', base64Data);
-  formData.append('format', 'json');
-  const res = await fetch('https://freeimage.host/api/1/upload', { method: 'POST', body: formData });
-  const data = await res.json();
-  if (!data || !data.image || !data.image.url) throw new Error('فشل رفع الصورة لـ Freeimage.host');
-  return data.image.url;
-}
+// ---------- رجّعنا التخزين لـ Firestore مباشرة (base64) ----------
+// جرّبنا ImgBB (محجوب) وFreeimage.host (يشتغل الموقع لكن رفض المتصفح CORS) — الاثنين ما نفعوا من متصفح ويب مباشرة.
+// الحل الصحيح المستقبلي: رفع الصور عبر Cloudflare Worker (سيرفر لسيرفر، بدون قيد CORS) — نفس فكرة Worker الإشعارات.
+// لين نسوي هذا، خلّينا uploadImageFile ترجع base64 محلي زي الأول تماماً.
 async function uploadImageFile(file, maxSize, quality) {
-  const dataUrl = await resizeImageToBase64(file, maxSize || 1400, quality || 0.9);
-  return await uploadImageToFreeimage(dataUrl);
+  return await resizeImageToBase64(file, maxSize || 900, quality || 0.75);
 }
 
 document.getElementById('bkImage').addEventListener('change', async (e) => {
   const files = Array.from(e.target.files || []).slice(0, 6);
   const preview = document.getElementById('bkImagePreview');
   if (!files.length) { preview.innerHTML = ''; delete preview.dataset.images; return; }
-  preview.innerHTML = '<p>⏳ جاري رفع الصور...</p>';
+  preview.innerHTML = '<p>⏳ جاري تجهيز الصور...</p>';
   try {
     const urls = await Promise.all(files.map(f => uploadImageFile(f, 900, 0.82)));
     preview.dataset.images = JSON.stringify(urls);
@@ -4986,7 +4971,7 @@ document.getElementById('nbImage').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   const preview = document.getElementById('nbImagePreview');
   if (!file) { preview.innerHTML = ''; return; }
-  preview.innerHTML = '<p>⏳ جاري رفع الصورة...</p>';
+  preview.innerHTML = '<p>⏳ جاري تجهيز الصورة...</p>';
   try {
     const url = await uploadImageFile(file, 500);
     preview.innerHTML = `<img src="${url}" style="width:100px;border-radius:8px;">`;
@@ -5111,7 +5096,7 @@ document.getElementById('wbItemImage').addEventListener('change', async (e) => {
   const files = Array.from(e.target.files || []).slice(0, 6);
   const preview = document.getElementById('wbItemImagePreview');
   if (!files.length) { preview.innerHTML = ''; delete preview.dataset.images; return; }
-  preview.innerHTML = '<p>⏳ جاري رفع الصور...</p>';
+  preview.innerHTML = '<p>⏳ جاري تجهيز الصور...</p>';
   try {
     const urls = await Promise.all(files.map(f => uploadImageFile(f, 900, 0.82)));
     preview.dataset.images = JSON.stringify(urls);
@@ -6667,7 +6652,7 @@ let broadcastImageUrl = null;
 document.getElementById('broadcastMsgImage').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  document.getElementById('broadcastMsgImagePreview').innerHTML = '<p>⏳ جاري رفع الصورة...</p>';
+  document.getElementById('broadcastMsgImagePreview').innerHTML = '<p>⏳ جاري تجهيز الصورة...</p>';
   try {
     broadcastImageUrl = await uploadImageFile(file, 900, 0.7);
     document.getElementById('broadcastMsgImagePreview').innerHTML = `<img src="${broadcastImageUrl}" style="max-width:160px;border-radius:8px;">`;
@@ -7733,7 +7718,7 @@ document.getElementById('tchBookletImageInput').addEventListener('change', async
   const files = Array.from(e.target.files || []).slice(0, 4);
   const preview = document.getElementById('tchBookletImagePreview');
   if (files.length === 0) { preview.innerHTML = ''; preview.dataset.images = ''; return; }
-  preview.innerHTML = '<p>⏳ جاري رفع الصور...</p>';
+  preview.innerHTML = '<p>⏳ جاري تجهيز الصور...</p>';
   try {
     const urls = await Promise.all(files.map(f => uploadImageFile(f, 1100, 0.82)));
     preview.innerHTML = urls.map(u => `<img src="${u}" style="width:100px;height:100px;object-fit:cover;border-radius:10px;border:1px solid #e2e5ec;">`).join('');
@@ -8448,7 +8433,7 @@ document.getElementById('chatSendBtn').onclick = async () => {
   }
   if (pendingChatImageFile) {
     document.getElementById('chatSendBtn').disabled = true;
-    document.getElementById('chatSendBtn').textContent = '⏳ جاري رفع الصورة...';
+    document.getElementById('chatSendBtn').textContent = '⏳ جاري تجهيز الصورة...';
     try {
       extraFields.image = await uploadImageFile(pendingChatImageFile, 900, 0.75);
     } catch(err) {
@@ -8974,7 +8959,7 @@ document.getElementById('annImageInput').addEventListener('change', async (e) =>
   const file = e.target.files[0];
   const preview = document.getElementById('annImagePreview');
   if (!file) { preview.innerHTML = ''; return; }
-  preview.innerHTML = '<p>⏳ جاري رفع الصورة...</p>';
+  preview.innerHTML = '<p>⏳ جاري تجهيز الصورة...</p>';
   try {
     const url = await uploadImageFile(file, 900, 0.8);
     preview.innerHTML = `<div style="position:relative;display:inline-block;">
@@ -9040,7 +9025,7 @@ async function loadAnnouncementsAdmin() {
       const file = e.target.files[0];
       const preview = document.getElementById(`annEditImagePreview-${d.id}`);
       if (!file) { preview.innerHTML = ''; delete preview.dataset.image; return; }
-      preview.innerHTML = '<p>⏳ جاري رفع الصورة...</p>';
+      preview.innerHTML = '<p>⏳ جاري تجهيز الصورة...</p>';
       try {
         const url = await uploadImageFile(file, 900, 0.8);
         preview.innerHTML = `<img src="${url}" style="width:100px;border-radius:8px;border:1px solid #e2e5ec;">`;
