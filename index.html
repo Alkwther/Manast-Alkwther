@@ -4660,7 +4660,7 @@ document.getElementById('bkImage').addEventListener('change', async (e) => {
     const urls = await Promise.all(files.map(f => uploadImageFile(f, 900, 0.82)));
     preview.dataset.images = JSON.stringify(urls);
     preview.innerHTML = urls.map(u => `<img src="${u}" style="width:80px;height:80px;object-fit:cover;border-radius:10px;border:1px solid #e2e5ec;">`).join('');
-  } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصور، تأكد من اتصالك بالنت وحاول مرة ثانية.</p>'; }
+  } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصور: ' + (err.message||"خطأ غير معروف") + '</p>'; }
 });
 
 document.getElementById('addBookBtn').onclick = async () => {
@@ -4991,7 +4991,7 @@ document.getElementById('nbImage').addEventListener('change', async (e) => {
     const url = await uploadImageFile(file, 500);
     preview.innerHTML = `<img src="${url}" style="width:100px;border-radius:8px;">`;
     preview.dataset.image = url;
-  } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصورة</p>'; }
+  } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصورة: ' + (err.message||"خطأ غير معروف") + '</p>'; }
 });
 document.getElementById('addNotebookBtn').onclick = async () => {
   const title = document.getElementById('nbTitle').value.trim();
@@ -5116,7 +5116,7 @@ document.getElementById('wbItemImage').addEventListener('change', async (e) => {
     const urls = await Promise.all(files.map(f => uploadImageFile(f, 900, 0.82)));
     preview.dataset.images = JSON.stringify(urls);
     preview.innerHTML = urls.map(u => `<img src="${u}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;">`).join('');
-  } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصور، تأكد من اتصالك بالنت وحاول مرة ثانية.</p>'; }
+  } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصور: ' + (err.message||"خطأ غير معروف") + '</p>'; }
 });
 document.getElementById('addWorkbookItemBtn').onclick = async () => {
   const title = document.getElementById('wbItemTitle').value.trim();
@@ -5201,7 +5201,7 @@ async function saveWorkbookItemEdit(id) {
     try {
       const newUrls = await Promise.all(newFiles.map(f => uploadImageFile(f, 900, 0.82)));
       images = images.concat(newUrls);
-    } catch(err) { console.error(err); alert('تعذّر رفع الصور الجديدة، تأكد من اتصالك بالنت'); return; }
+    } catch(err) { console.error(err); alert('تعذّر رفع الصور الجديدة: ' + (err.message||'خطأ غير معروف')); return; }
   }
   await db.collection('workbooks').doc(id).update({ title, price, images, image: images[0] || null });
   alert('تم حفظ التعديل ✅');
@@ -5477,7 +5477,7 @@ async function saveBookEdit(id) {
     try {
       const newUrls = await Promise.all(newFiles.map(f => uploadImageFile(f, 900, 0.82)));
       images = images.concat(newUrls);
-    } catch(err) { console.error(err); alert('تعذّر رفع الصور الجديدة، تأكد من اتصالك بالنت'); return; }
+    } catch(err) { console.error(err); alert('تعذّر رفع الصور الجديدة: ' + (err.message||'خطأ غير معروف')); return; }
   }
   const update = { title, price, stage, grade, images, image: images[0] || null };
   if (shareInput) update.teacherShare = +shareInput.value;
@@ -6671,7 +6671,7 @@ document.getElementById('broadcastMsgImage').addEventListener('change', async (e
   try {
     broadcastImageUrl = await uploadImageFile(file, 900, 0.7);
     document.getElementById('broadcastMsgImagePreview').innerHTML = `<img src="${broadcastImageUrl}" style="max-width:160px;border-radius:8px;">`;
-  } catch(err) { console.error(err); document.getElementById('broadcastMsgImagePreview').innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصورة</p>'; }
+  } catch(err) { console.error(err); document.getElementById('broadcastMsgImagePreview').innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصورة: ' + (err.message||"خطأ غير معروف") + '</p>'; }
 });
 document.getElementById('sendBroadcastBtn').onclick = async () => {
   const text = document.getElementById('broadcastMsgText').value.trim();
@@ -7738,7 +7738,7 @@ document.getElementById('tchBookletImageInput').addEventListener('change', async
     const urls = await Promise.all(files.map(f => uploadImageFile(f, 1100, 0.82)));
     preview.innerHTML = urls.map(u => `<img src="${u}" style="width:100px;height:100px;object-fit:cover;border-radius:10px;border:1px solid #e2e5ec;">`).join('');
     preview.dataset.images = JSON.stringify(urls);
-  } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصور</p>'; }
+  } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصور: ' + (err.message||"خطأ غير معروف") + '</p>'; }
 });
 document.getElementById('tchBookletPrice').addEventListener('input', (e) => {
   const price = +e.target.value || 0;
@@ -7851,7 +7851,7 @@ async function saveStoreItemEdit(id) {
       const urls = await Promise.all(files.map(f => uploadImageFile(f, 1100, 0.82)));
       update.images = urls;
       update.image = urls[0];
-    } catch(err) { console.error(err); alert('تعذّر رفع الصور، تأكد من اتصالك بالنت'); return; }
+    } catch(err) { console.error(err); alert('تعذّر رفع الصور: ' + (err.message||'خطأ غير معروف')); return; }
   }
   await db.collection('books').doc(id).update(update);
   alert('تم حفظ التعديل ✅');
@@ -8453,7 +8453,7 @@ document.getElementById('chatSendBtn').onclick = async () => {
       extraFields.image = await uploadImageFile(pendingChatImageFile, 900, 0.75);
     } catch(err) {
       console.error(err);
-      alert('تعذّر رفع الصورة، تأكد من اتصالك بالنت وحاول ثانية');
+      alert('تعذّر رفع الصورة: ' + (err.message||'خطأ غير معروف'));
       document.getElementById('chatSendBtn').disabled = false;
       document.getElementById('chatSendBtn').textContent = 'إرسال';
       return;
@@ -8982,7 +8982,7 @@ document.getElementById('annImageInput').addEventListener('change', async (e) =>
       <button type="button" onclick="removeAnnImagePreview()" style="position:absolute;top:-8px;left:-8px;width:26px;height:26px;border-radius:50%;background:#dc2626;color:#fff;border:2px solid #fff;font-weight:bold;cursor:pointer;line-height:1;">✕</button>
     </div>`;
     preview.dataset.image = url;
-  } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصورة</p>'; }
+  } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصورة: ' + (err.message||"خطأ غير معروف") + '</p>'; }
 });
 function removeAnnImagePreview() {
   document.getElementById('annImageInput').value = '';
@@ -9045,7 +9045,7 @@ async function loadAnnouncementsAdmin() {
         const url = await uploadImageFile(file, 900, 0.8);
         preview.innerHTML = `<img src="${url}" style="width:100px;border-radius:8px;border:1px solid #e2e5ec;">`;
         preview.dataset.image = url;
-      } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصورة</p>'; }
+      } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصورة: ' + (err.message||"خطأ غير معروف") + '</p>'; }
     });
   });
 }
