@@ -9483,6 +9483,21 @@ function markInitialAuthCheckDone() {
 
 // كشف المتصفح الداخلي لتطبيقات معروفة (انستقرام/فيسبوك/تيك توك/لاين) — واتساب للأسف ما ينكشف بنفس الطريقة
 // (ما يغيّر بصمة المتصفح)، فأفضل حل معه يبقى التنبيه المكتوب بنص الرسالة نفسها.
+// تنعيش قسري لاتصال Firestore الحي كل ما ترجع الشاشة/التطبيق تكون ظاهرة من جديد —
+// يحل مشكلة "الاتصال الحي يغفى بالخلفية" على بعض أجهزة أندرويد، ويضمن وصول أي تحديث فوراً
+// (طلب جديد، تغيير حالة، تعديل سعر...) لكل الأجهزة المفتوحة بمجرد رجوعها للواجهة.
+let lastForegroundNudge = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  const now = Date.now();
+  if (now - lastForegroundNudge < 5000) return; // ما نكرر النداء لو صار كذا حدث بثوانٍ قليلة
+  lastForegroundNudge = now;
+  db.disableNetwork().then(() => db.enableNetwork()).catch(e => console.error('nudge failed', e));
+});
+window.addEventListener('online', () => {
+  db.disableNetwork().then(() => db.enableNetwork()).catch(e => console.error('nudge failed', e));
+});
+
 (function checkInAppBrowser() {
   const ua = navigator.userAgent || '';
   const isKnownInAppBrowser = /Instagram|FBAN|FBAV|Line\/|musical_ly|TikTok|Twitter/i.test(ua);
