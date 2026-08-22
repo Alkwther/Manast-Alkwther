@@ -812,7 +812,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <div class="badge">اقرأ</div>
     </div>
 
-    <div class="subject-tile" onclick="openTeacherLoginScreen()">
+    <div class="subject-tile" onclick="enterTeacherArea()">
       <div class="tile-row">
         <div class="tile-icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg></div>
         <div class="tile-text"><b>الدخول كأستاذ</b><span>دخول خاص بالمدرسين لمتابعة طلابهم</span></div>
@@ -1706,7 +1706,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <input id="adminPass" type="password" placeholder="كلمة السر" autocomplete="new-password">
       <button class="btn" id="adminLoginBtn">دخول</button>
       <div id="adminMsg"></div>
-      <button class="btn secondary" onclick="openTeacherLoginScreen()">🧑‍🏫 تسجيل دخول كأستاذ</button>
+      <button class="btn secondary" onclick="enterTeacherArea()">🧑‍🏫 تسجيل دخول كأستاذ</button>
     </div>
     <div id="adminPanel" class="hidden">
       <div class="card" id="loggedInAsCard" style="display:flex;align-items:center;justify-content:space-between;">
@@ -2021,17 +2021,19 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 
         <div class="card">
           <h3>🏫 إدارة مراحل وصفوف الملازم</h3>
-          <p style="font-size:12.5px;color:#8a90a3;">أضف أو احذف صفوف داخل كل مرحلة — تنعكس مباشرة على قائمة "الملازم" وخيارات الإضافة بالأسفل</p>
-          <label>المرحلة</label>
-          <select id="libStageManage">
-            <option value="primary">ابتدائية</option>
-            <option value="middle">متوسطة</option>
-            <option value="secondary">إعدادية</option>
-          </select>
+          <p style="font-size:12.5px;color:#8a90a3;">أضف أو احذف صفوف داخل كل مرحلة، أو أضف مرحلة جديدة بالكامل (مثل "مهني") — تنعكس مباشرة على قائمة "الملازم" وخيارات الإضافة بالأسفل</p>
+          <label>إضافة مرحلة جديدة</label>
+          <div style="display:flex;gap:6px;">
+            <input id="libNewStageName" placeholder="مثال: المرحلة المهنية" style="margin-bottom:0;flex:1;">
+            <button class="small-btn" id="addLibStageBtn">➕ إضافة مرحلة</button>
+          </div>
+          <label style="margin-top:12px;">المرحلة</label>
+          <select id="libStageManage"></select>
           <div style="display:flex;gap:6px;">
             <input id="libNewGradeName" placeholder="اسم الصف الجديد" style="margin-bottom:0;flex:1;">
             <button class="small-btn" id="addLibGradeBtn">➕ إضافة</button>
           </div>
+          <button class="small-btn" id="deleteLibStageBtn" style="margin-top:8px;background:#fef2f2;color:#b91c1c;">🗑️ حذف هذي المرحلة بالكامل</button>
           <div id="libGradesCurrentList" style="margin-top:10px;"></div>
         </div>
 
@@ -2502,7 +2504,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 
   <!-- لوحة الأستاذ -->
   <div class="screen hidden" id="screen-teacher-dashboard">
-    <button class="btn secondary" onclick="openTeacherLoginScreen()">⏻ خروج</button>
+    <button class="btn secondary" onclick="fullLogout()">⏻ خروج</button>
     <div class="card" style="display:flex;align-items:center;gap:14px;">
       <img id="teacherPhotoPreview" src="" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;background:#eef1f8;flex-shrink:0;">
       <div style="flex:1;">
@@ -3502,8 +3504,12 @@ function renderLibraryNav() {
 
   // مستوى 3: الملازم/الكتب داخل الصف
   const back = `<button class="btn secondary" onclick="libraryNavGrade=null; renderLibraryNav();">← رجوع لصفوف ${STAGE_LABELS_AR[libraryNavStage]}</button>`;
+  const shareBar = `<div style="display:flex;gap:8px;margin-bottom:14px;">
+    <button type="button" class="btn btn-secondary" style="flex:1;font-size:.78rem;padding:10px;" onclick="shareBookletGradeLink('copy')">🔗 نسخ رابط الفولدر</button>
+    <button type="button" class="btn" style="flex:1;font-size:.78rem;padding:10px;background:linear-gradient(135deg,#25d366,#1da851);color:#fff;" onclick="shareBookletGradeLink('whatsapp')">💬 مشاركة واتساب</button>
+  </div>`;
   const books = libraryAllBooks.filter(b => b.grade === libraryNavGrade);
-  if (books.length === 0) { list.innerHTML = back + '<div class="card"><p>لا توجد ملازم لهذا الصف بعد.</p></div>'; return; }
+  if (books.length === 0) { list.innerHTML = back + shareBar + '<div class="card"><p>لا توجد ملازم لهذا الصف بعد.</p></div>'; return; }
   const booksHtml = books.map(b => {
     const images = (b.images && b.images.length) ? b.images : (b.image ? [b.image] : []);
     const thumb = images[0]
@@ -3518,10 +3524,27 @@ function renderLibraryNav() {
       </div>
     </div>`;
   }).join('');
-  list.innerHTML = back + booksHtml;
+  list.innerHTML = back + shareBar + booksHtml;
 }
 function openLibraryStage(stage) { libraryNavStage = stage; libraryNavGrade = null; renderLibraryNav(); }
 function openLibraryGrade(grade) { libraryNavGrade = grade; renderLibraryNav(); }
+function shareBookletGradeLink(mode) {
+  if (!libraryNavGrade) return;
+  const link = window.location.origin + window.location.pathname + '#bkgrade=' + encodeURIComponent(libraryNavGrade);
+  if (mode === 'copy') {
+    navigator.clipboard.writeText(link).then(() => alert('تم نسخ رابط الفولدر ✅'));
+  } else {
+    const text = `📦 ملازم ${libraryNavGrade} — مكتبة الكوثر\n${link}${LINK_OPEN_TIP}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  }
+}
+async function openBookletGradeView(grade) {
+  show('screen-library-booklets');
+  if (!libraryAllBooks || !libraryAllBooks.length) await loadLibrary();
+  libraryNavStage = gradeToStage(grade);
+  libraryNavGrade = grade;
+  renderLibraryNav();
+}
 
 function addToCart(id, title, price, qty, meta) {
   qty = qty || 1;
@@ -4670,11 +4693,18 @@ document.getElementById('addBookBtn').onclick = async () => {
   document.getElementById('bkImage').value=''; preview.innerHTML=''; delete preview.dataset.images;
   loadBooksAdmin();
 };
+function populateBkStageSelect() {
+  const sel = document.getElementById('bkStage');
+  const current = sel.value;
+  sel.innerHTML = Object.keys(STAGE_LABELS_AR).map(s => `<option value="${s}">${STAGE_LABELS_AR[s]}</option>`).join('');
+  if (STAGE_LABELS_AR[current]) sel.value = current;
+}
 function populateBkGradeSelect() {
   const stage = document.getElementById('bkStage').value;
   document.getElementById('bkGrade').innerHTML = (LIBRARY_STAGE_GRADES[stage]||[]).map(g => `<option>${g}</option>`).join('');
 }
 document.getElementById('bkStage').addEventListener('change', populateBkGradeSelect);
+populateBkStageSelect();
 populateBkGradeSelect();
 async function populateBookTeacherSelect() {
   const teachersSnap = await db.collection('teachers').get();
@@ -4683,6 +4713,41 @@ async function populateBookTeacherSelect() {
 }
 
 // ---------- إدارة مراحل وصفوف الملازم ----------
+function populateLibStageManageSelect() {
+  const sel = document.getElementById('libStageManage');
+  const current = sel.value;
+  sel.innerHTML = Object.keys(STAGE_LABELS_AR).map(s => `<option value="${s}">${STAGE_LABELS_AR[s]}</option>`).join('');
+  if (STAGE_LABELS_AR[current]) sel.value = current;
+}
+document.getElementById('addLibStageBtn').onclick = async () => {
+  const label = document.getElementById('libNewStageName').value.trim();
+  if (!label) { alert('اكتب اسم المرحلة الجديدة'); return; }
+  const id = 'stage_' + Date.now();
+  LIBRARY_STAGE_GRADES[id] = [];
+  STAGE_LABELS_AR[id] = label;
+  await saveLibraryStructure();
+  document.getElementById('libNewStageName').value = '';
+  populateLibStageManageSelect();
+  document.getElementById('libStageManage').value = id;
+  populateBkStageSelect();
+  populateBkGradeSelect();
+  renderLibGradesCurrentList();
+  alert(`تمت إضافة "${label}" ✅ — صارت متاحة الحين بكل مكان بالتطبيق`);
+};
+document.getElementById('deleteLibStageBtn').onclick = async () => {
+  const stage = document.getElementById('libStageManage').value;
+  if (!stage) return;
+  if (Object.keys(STAGE_LABELS_AR).length <= 1) { alert('لازم تبقى مرحلة وحدة على الأقل.'); return; }
+  if (!confirm(`حذف "${STAGE_LABELS_AR[stage]}" بالكامل مع كل صفوفها؟ (الملازم المضافة سابقاً بهذي المرحلة تبقى موجودة بس بدون تصنيف)`)) return;
+  delete LIBRARY_STAGE_GRADES[stage];
+  delete STAGE_LABELS_AR[stage];
+  await saveLibraryStructure();
+  populateLibStageManageSelect();
+  populateBkStageSelect();
+  populateBkGradeSelect();
+  renderLibGradesCurrentList();
+};
+
 function renderLibGradesCurrentList() {
   const stage = document.getElementById('libStageManage').value;
   const grades = LIBRARY_STAGE_GRADES[stage] || [];
@@ -5399,6 +5464,8 @@ function renderBookAdminItem(d) {
     </div>`;
 }
 async function loadBooksAdmin() {
+  populateLibStageManageSelect();
+  populateBkStageSelect();
   await populateBookTeacherSelect();
   populateBkGradeSelect();
   renderLibGradesCurrentList();
@@ -7327,6 +7394,17 @@ document.getElementById('loadStatsBtn').onclick = async () => {
 // ---------- دخول ولوحة الأستاذ ----------
 let currentTeacher = null;
 let currentTeacherClass = null; // { id, grade, subject }
+// نقطة الدخول لمنطقة الأستاذ — لو جلسته محفوظة أصلاً (سجّل دخول قبل ولا ضغط خروج)، يوديه مباشرة للوحته
+// بدون ما يطلب اسم مستخدم/كلمة سر من جديد، حتى لو التطبيق تحدّث أو انسحب بالسحب
+async function enterTeacherArea() {
+  if (currentTeacher) { show('screen-teacher-dashboard'); return; }
+  if (!initialAuthCheckDone) {
+    show('screen-teacher-login'); // نعرض نموذج الدخول فوراً كحالة انتظار بسيطة
+    await initialAuthCheckPromise;
+  }
+  if (currentTeacher) show('screen-teacher-dashboard');
+  else openTeacherLoginScreen();
+}
 async function openTeacherLoginScreen() {
   switchTeacherLoginTab('login');
   show('screen-teacher-login'); // نفتح الشاشة فوراً، وبعدين نعبّي البيانات حتى لو تأخرت أو فشلت
@@ -9345,6 +9423,7 @@ function routeFromHash() {
   if (hash.startsWith('book=')) { openBookView(hash.slice('book='.length)); return true; }
   if (hash.startsWith('store=')) { openTeacherStoreDetail(decodeURIComponent(hash.slice('store='.length))); return true; }
   if (hash.startsWith('grade=')) { openGradeView(hash.slice('grade='.length)); return true; }
+  if (hash.startsWith('bkgrade=')) { openBookletGradeView(decodeURIComponent(hash.slice('bkgrade='.length))); return true; }
   if (hash.startsWith('wbfolder=')) { (async()=>{ const id=hash.slice('wbfolder='.length); try{ const doc = await db.collection('workbookFolders').doc(id).get(); openWorkbookItemsScreen(id, doc.exists ? doc.data().name : ''); }catch(e){console.error(e);} })(); return true; }
   if (hash.startsWith('wbitem=')) { openWorkbookItemView(hash.slice('wbitem='.length)); return true; }
   const routes = {
