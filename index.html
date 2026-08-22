@@ -736,6 +736,12 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 <body>
 <div id="app">
 
+  <!-- بانر هروب من متصفح انستقرام/فيسبوك/تيك توك الداخلي — يظهر تلقائياً بس لو انفتحنا من داخل هالتطبيقات على أندرويد -->
+  <div id="inAppBrowserEscapeBanner" class="hidden" style="position:sticky;top:0;z-index:9999;background:#fff3e0;border-bottom:2px solid #f0b429;padding:10px 14px;font-size:13px;text-align:center;color:#7a4d00;">
+    📌 لأفضل تجربة، افتح الصفحة بمتصفحك مباشرة
+    <button id="inAppBrowserEscapeBtn" style="margin-inline-start:8px;background:#10203f;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:bold;cursor:pointer;">فتح بالمتصفح</button>
+  </div>
+
   <div class="topbar">
     <div class="brand"><img src="icon-192.png" alt="شعار مكتبة الكوثر"><h1>مكتبة الكوثر</h1>
       <button class="icon-btn" onclick="openLibraryCustomerChat()" title="مراسلة المكتبة" style="position:relative;">
@@ -5279,19 +5285,20 @@ async function openWorkbookItemsScreen(folderId, folderName) {
 }
 
 // ---------- مشاركة روابط الكراسات والفولدرات والصفوف ----------
+const LINK_OPEN_TIP = '\n\n📌 إذا ما فتحت الصفحة مباشرة، اضغط ⋮ فوق يمين الشاشة واختر "فتح في المتصفح/Chrome".';
 function shareWorkbookFolderLink(mode) {
   if (!currentCustomerWbFolderId) return;
   const link = window.location.origin + window.location.pathname + '#wbfolder=' + currentCustomerWbFolderId;
   if (mode === 'copy') {
     navigator.clipboard.writeText(link).then(() => alert('تم نسخ رابط الفولدر ✅'));
   } else {
-    const text = `📔 ${currentCustomerWbFolderName} — مكتبة الكوثر\n${link}`;
+    const text = `📔 ${currentCustomerWbFolderName} — مكتبة الكوثر\n${link}${LINK_OPEN_TIP}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   }
 }
 function shareWorkbookItemLink(itemId, itemTitle) {
   const link = window.location.origin + window.location.pathname + '#wbitem=' + itemId;
-  const text = `📔 ${itemTitle} — مكتبة الكوثر\n${link}`;
+  const text = `📔 ${itemTitle} — مكتبة الكوثر\n${link}${LINK_OPEN_TIP}`;
   if (confirm('اضغط "موافق" لنسخ الرابط، أو "إلغاء" للمشاركة عبر واتساب')) {
     navigator.clipboard.writeText(link).then(() => alert('تم نسخ رابط الكراسة ✅'));
   } else {
@@ -5313,7 +5320,7 @@ function shareGradeLink(mode) {
   if (mode === 'copy') {
     navigator.clipboard.writeText(link).then(() => alert('تم نسخ رابط الصف ✅'));
   } else {
-    const text = `📚 ${g ? g.name : ''} — مطبعة الكوثر\n${link}`;
+    const text = `📚 ${g ? g.name : ''} — مطبعة الكوثر\n${link}${LINK_OPEN_TIP}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   }
 }
@@ -6034,7 +6041,7 @@ document.getElementById('createExtOrderBtn').onclick = async () => {
       itemLine + '\n' +
       'سعر التوصيل: ' + deliveryFee + ' د.ع\n\n' +
       'المبلغ الكلي: ' + totalPrice + ' د.ع\n\n' +
-      'ادخل على الرابط لمعرفة وقت وصول طلبكم:\n' + link
+      'ادخل على الرابط لمعرفة وقت وصول طلبكم:\n' + link + LINK_OPEN_TIP
     );
     document.getElementById('extOrderResult').innerHTML =
       '<div class="card" style="background:#ecfdf3;border:2px solid #16a34a;">' +
@@ -6296,7 +6303,7 @@ function loadExtOrdersList() {
         itemLine + '\n' +
         'سعر التوصيل: ' + (o.deliveryFee||0) + ' د.ع\n\n' +
         'المبلغ الكلي: ' + o.totalPrice + ' د.ع\n\n' +
-        'ادخل على الرابط لمعرفة وقت وصول طلبكم:\n' + link
+        'ادخل على الرابط لمعرفة وقت وصول طلبكم:\n' + link + LINK_OPEN_TIP
       );
       return '<div class="card">' +
         '<p style="margin:0;font-weight:bold;">' + (sourceLabels[o.externalPlatform]||'') + ' — ' + o.studentName + '</p>' +
@@ -9473,6 +9480,27 @@ function markInitialAuthCheckDone() {
   initialAuthCheckDone = true;
   resolveInitialAuthCheck();
 }
+
+// كشف المتصفح الداخلي لتطبيقات معروفة (انستقرام/فيسبوك/تيك توك/لاين) — واتساب للأسف ما ينكشف بنفس الطريقة
+// (ما يغيّر بصمة المتصفح)، فأفضل حل معه يبقى التنبيه المكتوب بنص الرسالة نفسها.
+(function checkInAppBrowser() {
+  const ua = navigator.userAgent || '';
+  const isKnownInAppBrowser = /Instagram|FBAN|FBAV|Line\/|musical_ly|TikTok|Twitter/i.test(ua);
+  const isAndroid = /Android/i.test(ua);
+  if (!isKnownInAppBrowser) return;
+  const banner = document.getElementById('inAppBrowserEscapeBanner');
+  banner.classList.remove('hidden');
+  document.getElementById('inAppBrowserEscapeBtn').onclick = () => {
+    const currentUrl = window.location.href;
+    if (isAndroid) {
+      // رابط "intent" يجبر أندرويد يفتح كروم مباشرة، حتى من داخل متصفح تطبيق ثاني
+      const noScheme = currentUrl.replace(/^https?:\/\//, '');
+      window.location.href = 'intent://' + noScheme + '#Intent;scheme=https;package=com.android.chrome;end';
+    } else {
+      navigator.clipboard.writeText(currentUrl).then(() => alert('تم نسخ الرابط ✅ — الصقه بمتصفح Safari يدوياً'));
+    }
+  };
+})();
 
 (async function init() {
   loadFreeModeStatus(); // بالخلفية بدون انتظار — ما توقف فتح البرنامج
