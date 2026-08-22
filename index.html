@@ -6114,6 +6114,18 @@ async function settlePromoterAmount(promoterId, promoterName, expectedAmount, ex
     loadPoLookupResult(promoterName);
   } catch(e) { console.error(e); alert('صار خطأ أثناء التحاسب'); }
 }
+function togglePoOrderEdit(id) {
+  document.getElementById(`poOrderEditPanel-${id}`).classList.toggle('hidden');
+}
+async function savePoOrderEdit(id, promoterName) {
+  const totalPrice = +document.getElementById(`poOrderEditPrice-${id}`).value || 0;
+  const promoterShareAmount = +document.getElementById(`poOrderEditShare-${id}`).value || 0;
+  try {
+    await db.collection('orders').doc(id).update({ totalPrice, promoterShareAmount });
+    alert('تم حفظ التعديل ✅');
+    loadPoLookupResult(promoterName);
+  } catch(e) { console.error(e); alert('تعذّر الحفظ، تأكد من اتصالك بالنت'); }
+}
 async function loadPoLookupResult(promoterName) {
   const box = document.getElementById('poLookupResult');
   if (!promoterName) { box.innerHTML = ''; return; }
@@ -6142,9 +6154,22 @@ async function loadPoLookupResult(promoterName) {
       if (items.length === 0) return '';
       const itemsHtml = items.map(({id,o}) => `
         <div style="background:#f6f7fb;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:13px;">
-          👤 ${o.studentName} — 📞 ${o.phone} — 📍 ${o.province||''}<br>
-          حصة المروّج: <b style="color:#b8903c;">${o.promoterShareAmount||0} د.ع</b>
-          ${key === 'completed' ? (o.promoterShareSettled ? ' — <span style="color:#16a34a;">✅ تم التحاسب</span>' : ' — <span style="color:#dc2626;">⏳ لسا ما تحاسبنا</span>') : ''}
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div>
+              👤 ${o.studentName} — 📞 ${o.phone} — 📍 ${o.province||''}<br>
+              💰 السعر الكلي: <b>${o.totalPrice||0} د.ع</b><br>
+              حصة المروّج: <b style="color:#b8903c;">${o.promoterShareAmount||0} د.ع</b>
+              ${key === 'completed' ? (o.promoterShareSettled ? ' — <span style="color:#16a34a;">✅ تم التحاسب</span>' : ' — <span style="color:#dc2626;">⏳ لسا ما تحاسبنا</span>') : ''}
+            </div>
+            <button class="small-btn" onclick="togglePoOrderEdit('${id}')">✏️ تعديل</button>
+          </div>
+          <div id="poOrderEditPanel-${id}" class="hidden" style="margin-top:8px;background:#fff;border-radius:8px;padding:8px;">
+            <label>السعر الكلي (د.ع)</label>
+            <input id="poOrderEditPrice-${id}" type="number" value="${o.totalPrice||0}">
+            <label>حصة المروّج (د.ع)</label>
+            <input id="poOrderEditShare-${id}" type="number" value="${o.promoterShareAmount||0}">
+            <button class="btn" style="margin-top:6px;" onclick="savePoOrderEdit('${id}','${promoterName.replace(/'/g,"")}')">💾 حفظ</button>
+          </div>
         </div>`).join('');
       return `<div style="margin-top:10px;">
         <p style="font-weight:bold;color:${color};margin:0 0 6px;">${label} (${items.length})</p>
