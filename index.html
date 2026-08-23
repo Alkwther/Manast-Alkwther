@@ -3910,19 +3910,20 @@ async function showMyOrders(phoneOverride) {
   list.innerHTML = notYouLink + '<p style="text-align:center;">جاري التحميل...</p>';
   try {
     await ensureAuthed();
-    // نتحقق بنفس الوقت إذا نفس الرقم مسجّل كمروّج بأي طلب — نوريه رابط واضح لتفاصيله كاملة إذا نعم
-    let promoterBanner = '';
+    // نتحقق أول من طلبات الزبون العادية بهالرقم
+    const snap = await db.collection('orders').where('studentPhone','==', phone).get();
+    // نتحقق بنفس الوقت إذا نفس الرقم مسجّل كمروّج بأي طلب
+    let hasPromoterOrders = false;
     try {
       const promoterSnap = await db.collection('orders').where('promoterPhone','==', phone).limit(1).get();
-      if (!promoterSnap.empty) {
-        promoterBanner = `<div class="card" style="background:#fff8e6;border:2px solid #b8903c;text-align:center;cursor:pointer;" onclick="openPromoterView('${phone}')">
+      hasPromoterOrders = !promoterSnap.empty;
+    } catch(e) { console.error(e); }
+    // لو ما عنده طلبات زبون عادية إطلاقاً بس عنده طلبات كمروّج، نوديه مباشرة لصفحته الكاملة بدل ما نوريه "لا توجد طلبات"
+    if (snap.empty && hasPromoterOrders) { openPromoterView(phone); return; }
+    const promoterBanner = hasPromoterOrders ? `<div class="card" style="background:#fff8e6;border:2px solid #b8903c;text-align:center;cursor:pointer;" onclick="openPromoterView('${phone}')">
           <p style="margin:0;font-weight:bold;color:#8a6d1f;">🎯 عندك طلبات مسجّلة كمروّج أيضاً</p>
           <p style="margin:4px 0 0;font-size:13px;color:#8a6d1f;">اضغط هنا لعرض كل تفاصيلك: طلباتك، حصتك، والمستحق لك</p>
-        </div>`;
-      }
-    } catch(e) { console.error(e); }
-    // فلتر مساواة وحيد بلا orderBy بالاستعلام نفسه (يتجنب الحاجة لفهرس مركّب)، والترتيب يصير محلياً
-    const snap = await db.collection('orders').where('studentPhone','==', phone).get();
+        </div>` : '';
     if (snap.empty) { list.innerHTML = notYouLink + promoterBanner + '<div class="card"><p>لا توجد طلبات بعد.</p></div>'; return; }
     const rows = [];
     for (const d of snap.docs) {
@@ -6568,6 +6569,12 @@ document.getElementById('qoSubmitBtn').onclick = async () => {
 let promoterViewUnsubscribe = null;
 async function openPromoterView(promoterPhone) {
   show('screen-promoter-view');
+  // نحفظ رقمه محلياً بشكل دائم — حتى لو دخل أول مرة عبر رابط مباشر (#promoter=)، يبقى مسجّل دخول ويدخل تلقائياً بالمستقبل
+  try {
+    const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null') || {};
+    saved.phone = promoterPhone;
+    localStorage.setItem('kawthar_delivery_info', JSON.stringify(saved));
+  } catch(e) { console.error(e); }
   const box = document.getElementById('promoterViewContent');
   box.innerHTML = '<p style="text-align:center;padding:30px;">جاري التحميل...</p>';
   if (promoterViewUnsubscribe) { promoterViewUnsubscribe(); promoterViewUnsubscribe = null; }
