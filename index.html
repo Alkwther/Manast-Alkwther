@@ -6234,6 +6234,13 @@ async function loadPoLookupResult(promoterName) {
     if (snap.empty) { box.innerHTML = '<p style="margin-top:10px;">ما فيه طلبات لهذا المروّج بعد.</p>'; return; }
     const rows = snap.docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
       .sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
+    const currentPhone = rows.map(r => r.o.promoterPhone).find(p => p) || '';
+    const phoneBarHtml = `<div class="card" style="margin-top:10px;background:${currentPhone ? '#ecfdf3' : '#fff8e6'};border:2px solid ${currentPhone ? '#86efac' : '#f0b429'};">
+      <p style="margin:0 0 8px;font-weight:bold;color:${currentPhone ? '#15803d' : '#8a6d1f'};">
+        ${currentPhone ? '📞 رقم هاتف المروّج المسجّل: ' + currentPhone : '⚠️ هذا المروّج ما عنده رقم هاتف مسجّل بعد — ما يقدر يدخل لطلباته من "طلباتي"'}
+      </p>
+      <button class="small-btn" onclick="setPromoterPhoneForAll('${promoterId}','${promoterName.replace(/'/g,"")}')">${currentPhone ? '✏️ تعديل الرقم' : '➕ إضافة رقم الهاتف'}</button>
+    </div>`;
     const groups = { processing: [], delivering: [], completed: [], cancelled: [], pending: [] };
     let owedTotal = 0, unsettledOrderIds = [];
     rows.forEach(({id,o}) => {
@@ -6285,6 +6292,7 @@ async function loadPoLookupResult(promoterName) {
           </div>`; }).join('')}
       </div>`;
     box.innerHTML = `
+      ${phoneBarHtml}
       <div style="background:#ecfdf3;border:2px solid #16a34a;border-radius:10px;padding:12px 14px;margin-top:10px;">
         <p style="margin:0 0 8px;font-weight:bold;color:#15803d;">💰 المبلغ المستحق للمروّج (غير محاسب): ${owedTotal} د.ع</p>
         ${owedTotal > 0 ? `<button class="small-btn" style="background:#16a34a;color:#fff;" onclick="settlePromoterAmount('${promoterId}','${promoterName.replace(/'/g,"")}', ${owedTotal}, ${unsettledOrderIds.length})">✅ تم التحاسب</button>` : ''}
@@ -6293,6 +6301,20 @@ async function loadPoLookupResult(promoterName) {
       ${historyHtml}
     `;
   } catch(e) { console.error(e); box.innerHTML = '<p style="color:#b91c1c;margin-top:10px;">تعذّر التحميل.</p>'; }
+}
+async function setPromoterPhoneForAll(promoterId, promoterName) {
+  const newPhone = prompt(`رقم هاتف "${promoterName}" (يستخدمه للدخول لطلباته من "طلباتي"):`);
+  if (!newPhone || !newPhone.trim()) return;
+  const phone = toEnglishDigits(newPhone.trim());
+  try {
+    const snap = await db.collection('orders').where('promoterId','==', promoterId).get();
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.update(d.ref, { promoterPhone: phone }));
+    await batch.commit();
+    alert(`تم تسجيل الرقم ✅ — تحدّث على ${snap.size} طلب. يقدر المروّج الحين يدخل لطلباته من "طلباتي" بهذا الرقم.`);
+    loadPoLookupResult(promoterName);
+    loadPromoterNamesDatalist();
+  } catch(e) { console.error(e); alert('تعذّر الحفظ، تأكد من اتصالك بالنت'); }
 }
 document.getElementById('createPromoterOrderBtn').onclick = async () => {
   const nameInputVisible = !document.getElementById('poName').classList.contains('hidden');
