@@ -1367,7 +1367,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     <div class="subject-tile" onclick="showMyOrders()">
       <div class="tile-row">
         <div class="tile-icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 011 1v1H8V4a1 1 0 011-1z"/><rect x="5" y="5" width="14" height="16" rx="2"/><path d="M9 11l2 2 4-4"/></svg></div>
-        <div class="tile-text"><b>طلباتي</b><span>تابع حالة طلباتك السابقة</span></div>
+        <div class="tile-text"><b>طلباتي</b><span>تابع حالة طلباتك أو حصتك كمروّج</span></div>
       </div>
       <div class="badge">عرض</div>
     </div>
@@ -1969,6 +1969,8 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           </div>
           <input id="poName" placeholder="اكتب اسم المروّج الجديد">
           <select id="poNameSelect" class="hidden"><option value="">اختر المروّج</option></select>
+          <label>رقم هاتف المروّج (يستخدمه للدخول لطلباته لاحقاً من "طلباتي")</label>
+          <input id="poPromoterPhone" placeholder="07xxxxxxxxx" inputmode="tel">
           <label>اسم الزبون</label>
           <input id="poCustomerName" placeholder="الاسم الكامل">
           <label>رقم الهاتف</label>
@@ -3908,9 +3910,20 @@ async function showMyOrders(phoneOverride) {
   list.innerHTML = notYouLink + '<p style="text-align:center;">جاري التحميل...</p>';
   try {
     await ensureAuthed();
+    // نتحقق بنفس الوقت إذا نفس الرقم مسجّل كمروّج بأي طلب — نوريه رابط واضح لتفاصيله كاملة إذا نعم
+    let promoterBanner = '';
+    try {
+      const promoterSnap = await db.collection('orders').where('promoterPhone','==', phone).limit(1).get();
+      if (!promoterSnap.empty) {
+        promoterBanner = `<div class="card" style="background:#fff8e6;border:2px solid #b8903c;text-align:center;cursor:pointer;" onclick="openPromoterView('${phone}')">
+          <p style="margin:0;font-weight:bold;color:#8a6d1f;">🎯 عندك طلبات مسجّلة كمروّج أيضاً</p>
+          <p style="margin:4px 0 0;font-size:13px;color:#8a6d1f;">اضغط هنا لعرض كل تفاصيلك: طلباتك، حصتك، والمستحق لك</p>
+        </div>`;
+      }
+    } catch(e) { console.error(e); }
     // فلتر مساواة وحيد بلا orderBy بالاستعلام نفسه (يتجنب الحاجة لفهرس مركّب)، والترتيب يصير محلياً
     const snap = await db.collection('orders').where('studentPhone','==', phone).get();
-    if (snap.empty) { list.innerHTML = notYouLink + '<div class="card"><p>لا توجد طلبات بعد.</p></div>'; return; }
+    if (snap.empty) { list.innerHTML = notYouLink + promoterBanner + '<div class="card"><p>لا توجد طلبات بعد.</p></div>'; return; }
     const rows = [];
     for (const d of snap.docs) {
       const o = d.data();
@@ -3933,7 +3946,7 @@ async function showMyOrders(phoneOverride) {
       });
     } catch(e) { console.error(e); }
 
-    list.innerHTML = notYouLink + rows.map(({id, o}) => {
+    list.innerHTML = notYouLink + promoterBanner + rows.map(({id, o}) => {
       const itemsText = o.items.map(it => {
         const stageLabel = it.stage ? (STAGE_LABELS_AR[it.stage] || it.stage) : '';
         const parts = [it.title];
@@ -6137,7 +6150,13 @@ async function loadPromoterNamesDatalist() {
   try {
     const snap = await db.collection('orders').where('source','==','promoter').get();
     const names = new Set();
-    snap.docs.forEach(d => { const n = d.data().promoterName; if (n) names.add(n); });
+    const phoneByName = {};
+    snap.docs.forEach(d => {
+      const o = d.data();
+      if (o.promoterName) names.add(o.promoterName);
+      if (o.promoterName && o.promoterPhone) phoneByName[o.promoterName] = o.promoterPhone;
+    });
+    promoterPhoneByName = phoneByName; // متاح لاحقاً لتعبئة رقم هاتف المروّج تلقائياً عند اختيار مروّج موجود
     if (lookupSel) {
       const prevValue = lookupSel.value;
       lookupSel.innerHTML = '<option value="">اختر مروّج</option>' + Array.from(names).map(n => `<option value="${n}">${n}</option>`).join('');
@@ -6150,6 +6169,11 @@ async function loadPromoterNamesDatalist() {
     }
   } catch(e) { console.error(e); }
 }
+let promoterPhoneByName = {};
+document.getElementById('poNameSelect').addEventListener('change', (e) => {
+  const phone = promoterPhoneByName[e.target.value];
+  if (phone) document.getElementById('poPromoterPhone').value = phone;
+});
 document.getElementById('poLookupSelect').addEventListener('change', (e) => loadPoLookupResult(e.target.value));
 
 function setPoPromoterMode(mode) {
@@ -6274,6 +6298,7 @@ document.getElementById('createPromoterOrderBtn').onclick = async () => {
   const nameInputVisible = !document.getElementById('poName').classList.contains('hidden');
   const promoterName = (nameInputVisible ? document.getElementById('poName').value : document.getElementById('poNameSelect').value).trim();
   const promoterId = promoterName ? tbSafeId(promoterName) : null;
+  const promoterPhone = toEnglishDigits(document.getElementById('poPromoterPhone').value.trim());
   const name = document.getElementById('poCustomerName').value.trim();
   const phone = toEnglishDigits(document.getElementById('poPhone').value.trim());
   const province = document.getElementById('poProvince').value;
@@ -6285,6 +6310,7 @@ document.getElementById('createPromoterOrderBtn').onclick = async () => {
   const promoterShareAmount = +document.getElementById('poShare').value || 0;
   if (!promoterName) { setMsg('poMsg','اكتب اسم المروّج', false); return; }
   const missing = [];
+  if (!promoterPhone) missing.push('رقم هاتف المروّج');
   if (!name) missing.push('اسم الزبون');
   if (!phone) missing.push('رقم الهاتف');
   if (!province) missing.push('المحافظة');
@@ -6303,12 +6329,12 @@ document.getElementById('createPromoterOrderBtn').onclick = async () => {
       studentName: name, studentPhone: phone, phone, altPhone: '',
       items, subtotal, deliveryFee, totalPrice, province, district,
       customerId, fulfillment: 'library', source: 'promoter',
-      promoterId, promoterName, promoterShareAmount,
+      promoterId, promoterName, promoterPhone, promoterShareAmount,
       deliveringThresholdAt: computeDeliveringThresholdAt(createdAt),
       addedBy: currentStaffName || 'موظف', status: 'pending', seenByStaff: true, createdAt
     });
     const link = window.location.origin + window.location.pathname + '#o=' + orderRef.id;
-    const promoterLink = window.location.origin + window.location.pathname + '#promoter=' + encodeURIComponent(promoterId);
+    const promoterLink = window.location.origin + window.location.pathname + '#promoter=' + encodeURIComponent(promoterPhone);
     document.getElementById('poResult').innerHTML =
       '<div class="card" style="background:#ecfdf3;border:2px solid #16a34a;">' +
         '<p style="font-weight:bold;color:#15803d;margin:0 0 8px;">✅ تم إنشاء الطلب — رقم الزبون: ' + customerId + '</p>' +
@@ -6316,6 +6342,7 @@ document.getElementById('createPromoterOrderBtn').onclick = async () => {
           '<button class="small-btn" onclick="navigator.clipboard.writeText(\'' + link + '\').then(function(){alert(\'تم نسخ رابط الطلب ✅\')})">📋 نسخ رابط الطلب</button>' +
           '<button class="small-btn" style="background:#b8903c;color:#fff;" onclick="navigator.clipboard.writeText(\'' + promoterLink + '\').then(function(){alert(\'تم نسخ رابط متابعة المروّج ✅\')})">🎯 نسخ رابط متابعة المروّج (' + promoterName + ')</button>' +
         '</div>' +
+        '<p style="margin:8px 0 0;font-size:12px;color:#15803d;">💡 المروّج يقدر أيضاً يدخل لطلباته لاحقاً من داخل التطبيق (زر "طلباتي") بكتابة نفس رقم هاتفه.</p>' +
       '</div>';
     ['poCustomerName','poPhone','poDistrict','poDetails','poUnitPrice','poShare'].forEach(function(id){ document.getElementById(id).value = ''; });
     document.getElementById('poQty').value = '1';
@@ -6517,7 +6544,7 @@ document.getElementById('qoSubmitBtn').onclick = async () => {
 
 // ---------- تتبع كل طلبات مكتب شريك (يشمل كل المحافظات) ----------
 let promoterViewUnsubscribe = null;
-async function openPromoterView(promoterId) {
+async function openPromoterView(promoterPhone) {
   show('screen-promoter-view');
   const box = document.getElementById('promoterViewContent');
   box.innerHTML = '<p style="text-align:center;padding:30px;">جاري التحميل...</p>';
@@ -6525,14 +6552,15 @@ async function openPromoterView(promoterId) {
   try {
     await ensureAuthed();
     requestNotificationPermissionQuietly();
-    registerFcmToken('promoter', promoterId);
+    registerFcmToken('promoter', promoterPhone);
     let firstSnap = true;
     const knownStatus = {};
-    promoterViewUnsubscribe = db.collection('orders').where('promoterId','==', promoterId).onSnapshot(snap => {
-      if (snap.empty) { box.innerHTML = '<div class="card"><p>ما فيه طلبات مسجّلة لهذا المروّج بعد.</p></div>'; firstSnap = false; return; }
+    promoterViewUnsubscribe = db.collection('orders').where('promoterPhone','==', promoterPhone).onSnapshot(snap => {
+      if (snap.empty) { box.innerHTML = '<div class="card"><p>ما فيه طلبات مسجّلة لهذا الرقم كمروّج بعد.</p></div>'; firstSnap = false; return; }
       const rows = snap.docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
         .sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
-      const promoterName = rows[0].o.promoterName || promoterId;
+      const promoterName = rows[0].o.promoterName || '';
+      const promoterId = rows[0].o.promoterId || tbSafeId(promoterName);
       const todayStart = new Date(); todayStart.setHours(0,0,0,0);
       let todayShare = 0, pendingShare = 0, totalShare = 0, unsettledShare = 0, settledShare = 0;
       rows.forEach(({o}) => {
