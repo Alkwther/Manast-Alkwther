@@ -6233,9 +6233,18 @@ async function loadPoLookupResult(promoterName) {
   box.innerHTML = '<p style="margin-top:10px;">جاري التحميل...</p>';
   try {
     const promoterId = tbSafeId(promoterName);
-    const snap = await db.collection('orders').where('promoterId','==', promoterId).get();
-    if (snap.empty) { box.innerHTML = '<p style="margin-top:10px;">ما فيه طلبات لهذا المروّج بعد.</p>'; return; }
-    const rows = snap.docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
+    // نجمع النتائج من طريقتين مع بعض (بالمعرّف وبالاسم بالضبط) — يحمينا من أي طلب قديم انسجّل باسم مكتوب بفرق بسيط
+    // (مسافة زايدة داخل الاسم مثلاً) فيصير له معرّف مختلف شوي، حتى ما نضيّع أي طلب من نتائج البحث
+    const [byId, byName] = await Promise.all([
+      db.collection('orders').where('promoterId','==', promoterId).get(),
+      db.collection('orders').where('promoterName','==', promoterName).get()
+    ]);
+    const docsById = {};
+    byId.docs.forEach(d => docsById[d.id] = d);
+    byName.docs.forEach(d => docsById[d.id] = d);
+    const allDocs = Object.values(docsById);
+    if (allDocs.length === 0) { box.innerHTML = '<p style="margin-top:10px;">ما فيه طلبات لهذا المروّج بعد.</p>'; return; }
+    const rows = allDocs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
       .sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
     const currentPhone = rows.map(r => r.o.promoterPhone).find(p => p) || '';
     const promoterLinkForCopy = currentPhone ? (window.location.origin + window.location.pathname + '#promoter=' + encodeURIComponent(currentPhone)) : '';
@@ -6317,11 +6326,18 @@ async function setPromoterPhoneForAll(promoterId, promoterName) {
   if (!newPhone || !newPhone.trim()) return;
   const phone = toEnglishDigits(newPhone.trim());
   try {
-    const snap = await db.collection('orders').where('promoterId','==', promoterId).get();
+    const [byId, byName] = await Promise.all([
+      db.collection('orders').where('promoterId','==', promoterId).get(),
+      db.collection('orders').where('promoterName','==', promoterName).get()
+    ]);
+    const docsById = {};
+    byId.docs.forEach(d => docsById[d.id] = d);
+    byName.docs.forEach(d => docsById[d.id] = d);
+    const allDocs = Object.values(docsById);
     const batch = db.batch();
-    snap.docs.forEach(d => batch.update(d.ref, { promoterPhone: phone }));
+    allDocs.forEach(d => batch.update(d.ref, { promoterPhone: phone }));
     await batch.commit();
-    alert(`تم تسجيل الرقم ✅ — تحدّث على ${snap.size} طلب. يقدر المروّج الحين يدخل لطلباته من "طلباتي" بهذا الرقم.`);
+    alert(`تم تسجيل الرقم ✅ — تحدّث على ${allDocs.length} طلب. يقدر المروّج الحين يدخل لطلباته من "طلباتي" بهذا الرقم.`);
     loadPoLookupResult(promoterName);
     loadPromoterNamesDatalist();
   } catch(e) { console.error(e); alert('تعذّر الحفظ، تأكد من اتصالك بالنت'); }
