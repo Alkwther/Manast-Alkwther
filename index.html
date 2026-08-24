@@ -7903,6 +7903,7 @@ document.getElementById('tchBookletPrice').addEventListener('input', (e) => {
   document.getElementById('tchBookletTotalPrice').textContent = price ? `${price} دينار` : '— دينار';
 });
 document.getElementById('submitTeacherBookletBtn').onclick = async () => {
+  if (!currentTeacher) { alert('انتهت صلاحية جلستك مؤقتاً. اضغط رجوع وادخل من جديد كأستاذ، وبعدها أعد رفع المادة.'); show('screen-teacher-login'); return; }
   const imagesJson = document.getElementById('tchBookletImagePreview').dataset.images;
   const images = imagesJson ? JSON.parse(imagesJson) : [];
   const image = images[0] || null;
