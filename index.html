@@ -2713,6 +2713,8 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <button class="small-btn" id="tchOrdersTabNew" style="flex:1;background:#dc2626;color:#fff;">🆕 جديدة</button>
       <button class="small-btn" id="tchOrdersTabProcessing" style="flex:1;">⚙️ قيد التنفيذ</button>
       <button class="small-btn" id="tchOrdersTabDelivering" style="flex:1;">🚚 قيد التوصيل</button>
+      <button class="small-btn" id="tchOrdersTabCompleted" style="flex:1;">✅ تم التوصيل</button>
+      <button class="small-btn" id="tchOrdersTabCancelled" style="flex:1;">❌ ملغاة</button>
     </div>
     <div id="teacherOrdersList"></div>
 
@@ -6236,11 +6238,18 @@ async function loadPoLookupResult(promoterName) {
     const rows = snap.docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
       .sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
     const currentPhone = rows.map(r => r.o.promoterPhone).find(p => p) || '';
+    const promoterLinkForCopy = currentPhone ? (window.location.origin + window.location.pathname + '#promoter=' + encodeURIComponent(currentPhone)) : '';
+    const copyLinkBtn = currentPhone
+      ? `<button class="small-btn" style="background:#b8903c;color:#fff;" onclick="navigator.clipboard.writeText('${promoterLinkForCopy}').then(function(){alert('تم نسخ رابط المروّج ✅')})">🔗 نسخ رابط المروّج</button>`
+      : '';
     const phoneBarHtml = `<div class="card" style="margin-top:10px;background:${currentPhone ? '#ecfdf3' : '#fff8e6'};border:2px solid ${currentPhone ? '#86efac' : '#f0b429'};">
       <p style="margin:0 0 8px;font-weight:bold;color:${currentPhone ? '#15803d' : '#8a6d1f'};">
         ${currentPhone ? '📞 رقم هاتف المروّج المسجّل: ' + currentPhone : '⚠️ هذا المروّج ما عنده رقم هاتف مسجّل بعد — ما يقدر يدخل لطلباته من "طلباتي"'}
       </p>
-      <button class="small-btn" onclick="setPromoterPhoneForAll('${promoterId}','${promoterName.replace(/'/g,"")}')">${currentPhone ? '✏️ تعديل الرقم' : '➕ إضافة رقم الهاتف'}</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="small-btn" onclick="setPromoterPhoneForAll('${promoterId}','${promoterName.replace(/'/g,"")}')">${currentPhone ? '✏️ تعديل الرقم' : '➕ إضافة رقم الهاتف'}</button>
+        ${copyLinkBtn}
+      </div>
     </div>`;
     const groups = { processing: [], delivering: [], completed: [], cancelled: [], pending: [] };
     let owedTotal = 0, unsettledOrderIds = [];
@@ -7702,12 +7711,12 @@ async function loadTeacherBookletCustomers() {
 let currentTeacherOrdersTab = 'new';
 function switchTeacherOrdersTab(tab) {
   currentTeacherOrdersTab = tab;
-  const colors = { new:'#dc2626', processing:'#0e6fa8', delivering:'#16a34a' };
-  ['tchOrdersTabNew','tchOrdersTabProcessing','tchOrdersTabDelivering'].forEach(bid => {
+  const colors = { new:'#dc2626', processing:'#0e6fa8', delivering:'#16a34a', completed:'#16a34a', cancelled:'#dc2626' };
+  ['tchOrdersTabNew','tchOrdersTabProcessing','tchOrdersTabDelivering','tchOrdersTabCompleted','tchOrdersTabCancelled'].forEach(bid => {
     const btn = document.getElementById(bid);
     btn.style.background = ''; btn.style.color = '';
   });
-  const activeBtnId = { new:'tchOrdersTabNew', processing:'tchOrdersTabProcessing', delivering:'tchOrdersTabDelivering' }[tab];
+  const activeBtnId = { new:'tchOrdersTabNew', processing:'tchOrdersTabProcessing', delivering:'tchOrdersTabDelivering', completed:'tchOrdersTabCompleted', cancelled:'tchOrdersTabCancelled' }[tab];
   document.getElementById(activeBtnId).style.background = colors[tab];
   document.getElementById(activeBtnId).style.color = '#fff';
   loadTeacherOrders();
@@ -7715,6 +7724,8 @@ function switchTeacherOrdersTab(tab) {
 document.getElementById('tchOrdersTabNew').onclick = () => switchTeacherOrdersTab('new');
 document.getElementById('tchOrdersTabProcessing').onclick = () => switchTeacherOrdersTab('processing');
 document.getElementById('tchOrdersTabDelivering').onclick = () => switchTeacherOrdersTab('delivering');
+document.getElementById('tchOrdersTabCompleted').onclick = () => switchTeacherOrdersTab('completed');
+document.getElementById('tchOrdersTabCancelled').onclick = () => switchTeacherOrdersTab('cancelled');
 
 let teacherOrdersContextName = null; // null = يستخدم currentTeacher.name (شاشة الأستاذ نفسه)؛ أو اسم محدد لو فتحها المشرف/الموظف
 function getTeacherOrdersContextName() { return teacherOrdersContextName || (currentTeacher && currentTeacher.name); }
@@ -7727,7 +7738,9 @@ async function loadTeacherOrders() {
     let filtered;
     if (currentTeacherOrdersTab === 'new') filtered = rows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed');
     else if (currentTeacherOrdersTab === 'processing') filtered = rows.filter(({o}) => !!o.processingAt && o.status === 'processing');
-    else filtered = rows.filter(({o}) => o.status === 'delivering');
+    else if (currentTeacherOrdersTab === 'delivering') filtered = rows.filter(({o}) => o.status === 'delivering');
+    else if (currentTeacherOrdersTab === 'completed') filtered = rows.filter(({o}) => o.status === 'completed');
+    else filtered = rows.filter(({o}) => o.status === 'cancelled');
     filtered.sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
     if (filtered.length === 0) { list.innerHTML = '<div class="card"><p>لا توجد طلبات بهذا التصنيف.</p></div>'; return; }
     list.innerHTML = filtered.map(({id,o}) => renderTeacherOrderCard(id, o)).join('');
@@ -7756,6 +7769,9 @@ function renderTeacherOrderCard(id, o, useOwnStatus) {
     } else if (effectiveTab === 'delivering') {
       actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','completed')" style="background:#16a34a;color:#fff;">✅ تم التوصيل</button>`;
     }
+    if (['new','processing','delivering'].includes(effectiveTab)) {
+      actionsHtml += `<button class="small-btn" onclick="teacherCancelOrder('${id}')" style="background:#fef2f2;color:#dc2626;">❌ إلغاء الطلب</button>`;
+    }
     actionsHtml += `<button class="small-btn" onclick="copyOrderLink('${id}')">🔗 نسخ رابط الطلب</button>`;
   }
   const statusBadge = useOwnStatus ? `<span style="background:#eef1f8;color:#10203f;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">${ORDER_STATUS_LABELS[o.status]||o.status}</span>` : '';
@@ -7771,6 +7787,11 @@ function renderTeacherOrderCard(id, o, useOwnStatus) {
 }
 async function teacherCopyOrder(id) { await copySingleOrder(id); loadTeacherOrders(); }
 async function teacherSetOrderStatus(id, status) { await setOrderStatus(id, status); loadTeacherOrders(); }
+async function teacherCancelOrder(id) {
+  if (!confirm('متأكد تبي تلغي هذا الطلب؟')) return;
+  await setOrderStatus(id, 'cancelled');
+  loadTeacherOrders();
+}
 
 function getPeriodStart(period) {
   const now = new Date();
