@@ -6634,9 +6634,25 @@ async function openPromoterView(promoterPhone) {
     registerFcmToken('promoter', promoterPhone);
     let firstSnap = true;
     const knownStatus = {};
-    promoterViewUnsubscribe = db.collection('orders').where('promoterPhone','==', promoterPhone).onSnapshot(snap => {
-      if (snap.empty) { box.innerHTML = '<div class="card"><p>ما فيه طلبات مسجّلة لهذا الرقم كمروّج بعد.</p></div>'; firstSnap = false; return; }
-      const rows = snap.docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
+    promoterViewUnsubscribe = db.collection('orders').where('promoterPhone','==', promoterPhone).onSnapshot(async snap => {
+      if (snap.empty) {
+        // ما فيه طلبات مربوطة برقم الهاتف مباشرة — نعرض رسالة، بس لو نعرف اسمه من زيارة سابقة نقدر نحاول نلقى طلباته بالاسم كخطة بديلة
+        box.innerHTML = '<div class="card"><p>ما فيه طلبات مسجّلة لهذا الرقم كمروّج بعد.</p></div>';
+        firstSnap = false;
+        return;
+      }
+      // نكمّل بأي طلبات قديمة لنفس المروّج ما زالت ناقصة رقم الهاتف (انسجّلت قبل ما تضاف هذي الميزة) —
+      // نجيبها مرة وحدة بالاسم ونضمّها، حتى ما تختفي تفاصيله وحصته السابقة فجأة
+      let extraDocs = [];
+      try {
+        const nameGuess = snap.docs[0].data().promoterName;
+        if (nameGuess) {
+          const byName = await db.collection('orders').where('promoterName','==', nameGuess).get();
+          const existingIds = new Set(snap.docs.map(d => d.id));
+          extraDocs = byName.docs.filter(d => !existingIds.has(d.id));
+        }
+      } catch(e) { console.error(e); }
+      const rows = snap.docs.concat(extraDocs).map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
         .sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
       const promoterName = rows[0].o.promoterName || '';
       const promoterId = rows[0].o.promoterId || tbSafeId(promoterName);
