@@ -1953,8 +1953,13 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 
         <div class="card" style="border-inline-start:4px solid #0e6fa8;">
           <h3>📊 طلبات مروّج معيّن</h3>
-          <p>اختر اسم المروّج وشوف كل طلباته مصنّفة حسب الحالة، والمبلغ المستحق له.</p>
-          <label>اختر المروّج</label>
+          <p>ابحث برقم هاتف المروّج (الطريقة الأدق والموصى فيها)، أو باسمه لو ما سجّلت رقمه بعد.</p>
+          <label>رقم هاتف المروّج</label>
+          <div style="display:flex;gap:6px;">
+            <input id="poLookupPhone" placeholder="07xxxxxxxxx" inputmode="tel" style="margin-bottom:0;flex:1;">
+            <button class="small-btn" id="poLookupByPhoneBtn">🔍 بحث</button>
+          </div>
+          <label style="margin-top:10px;">أو اختر بالاسم</label>
           <select id="poLookupSelect"><option value="">اختر مروّج</option></select>
           <div id="poLookupResult"></div>
         </div>
@@ -6242,11 +6247,32 @@ async function loadPoLookupResult(promoterName) {
     const docsById = {};
     byId.docs.forEach(d => docsById[d.id] = d);
     byName.docs.forEach(d => docsById[d.id] = d);
-    const allDocs = Object.values(docsById);
-    if (allDocs.length === 0) { box.innerHTML = '<p style="margin-top:10px;">ما فيه طلبات لهذا المروّج بعد.</p>'; return; }
-    const rows = allDocs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
-      .sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
-    const currentPhone = rows.map(r => r.o.promoterPhone).find(p => p) || '';
+    await renderPoLookupBox(Object.values(docsById));
+  } catch(e) { console.error(e); box.innerHTML = '<p style="color:#b91c1c;margin-top:10px;">تعذّر التحميل.</p>'; }
+}
+async function loadPoLookupResultByPhone(phone) {
+  const box = document.getElementById('poLookupResult');
+  box.innerHTML = '<p style="margin-top:10px;">جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('orders').where('promoterPhone','==', phone).get();
+    await renderPoLookupBox(snap.docs, phone);
+  } catch(e) { console.error(e); box.innerHTML = '<p style="color:#b91c1c;margin-top:10px;">تعذّر التحميل.</p>'; }
+}
+document.getElementById('poLookupByPhoneBtn').onclick = () => {
+  const phone = toEnglishDigits(document.getElementById('poLookupPhone').value.trim());
+  if (!phone) { alert('اكتب رقم هاتف المروّج'); return; }
+  document.getElementById('poLookupSelect').value = ''; // نفضّي اختيار الاسم حتى ما يصير تعارض
+  loadPoLookupResultByPhone(phone);
+};
+// الدالة المشتركة اللي ترسم كل تفاصيل المروّج (طلباته، حصته، سجل تحاسبه) — تُستدعى من البحث بالاسم أو بالرقم
+async function renderPoLookupBox(docs, searchedPhone) {
+  const box = document.getElementById('poLookupResult');
+  if (docs.length === 0) { box.innerHTML = `<p style="margin-top:10px;">ما فيه طلبات ${searchedPhone ? 'لهذا الرقم' : 'لهذا المروّج'} بعد.</p>`; return; }
+  const rows = docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
+    .sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
+  const promoterName = rows[0].o.promoterName || '';
+  const promoterId = rows[0].o.promoterId || tbSafeId(promoterName);
+  const currentPhone = searchedPhone || rows.map(r => r.o.promoterPhone).find(p => p) || '';
     const promoterLinkForCopy = currentPhone ? (window.location.origin + window.location.pathname + '#promoter=' + encodeURIComponent(currentPhone)) : '';
     const copyLinkBtn = currentPhone
       ? `<button class="small-btn" style="background:#b8903c;color:#fff;" onclick="navigator.clipboard.writeText('${promoterLinkForCopy}').then(function(){alert('تم نسخ رابط المروّج ✅')})">🔗 نسخ رابط المروّج</button>`
@@ -6319,7 +6345,6 @@ async function loadPoLookupResult(promoterName) {
       ${sectionsHtml}
       ${historyHtml}
     `;
-  } catch(e) { console.error(e); box.innerHTML = '<p style="color:#b91c1c;margin-top:10px;">تعذّر التحميل.</p>'; }
 }
 async function setPromoterPhoneForAll(promoterId, promoterName) {
   const newPhone = prompt(`رقم هاتف "${promoterName}" (يستخدمه للدخول لطلباته من "طلباتي"):`);
