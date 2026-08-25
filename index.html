@@ -9611,16 +9611,20 @@ if (inAppBrowser && !localStorage.getItem('kawthar_inapp_dismissed')) {
 // روابط مباشرة لأقسام معيّنة: أضف #library أو #books أو #booklets أو #notebooks أو #teacher-stores في نهاية رابط الموقع
 function routeFromHash() {
   const hash = (window.location.hash || '').replace('#','');
-  if (hash.startsWith('o=')) { openOrderView(hash.slice(2)); return true; }
-  if (hash.startsWith('myorders=')) { showMyOrders(decodeURIComponent(hash.slice('myorders='.length))); return true; }
-  if (hash.startsWith('promoter=')) { openPromoterView(decodeURIComponent(hash.slice('promoter='.length))); return true; }
-  if (hash === 'quick-order') { openQuickOrderForm(); return true; }
-  if (hash.startsWith('book=')) { openBookView(hash.slice('book='.length)); return true; }
-  if (hash.startsWith('store=')) { openTeacherStoreDetail(decodeURIComponent(hash.slice('store='.length))); return true; }
-  if (hash.startsWith('grade=')) { openGradeView(hash.slice('grade='.length)); return true; }
-  if (hash.startsWith('bkgrade=')) { openBookletGradeView(decodeURIComponent(hash.slice('bkgrade='.length))); return true; }
-  if (hash.startsWith('wbfolder=')) { (async()=>{ const id=hash.slice('wbfolder='.length); try{ const doc = await db.collection('workbookFolders').doc(id).get(); openWorkbookItemsScreen(id, doc.exists ? doc.data().name : ''); }catch(e){console.error(e);} })(); return true; }
-  if (hash.startsWith('wbitem=')) { openWorkbookItemView(hash.slice('wbitem='.length)); return true; }
+  if (!hash) return false;
+  // بعد التعامل مع الرابط مرة وحدة، نمسحه من شريط العنوان فوراً — عشان أي تحديث/سحب-لتحت
+  // بعد كذا يرجع للصفحة الرئيسية الطبيعية بدل ما يعيد فتح نفس الطلب/الصفحة كل مرة
+  const clearHash = () => { try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch(e) {} };
+  if (hash.startsWith('o=')) { openOrderView(hash.slice(2)); clearHash(); return true; }
+  if (hash.startsWith('myorders=')) { showMyOrders(decodeURIComponent(hash.slice('myorders='.length))); clearHash(); return true; }
+  if (hash.startsWith('promoter=')) { openPromoterView(decodeURIComponent(hash.slice('promoter='.length))); clearHash(); return true; }
+  if (hash === 'quick-order') { openQuickOrderForm(); clearHash(); return true; }
+  if (hash.startsWith('book=')) { openBookView(hash.slice('book='.length)); clearHash(); return true; }
+  if (hash.startsWith('store=')) { openTeacherStoreDetail(decodeURIComponent(hash.slice('store='.length))); clearHash(); return true; }
+  if (hash.startsWith('grade=')) { openGradeView(hash.slice('grade='.length)); clearHash(); return true; }
+  if (hash.startsWith('bkgrade=')) { openBookletGradeView(decodeURIComponent(hash.slice('bkgrade='.length))); clearHash(); return true; }
+  if (hash.startsWith('wbfolder=')) { (async()=>{ const id=hash.slice('wbfolder='.length); try{ const doc = await db.collection('workbookFolders').doc(id).get(); openWorkbookItemsScreen(id, doc.exists ? doc.data().name : ''); }catch(e){console.error(e);} })(); clearHash(); return true; }
+  if (hash.startsWith('wbitem=')) { openWorkbookItemView(hash.slice('wbitem='.length)); clearHash(); return true; }
   const routes = {
     'library': () => show('screen-library'),
     'books': () => show('screen-print-shop'),
@@ -9629,7 +9633,7 @@ function routeFromHash() {
     'notebooks': () => openNotebooksScreen(),
     'teacher-stores': () => { show('screen-teacher-stores'); loadTeacherStoresList(); }
   };
-  if (routes[hash]) { routes[hash](); return true; }
+  if (routes[hash]) { routes[hash](); clearHash(); return true; }
   return false;
 }
 window.addEventListener('load', routeFromHash);
