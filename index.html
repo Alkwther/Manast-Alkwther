@@ -3920,7 +3920,7 @@ async function showMyOrders(phoneOverride) {
   }
   show('screen-my-orders'); // نفتح الشاشة فوراً حتى لو صار تأخير أو خطأ بتحميل الطلبات
   const list = document.getElementById('myOrdersList');
-  const notYouLink = currentStudent ? '' : `<p style="text-align:center;margin:0 0 12px;"><a href="#" onclick="switchMyOrdersPhone();return false;" style="color:#0e6fa8;font-size:13px;font-weight:bold;">ليس رقمك؟ سجّل برقم آخر</a></p>`;
+  const notYouLink = currentStudent ? '' : `<p style="text-align:center;margin:0 0 12px;"><a href="#" onclick="switchMyOrdersPhone();return false;" style="color:#0e6fa8;font-size:13px;font-weight:bold;">🚪 خروج — تسجيل برقم آخر</a></p>`;
   list.innerHTML = notYouLink + '<p style="text-align:center;">جاري التحميل...</p>';
   try {
     await ensureAuthed();
@@ -9891,18 +9891,9 @@ window.addEventListener('online', () => {
   loadAnnouncements();
   if (!routeFromHash()) {
     show('screen-welcome');
-    // إذا كان عندنا رقم هاتف زبون محفوظ محلياً (سبق فتح "طلباتي" من رابط أو بالكتابة اليدوية)،
-    // نوديه مباشرة لطلباته بدل الصفحة الرئيسية — بس لو ما صار أي تسجيل دخول رسمي (موظف/طالب/أستاذ) بالأثناء
-    initialAuthCheckPromise.then(() => {
-      if (currentStudent || currentStaffRole || currentTeacher) return; // فيه جلسة رسمية أهم، ما نتدخل
-      if (!document.getElementById('screen-welcome').classList.contains('hidden')) {
-        // لسا واقفين بالصفحة الرئيسية (ما تحرك المستخدم لمكان ثاني بالأثناء)
-        try {
-          const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
-          if (saved && saved.phone) showMyOrders(saved.phone);
-        } catch(e) { console.error(e); }
-      }
-    });
+    // ملاحظة: لا يوجد أي توجيه تلقائي لصفحة "طلباتي" هنا بعد الآن — البرنامج يبقى دائماً
+    // بالصفحة الرئيسية عند الفتح/التحديث، ويروح الزبون/المروّج لطلباته فقط لو ضغط هو بنفسه
+    // على زر "📦 طلباتي" (رقمه المحفوظ يشتغل تلقائياً بمجرد ما يدخل تلك الصفحة).
   }
 })();
 
