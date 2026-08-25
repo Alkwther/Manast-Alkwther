@@ -8616,40 +8616,34 @@ async function openChat(threadId, title) {
   show('screen-chat'); // نعرض الشاشة فوراً حتى لو صار خطأ بتحميل الرسائل القديمة
   try { await purgeOldChatMessages(threadId); } catch(e) { console.error(e); }
   startChatMessagesListener(threadId);
-  if (me.role === 'staff' && threadId.startsWith('support_')) {
+  // تعليم رسائل المحادثة كمقروءة — نجيب برسائل threadId فقط (شرط وحيد، ما يحتاج فهرس مركّب)
+  // ونفلتر غير المقروءة محلياً، عشان ما يفشل التحديث بصمت لو الفهرس المركّب غير موجود
+  async function markThreadMessagesRead(flag) {
     try {
-      const snap = await db.collection('messages').where('threadId','==', threadId).where('readByStaff','==', false).get();
-      await Promise.all(snap.docs.map(d => d.ref.update({ readByStaff: true })));
-      loadSupportChats();
+      const snap = await db.collection('messages').where('threadId','==', threadId).get();
+      const unread = snap.docs.filter(d => d.data()[flag] === false);
+      await Promise.all(unread.map(d => d.ref.update({ [flag]: true })));
     } catch(e) { console.error(e); }
+  }
+  if (me.role === 'staff' && threadId.startsWith('support_')) {
+    await markThreadMessagesRead('readByStaff');
+    loadSupportChats();
   }
   if (me.role === 'staff' && threadId.startsWith('order_')) {
-    try {
-      const snap = await db.collection('messages').where('threadId','==', threadId).where('readByStaff','==', false).get();
-      await Promise.all(snap.docs.map(d => d.ref.update({ readByStaff: true })));
-    } catch(e) { console.error(e); }
+    await markThreadMessagesRead('readByStaff');
   }
   if (me.role !== 'staff' && threadId.startsWith('order_')) {
-    try {
-      const snap = await db.collection('messages').where('threadId','==', threadId).where('readByCustomer','==', false).get();
-      await Promise.all(snap.docs.map(d => d.ref.update({ readByCustomer: true })));
-    } catch(e) { console.error(e); }
+    await markThreadMessagesRead('readByCustomer');
   }
   if (threadId.startsWith('staffteacher_')) {
     const flagToMark = me.role === 'staff' ? 'readByStaff' : 'readByTeacher';
-    try {
-      const snap = await db.collection('messages').where('threadId','==', threadId).where(flagToMark,'==', false).get();
-      await Promise.all(snap.docs.map(d => d.ref.update({ [flagToMark]: true })));
-      if (me.role === 'teacher') updateTeacherChatBadge();
-    } catch(e) { console.error(e); }
+    await markThreadMessagesRead(flagToMark);
+    if (me.role === 'teacher') updateTeacherChatBadge();
   }
   if (threadId.startsWith('libcustomer_')) {
     const flagToMark = me.role === 'staff' ? 'readByStaff' : 'readByCustomer';
-    try {
-      const snap = await db.collection('messages').where('threadId','==', threadId).where(flagToMark,'==', false).get();
-      await Promise.all(snap.docs.map(d => d.ref.update({ [flagToMark]: true })));
-      if (me.role !== 'staff') setupLibraryCustomerChatBadge(me.id);
-    } catch(e) { console.error(e); }
+    await markThreadMessagesRead(flagToMark);
+    if (me.role !== 'staff') setupLibraryCustomerChatBadge(me.id);
   }
 }
 document.getElementById('chatBackBtn').onclick = () => {
