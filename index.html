@@ -3889,6 +3889,7 @@ function submitMyOrdersPhone() {
   showMyOrders(val);
 }
 function switchMyOrdersPhone() {
+  if (promoterViewUnsubscribe) { promoterViewUnsubscribe(); promoterViewUnsubscribe = null; }
   try {
     const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null') || {};
     delete saved.phone;
@@ -6644,7 +6645,7 @@ async function openPromoterView(promoterPhone) {
     promoterViewUnsubscribe = db.collection('orders').where('promoterPhone','==', promoterPhone).onSnapshot(async snap => {
       if (snap.empty) {
         // ما فيه طلبات مربوطة برقم الهاتف مباشرة — نعرض رسالة، بس لو نعرف اسمه من زيارة سابقة نقدر نحاول نلقى طلباته بالاسم كخطة بديلة
-        box.innerHTML = '<div class="card"><p>ما فيه طلبات مسجّلة لهذا الرقم كمروّج بعد.</p></div>';
+        box.innerHTML = '<p style="text-align:center;margin:0 0 12px;"><a href="#" onclick="switchMyOrdersPhone();return false;" style="color:#0e6fa8;font-size:13px;font-weight:bold;">🚪 خروج — تسجيل برقم آخر</a></p><div class="card"><p>ما فيه طلبات مسجّلة لهذا الرقم كمروّج بعد.</p></div>';
         firstSnap = false;
         return;
       }
@@ -6720,6 +6721,7 @@ async function openPromoterView(promoterPhone) {
           </div>`;
       }).catch(e => console.error(e));
       box.innerHTML = `
+        <p style="text-align:center;margin:0 0 12px;"><a href="#" onclick="switchMyOrdersPhone();return false;" style="color:#0e6fa8;font-size:13px;font-weight:bold;">🚪 خروج — تسجيل برقم آخر</a></p>
         <div class="card" style="background:#f2f7fa;border-inline-start:4px solid #0e6fa8;">
           <h3 style="margin:0 0 6px;">👋 مرحباً ${promoterName}</h3>
           <p style="margin:0 0 6px;color:#8a90a3;">عدد طلباتك: ${rows.length}</p>
