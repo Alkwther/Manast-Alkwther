@@ -2150,9 +2150,21 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <div id="broadcastMsgStatus" style="margin-top:8px;"></div>
         </div>
 
-        <div style="display:flex;gap:6px;margin-bottom:14px;">
+        <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
           <button class="small-btn" id="customersTabAll" style="flex:1;background:#10203f;color:#fff;">👥 كل الزبائن</button>
           <button class="small-btn" id="customersTabProvince" style="flex:1;">🗺️ حسب المحافظة</button>
+          <button class="small-btn" id="customersTabOnline" style="flex:1;">🟢 متصل الآن</button>
+          <button class="small-btn" id="customersTabInstalls" style="flex:1;">📲 ثبّتوا البرنامج</button>
+        </div>
+
+        <div id="customersViewOnline" class="hidden">
+          <div class="card"><p style="margin:0;font-weight:bold;color:#10203f;">🟢 متصل الآن (آخر 5 دقائق): <span id="onlineNowCount">0</span></p></div>
+          <div id="onlineNowList"><p>جاري التحميل...</p></div>
+        </div>
+
+        <div id="customersViewInstalls" class="hidden">
+          <div class="card"><p style="margin:0;font-weight:bold;color:#10203f;">📲 إجمالي من ثبّت البرنامج: <span id="installsCount">0</span></p></div>
+          <div id="appInstallsList"><p>جاري التحميل...</p></div>
         </div>
 
         <div id="customersViewAll">
@@ -3918,6 +3930,7 @@ async function showMyOrders(phoneOverride) {
       localStorage.setItem('kawthar_delivery_info', JSON.stringify(saved));
     } catch(e) { console.error(e); }
   }
+  updatePresenceHeartbeat(); // نسجّله "متصل الآن" فوراً أول ما تتضح هويته
   show('screen-my-orders'); // نفتح الشاشة فوراً حتى لو صار تأخير أو خطأ بتحميل الطلبات
   const list = document.getElementById('myOrdersList');
   const notYouLink = currentStudent ? '' : `<p style="text-align:center;margin:0 0 12px;"><a href="#" onclick="switchMyOrdersPhone();return false;" style="color:#0e6fa8;font-size:13px;font-weight:bold;">ليس رقمك؟ سجّل برقم آخر</a></p>`;
@@ -6004,19 +6017,81 @@ function renderLibraryCustomersList(customers) {
     </div>`).join('');
 }
 document.getElementById('customersTabAll').onclick = () => {
+  ['customersTabAll','customersTabProvince','customersTabOnline','customersTabInstalls'].forEach(bid => { document.getElementById(bid).style.background = ''; document.getElementById(bid).style.color = ''; });
   document.getElementById('customersTabAll').style.background = '#10203f'; document.getElementById('customersTabAll').style.color = '#fff';
-  document.getElementById('customersTabProvince').style.background = ''; document.getElementById('customersTabProvince').style.color = '';
   document.getElementById('customersViewAll').classList.remove('hidden');
   document.getElementById('customersViewProvince').classList.add('hidden');
+  document.getElementById('customersViewOnline').classList.add('hidden');
+  document.getElementById('customersViewInstalls').classList.add('hidden');
 };
 document.getElementById('customersTabProvince').onclick = () => {
+  ['customersTabAll','customersTabProvince','customersTabOnline','customersTabInstalls'].forEach(bid => { document.getElementById(bid).style.background = ''; document.getElementById(bid).style.color = ''; });
   document.getElementById('customersTabProvince').style.background = '#10203f'; document.getElementById('customersTabProvince').style.color = '#fff';
-  document.getElementById('customersTabAll').style.background = ''; document.getElementById('customersTabAll').style.color = '';
   document.getElementById('customersViewProvince').classList.remove('hidden');
   document.getElementById('customersViewAll').classList.add('hidden');
+  document.getElementById('customersViewOnline').classList.add('hidden');
+  document.getElementById('customersViewInstalls').classList.add('hidden');
   document.getElementById('customersProvinceDetail').classList.add('hidden');
   renderCustomersByProvince();
 };
+document.getElementById('customersTabOnline').onclick = () => {
+  ['customersTabAll','customersTabProvince','customersTabOnline','customersTabInstalls'].forEach(bid => { document.getElementById(bid).style.background = ''; document.getElementById(bid).style.color = ''; });
+  document.getElementById('customersTabOnline').style.background = '#10203f'; document.getElementById('customersTabOnline').style.color = '#fff';
+  document.getElementById('customersViewOnline').classList.remove('hidden');
+  document.getElementById('customersViewAll').classList.add('hidden');
+  document.getElementById('customersViewProvince').classList.add('hidden');
+  document.getElementById('customersViewInstalls').classList.add('hidden');
+  loadOnlineNow();
+};
+document.getElementById('customersTabInstalls').onclick = () => {
+  ['customersTabAll','customersTabProvince','customersTabOnline','customersTabInstalls'].forEach(bid => { document.getElementById(bid).style.background = ''; document.getElementById(bid).style.color = ''; });
+  document.getElementById('customersTabInstalls').style.background = '#10203f'; document.getElementById('customersTabInstalls').style.color = '#fff';
+  document.getElementById('customersViewInstalls').classList.remove('hidden');
+  document.getElementById('customersViewAll').classList.add('hidden');
+  document.getElementById('customersViewProvince').classList.add('hidden');
+  document.getElementById('customersViewOnline').classList.add('hidden');
+  loadAppInstalls();
+};
+async function loadOnlineNow() {
+  const list = document.getElementById('onlineNowList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('presence').get();
+    const cutoff = Date.now() - 5*60*1000; // آخر 5 دقائق يعتبر "متصل الآن"
+    const rows = snap.docs.map(d => d.data()).filter(p => (p.lastActiveAt||0) >= cutoff).sort((a,b) => b.lastActiveAt - a.lastActiveAt);
+    document.getElementById('onlineNowCount').textContent = rows.length;
+    if (rows.length === 0) { list.innerHTML = '<div class="card"><p>ما فيه أحد متصل الحين.</p></div>'; return; }
+    const roleLabels = { customer:'👤 زبون', student:'🎓 طالب', teacher:'🧑‍🏫 أستاذ', promoter:'🎯 مروّج' };
+    list.innerHTML = rows.map(p => `
+      <div class="card" style="cursor:pointer;" onclick="${p.phone ? `openCustomerProfile('${p.phone}')` : ''}">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <p style="font-weight:bold;margin:0;">🟢 ${p.name || p.phone || 'مجهول'} <span style="color:#8a90a3;font-weight:normal;font-size:12px;">${roleLabels[p.role]||''}</span></p>
+            <p style="margin:4px 0 0;color:#8a90a3;">${p.phone ? '📞 '+p.phone : ''} ${p.province ? '— 📍 '+p.province : ''}</p>
+            <p style="margin:4px 0 0;color:#8a90a3;font-size:12px;">آخر نشاط: ${new Date(p.lastActiveAt).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})}</p>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+}
+async function loadAppInstalls() {
+  const list = document.getElementById('appInstallsList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('appInstalls').orderBy('installedAt','desc').limit(200).get();
+    document.getElementById('installsCount').textContent = snap.size;
+    if (snap.empty) { list.innerHTML = '<div class="card"><p>ما فيه تثبيتات مسجّلة بعد.</p></div>'; return; }
+    const roleLabels = { customer:'👤 زبون', student:'🎓 طالب', teacher:'🧑‍🏫 أستاذ', promoter:'🎯 مروّج', unknown:'❔ غير معروف' };
+    list.innerHTML = snap.docs.map(d => {
+      const p = d.data();
+      return `<div class="card" style="cursor:pointer;" onclick="${p.phone ? `openCustomerProfile('${p.phone}')` : ''}">
+        <p style="font-weight:bold;margin:0;">📲 ${p.name || p.phone || 'مجهول'} <span style="color:#8a90a3;font-weight:normal;font-size:12px;">${roleLabels[p.role]||roleLabels.unknown}</span></p>
+        <p style="margin:4px 0 0;color:#8a90a3;">${p.phone ? '📞 '+p.phone : ''} ${p.province ? '— 📍 '+p.province : ''}</p>
+        <p style="margin:4px 0 0;color:#8a90a3;font-size:12px;">🗓️ ${new Date(p.installedAt).toLocaleString('ar-EG',{dateStyle:'medium',timeStyle:'short'})}</p>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+}
 function renderCustomersByProvince() {
   const box = document.getElementById('customersByProvinceList');
   if (!box) return;
@@ -6925,6 +7000,7 @@ async function openCustomerProfile(phone) {
     document.getElementById('customerProfileHeader').innerHTML = `
       <h3 style="margin-bottom:6px;">👤 ${latest ? latest.studentName : phone}</h3>
       <p style="margin:0;">📞 ${phone}</p>
+      ${latest && latest.province ? `<p style="margin:4px 0 0;">📍 ${latest.province}${latest.district ? ' — ' + latest.district : ''}</p>` : ''}
       ${customerId ? `<p style="margin:4px 0 0;font-weight:bold;color:#0e6fa8;">🪪 رقم الزبون: ${customerId}</p>` : ''}
       <p style="margin:4px 0 0;color:#8a90a3;">📦 عدد الطلبات: ${orders.length}</p>
     `;
@@ -8677,10 +8753,10 @@ function startChatMessagesListener(threadId) {
   const isLibCustomerThread = threadId.startsWith('libcustomer_');
   currentChatUnsubscribe = db.collection('messages')
     .where('threadId','==', threadId)
-    .onSnapshot(snap => {
+    .onSnapshot({ includeMetadataChanges: true }, snap => {
       const list = document.getElementById('chatMessagesList');
       if (snap.empty) { list.innerHTML = '<div class="card"><p>لا توجد رسائل بعد. ابدأ المحادثة!</p></div>'; return; }
-      const messages = snap.docs.map(d => d.data()).sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
+      const messages = snap.docs.map(d => ({ ...d.data(), _pending: d.metadata.hasPendingWrites })).sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
       list.innerHTML = messages.map(m => {
         const mine = m.fromId === currentChatThread.id && m.fromRole === currentChatThread.role;
         let seenLabel = '';
@@ -8691,7 +8767,10 @@ function startChatMessagesListener(threadId) {
           else if (isStaffTeacherThread) seen = m.fromRole === 'staff' ? m.readByTeacher === true : m.readByStaff === true;
           else if (isLibCustomerThread) seen = m.fromRole === 'staff' ? m.readByCustomer === true : m.readByStaff === true;
           else if (threadId.startsWith('support_')) seen = m.fromRole === 'staff' ? false : m.readByStaff === true; // ما فيه تتبع لقراءة الطالب/الأستاذ برسائل الموظف بخدمة العملاء حالياً
-          seenLabel = `<span style="font-size:11px;color:${seen ? '#16a34a' : '#8a90a3'};">${seen ? '✓✓ تمت الرؤية' : '✓ تم الإرسال'}</span>`;
+          // ✓ رمادية وحدة = لسا يرسل (الكتابة ما تأكدت مع السيرفر بعد) — ✓✓ رمادية = وصلت للسيرفر (مرسلة فعلياً) — ✓✓ زرقاء = الطرف الثاني فتحها وشافها
+          if (m._pending) seenLabel = `<span style="font-size:11px;color:#8a90a3;">✓ يرسل...</span>`;
+          else if (seen) seenLabel = `<span style="font-size:11px;color:#0e6fa8;">✓✓ تمت الرؤية</span>`;
+          else seenLabel = `<span style="font-size:11px;color:#8a90a3;">✓✓ تم الإرسال</span>`;
         }
         // الزبون/الطالب/الأستاذ دايماً على اليمين، الموظف/المشرف دايماً على اليسار — بغض النظر مين فاتح المحادثة
         const isStaffMsg = m.fromRole === 'staff';
@@ -8703,7 +8782,8 @@ function startChatMessagesListener(threadId) {
           ${seenLabel ? `<div style="text-align:left;margin-top:4px;">${seenLabel}</div>` : ''}
         </div></div>`;
       }).join('');
-      list.scrollTop = list.scrollHeight;
+      // آخر رسالة تظهر مباشرة فوق خانة الكتابة (زي واتساب) — ننزل الصفحة كاملة لآخرها بعد ما يخلص الرسم
+      requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight));
     }, e => console.error(e));
 }
 let pendingChatImage = null;
@@ -9775,6 +9855,33 @@ window.addEventListener('online', () => {
   db.disableNetwork().then(() => db.enableNetwork()).catch(e => console.error('nudge failed', e));
 });
 
+// ---------- تتبّع تثبيت التطبيق (PWA) ----------
+window.addEventListener('appinstalled', () => {
+  try {
+    let phone = null, name = null, province = null, role = 'unknown';
+    const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
+    if (saved && saved.phone) { phone = saved.phone; role = 'customer'; }
+    if (currentStudent) { phone = currentStudent.phone; name = currentStudent.name; role = 'student'; }
+    if (currentTeacher) { phone = currentTeacher.phone; name = currentTeacher.name; role = 'teacher'; }
+    db.collection('appInstalls').add({ phone, name, province, role, installedAt: Date.now(), userAgent: navigator.userAgent }).catch(e => console.error(e));
+  } catch(e) { console.error(e); }
+});
+
+// ---------- نبضة "متصل الآن" — تحدّث كل دقيقة طالما التطبيق مفتوح وهويّة المستخدم معروفة ----------
+function updatePresenceHeartbeat() {
+  try {
+    let phone = null, name = null, province = null, role = null;
+    const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
+    if (saved && saved.phone) { phone = saved.phone; role = 'customer'; }
+    if (currentStudent) { phone = currentStudent.phone; name = currentStudent.name; province = currentStudent.province; role = 'student'; }
+    if (currentTeacher) { phone = currentTeacher.phone; name = currentTeacher.name; role = 'teacher'; }
+    if (!phone) return; // ما عندنا هوية معروفة بعد (زائر ما سجّل رقمه)
+    db.collection('presence').doc(phone).set({ phone, name, province, role, lastActiveAt: Date.now() }, { merge: true }).catch(e => console.error(e));
+  } catch(e) { console.error(e); }
+}
+setInterval(() => { if (document.visibilityState === 'visible') updatePresenceHeartbeat(); }, 60000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') updatePresenceHeartbeat(); });
+
 (function checkInAppBrowser() {
   const ua = navigator.userAgent || '';
   const isKnownInAppBrowser = /Instagram|FBAN|FBAV|Line\/|musical_ly|TikTok|Twitter/i.test(ua);
@@ -9894,6 +10001,7 @@ window.addEventListener('online', () => {
     }
   });
   loadAnnouncements();
+  initialAuthCheckPromise.then(() => updatePresenceHeartbeat()); // نسجّل "متصل الآن" أول ما تتضح هوية المستخدم (لو معروفة)
   if (!routeFromHash()) {
     show('screen-welcome');
     // إذا كان عندنا رقم هاتف زبون محفوظ محلياً (سبق فتح "طلباتي" من رابط أو بالكتابة اليدوية)،
