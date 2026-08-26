@@ -3889,7 +3889,6 @@ function submitMyOrdersPhone() {
   showMyOrders(val);
 }
 function switchMyOrdersPhone() {
-  if (promoterViewUnsubscribe) { promoterViewUnsubscribe(); promoterViewUnsubscribe = null; }
   try {
     const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null') || {};
     delete saved.phone;
@@ -3921,7 +3920,7 @@ async function showMyOrders(phoneOverride) {
   }
   show('screen-my-orders'); // نفتح الشاشة فوراً حتى لو صار تأخير أو خطأ بتحميل الطلبات
   const list = document.getElementById('myOrdersList');
-  const notYouLink = currentStudent ? '' : `<p style="text-align:center;margin:0 0 12px;"><a href="#" onclick="switchMyOrdersPhone();return false;" style="color:#0e6fa8;font-size:13px;font-weight:bold;">🚪 خروج — تسجيل برقم آخر</a></p>`;
+  const notYouLink = currentStudent ? '' : `<p style="text-align:center;margin:0 0 12px;"><a href="#" onclick="switchMyOrdersPhone();return false;" style="color:#0e6fa8;font-size:13px;font-weight:bold;">ليس رقمك؟ سجّل برقم آخر</a></p>`;
   list.innerHTML = notYouLink + '<p style="text-align:center;">جاري التحميل...</p>';
   try {
     await ensureAuthed();
@@ -6645,7 +6644,7 @@ async function openPromoterView(promoterPhone) {
     promoterViewUnsubscribe = db.collection('orders').where('promoterPhone','==', promoterPhone).onSnapshot(async snap => {
       if (snap.empty) {
         // ما فيه طلبات مربوطة برقم الهاتف مباشرة — نعرض رسالة، بس لو نعرف اسمه من زيارة سابقة نقدر نحاول نلقى طلباته بالاسم كخطة بديلة
-        box.innerHTML = '<p style="text-align:center;margin:0 0 12px;"><a href="#" onclick="switchMyOrdersPhone();return false;" style="color:#0e6fa8;font-size:13px;font-weight:bold;">🚪 خروج — تسجيل برقم آخر</a></p><div class="card"><p>ما فيه طلبات مسجّلة لهذا الرقم كمروّج بعد.</p></div>';
+        box.innerHTML = '<div class="card"><p>ما فيه طلبات مسجّلة لهذا الرقم كمروّج بعد.</p></div>';
         firstSnap = false;
         return;
       }
@@ -6721,7 +6720,6 @@ async function openPromoterView(promoterPhone) {
           </div>`;
       }).catch(e => console.error(e));
       box.innerHTML = `
-        <p style="text-align:center;margin:0 0 12px;"><a href="#" onclick="switchMyOrdersPhone();return false;" style="color:#0e6fa8;font-size:13px;font-weight:bold;">🚪 خروج — تسجيل برقم آخر</a></p>
         <div class="card" style="background:#f2f7fa;border-inline-start:4px solid #0e6fa8;">
           <h3 style="margin:0 0 6px;">👋 مرحباً ${promoterName}</h3>
           <p style="margin:0 0 6px;color:#8a90a3;">عدد طلباتك: ${rows.length}</p>
@@ -8618,34 +8616,40 @@ async function openChat(threadId, title) {
   show('screen-chat'); // نعرض الشاشة فوراً حتى لو صار خطأ بتحميل الرسائل القديمة
   try { await purgeOldChatMessages(threadId); } catch(e) { console.error(e); }
   startChatMessagesListener(threadId);
-  // تعليم رسائل المحادثة كمقروءة — نجيب برسائل threadId فقط (شرط وحيد، ما يحتاج فهرس مركّب)
-  // ونفلتر غير المقروءة محلياً، عشان ما يفشل التحديث بصمت لو الفهرس المركّب غير موجود
-  async function markThreadMessagesRead(flag) {
+  if (me.role === 'staff' && threadId.startsWith('support_')) {
     try {
-      const snap = await db.collection('messages').where('threadId','==', threadId).get();
-      const unread = snap.docs.filter(d => d.data()[flag] === false);
-      await Promise.all(unread.map(d => d.ref.update({ [flag]: true })));
+      const snap = await db.collection('messages').where('threadId','==', threadId).where('readByStaff','==', false).get();
+      await Promise.all(snap.docs.map(d => d.ref.update({ readByStaff: true })));
+      loadSupportChats();
     } catch(e) { console.error(e); }
   }
-  if (me.role === 'staff' && threadId.startsWith('support_')) {
-    await markThreadMessagesRead('readByStaff');
-    loadSupportChats();
-  }
   if (me.role === 'staff' && threadId.startsWith('order_')) {
-    await markThreadMessagesRead('readByStaff');
+    try {
+      const snap = await db.collection('messages').where('threadId','==', threadId).where('readByStaff','==', false).get();
+      await Promise.all(snap.docs.map(d => d.ref.update({ readByStaff: true })));
+    } catch(e) { console.error(e); }
   }
   if (me.role !== 'staff' && threadId.startsWith('order_')) {
-    await markThreadMessagesRead('readByCustomer');
+    try {
+      const snap = await db.collection('messages').where('threadId','==', threadId).where('readByCustomer','==', false).get();
+      await Promise.all(snap.docs.map(d => d.ref.update({ readByCustomer: true })));
+    } catch(e) { console.error(e); }
   }
   if (threadId.startsWith('staffteacher_')) {
     const flagToMark = me.role === 'staff' ? 'readByStaff' : 'readByTeacher';
-    await markThreadMessagesRead(flagToMark);
-    if (me.role === 'teacher') updateTeacherChatBadge();
+    try {
+      const snap = await db.collection('messages').where('threadId','==', threadId).where(flagToMark,'==', false).get();
+      await Promise.all(snap.docs.map(d => d.ref.update({ [flagToMark]: true })));
+      if (me.role === 'teacher') updateTeacherChatBadge();
+    } catch(e) { console.error(e); }
   }
   if (threadId.startsWith('libcustomer_')) {
     const flagToMark = me.role === 'staff' ? 'readByStaff' : 'readByCustomer';
-    await markThreadMessagesRead(flagToMark);
-    if (me.role !== 'staff') setupLibraryCustomerChatBadge(me.id);
+    try {
+      const snap = await db.collection('messages').where('threadId','==', threadId).where(flagToMark,'==', false).get();
+      await Promise.all(snap.docs.map(d => d.ref.update({ [flagToMark]: true })));
+      if (me.role !== 'staff') setupLibraryCustomerChatBadge(me.id);
+    } catch(e) { console.error(e); }
   }
 }
 document.getElementById('chatBackBtn').onclick = () => {
@@ -8689,12 +8693,15 @@ function startChatMessagesListener(threadId) {
           else if (threadId.startsWith('support_')) seen = m.fromRole === 'staff' ? false : m.readByStaff === true; // ما فيه تتبع لقراءة الطالب/الأستاذ برسائل الموظف بخدمة العملاء حالياً
           seenLabel = `<span style="font-size:11px;color:${seen ? '#16a34a' : '#8a90a3'};">${seen ? '✓✓ تمت الرؤية' : '✓ تم الإرسال'}</span>`;
         }
-        return `<div class="card" style="margin-bottom:8px;${mine ? 'border-inline-end:4px solid #cda44e;' : 'border-inline-start:4px solid #0e8fa8;'}">
+        // الزبون/الطالب/الأستاذ دايماً على اليمين، الموظف/المشرف دايماً على اليسار — بغض النظر مين فاتح المحادثة
+        const isStaffMsg = m.fromRole === 'staff';
+        return `<div style="display:flex;justify-content:${isStaffMsg ? 'flex-end' : 'flex-start'};margin-bottom:8px;">
+        <div class="card" style="max-width:78%;margin:0;${isStaffMsg ? 'background:#eef4fb;border-inline-end:4px solid #0e6fa8;' : 'background:#fdf8ec;border-inline-start:4px solid #cda44e;'}">
           <p style="font-size:12px;color:#8a90a3;margin-bottom:4px;">${m.fromName} — ${new Date(m.createdAt).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'})}</p>
           ${m.image ? `<img src="${m.image}" style="max-width:100%;border-radius:8px;margin-bottom:6px;display:block;">` : ''}
           ${m.text ? `<p style="margin:0;">${m.text}</p>` : ''}
           ${seenLabel ? `<div style="text-align:left;margin-top:4px;">${seenLabel}</div>` : ''}
-        </div>`;
+        </div></div>`;
       }).join('');
       list.scrollTop = list.scrollHeight;
     }, e => console.error(e));
@@ -9607,20 +9614,16 @@ if (inAppBrowser && !localStorage.getItem('kawthar_inapp_dismissed')) {
 // روابط مباشرة لأقسام معيّنة: أضف #library أو #books أو #booklets أو #notebooks أو #teacher-stores في نهاية رابط الموقع
 function routeFromHash() {
   const hash = (window.location.hash || '').replace('#','');
-  if (!hash) return false;
-  // بعد التعامل مع الرابط مرة وحدة، نمسحه من شريط العنوان فوراً — عشان أي تحديث/سحب-لتحت
-  // بعد كذا يرجع للصفحة الرئيسية الطبيعية بدل ما يعيد فتح نفس الطلب/الصفحة كل مرة
-  const clearHash = () => { try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch(e) {} };
-  if (hash.startsWith('o=')) { openOrderView(hash.slice(2)); clearHash(); return true; }
-  if (hash.startsWith('myorders=')) { showMyOrders(decodeURIComponent(hash.slice('myorders='.length))); clearHash(); return true; }
-  if (hash.startsWith('promoter=')) { openPromoterView(decodeURIComponent(hash.slice('promoter='.length))); clearHash(); return true; }
-  if (hash === 'quick-order') { openQuickOrderForm(); clearHash(); return true; }
-  if (hash.startsWith('book=')) { openBookView(hash.slice('book='.length)); clearHash(); return true; }
-  if (hash.startsWith('store=')) { openTeacherStoreDetail(decodeURIComponent(hash.slice('store='.length))); clearHash(); return true; }
-  if (hash.startsWith('grade=')) { openGradeView(hash.slice('grade='.length)); clearHash(); return true; }
-  if (hash.startsWith('bkgrade=')) { openBookletGradeView(decodeURIComponent(hash.slice('bkgrade='.length))); clearHash(); return true; }
-  if (hash.startsWith('wbfolder=')) { (async()=>{ const id=hash.slice('wbfolder='.length); try{ const doc = await db.collection('workbookFolders').doc(id).get(); openWorkbookItemsScreen(id, doc.exists ? doc.data().name : ''); }catch(e){console.error(e);} })(); clearHash(); return true; }
-  if (hash.startsWith('wbitem=')) { openWorkbookItemView(hash.slice('wbitem='.length)); clearHash(); return true; }
+  if (hash.startsWith('o=')) { openOrderView(hash.slice(2)); return true; }
+  if (hash.startsWith('myorders=')) { showMyOrders(decodeURIComponent(hash.slice('myorders='.length))); return true; }
+  if (hash.startsWith('promoter=')) { openPromoterView(decodeURIComponent(hash.slice('promoter='.length))); return true; }
+  if (hash === 'quick-order') { openQuickOrderForm(); return true; }
+  if (hash.startsWith('book=')) { openBookView(hash.slice('book='.length)); return true; }
+  if (hash.startsWith('store=')) { openTeacherStoreDetail(decodeURIComponent(hash.slice('store='.length))); return true; }
+  if (hash.startsWith('grade=')) { openGradeView(hash.slice('grade='.length)); return true; }
+  if (hash.startsWith('bkgrade=')) { openBookletGradeView(decodeURIComponent(hash.slice('bkgrade='.length))); return true; }
+  if (hash.startsWith('wbfolder=')) { (async()=>{ const id=hash.slice('wbfolder='.length); try{ const doc = await db.collection('workbookFolders').doc(id).get(); openWorkbookItemsScreen(id, doc.exists ? doc.data().name : ''); }catch(e){console.error(e);} })(); return true; }
+  if (hash.startsWith('wbitem=')) { openWorkbookItemView(hash.slice('wbitem='.length)); return true; }
   const routes = {
     'library': () => show('screen-library'),
     'books': () => show('screen-print-shop'),
@@ -9629,7 +9632,7 @@ function routeFromHash() {
     'notebooks': () => openNotebooksScreen(),
     'teacher-stores': () => { show('screen-teacher-stores'); loadTeacherStoresList(); }
   };
-  if (routes[hash]) { routes[hash](); clearHash(); return true; }
+  if (routes[hash]) { routes[hash](); return true; }
   return false;
 }
 window.addEventListener('load', routeFromHash);
@@ -9893,9 +9896,18 @@ window.addEventListener('online', () => {
   loadAnnouncements();
   if (!routeFromHash()) {
     show('screen-welcome');
-    // ملاحظة: لا يوجد أي توجيه تلقائي لصفحة "طلباتي" هنا بعد الآن — البرنامج يبقى دائماً
-    // بالصفحة الرئيسية عند الفتح/التحديث، ويروح الزبون/المروّج لطلباته فقط لو ضغط هو بنفسه
-    // على زر "📦 طلباتي" (رقمه المحفوظ يشتغل تلقائياً بمجرد ما يدخل تلك الصفحة).
+    // إذا كان عندنا رقم هاتف زبون محفوظ محلياً (سبق فتح "طلباتي" من رابط أو بالكتابة اليدوية)،
+    // نوديه مباشرة لطلباته بدل الصفحة الرئيسية — بس لو ما صار أي تسجيل دخول رسمي (موظف/طالب/أستاذ) بالأثناء
+    initialAuthCheckPromise.then(() => {
+      if (currentStudent || currentStaffRole || currentTeacher) return; // فيه جلسة رسمية أهم، ما نتدخل
+      if (!document.getElementById('screen-welcome').classList.contains('hidden')) {
+        // لسا واقفين بالصفحة الرئيسية (ما تحرك المستخدم لمكان ثاني بالأثناء)
+        try {
+          const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
+          if (saved && saved.phone) showMyOrders(saved.phone);
+        } catch(e) { console.error(e); }
+      }
+    });
   }
 })();
 
