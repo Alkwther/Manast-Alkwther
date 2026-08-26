@@ -753,9 +753,6 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <button class="icon-btn" onclick="shareThePlatform()" title="شارك البرنامج">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-3.9M8.6 13.5l6.8 3.9"/></svg>
       </button>
-      <button class="icon-btn" id="settingsBtn" title="دخول المشرف / الموظف">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 01-4 0v-.09A1.7 1.7 0 009 19.4a1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.7 1.7 0 004.6 15a1.7 1.7 0 00-1.55-1H3a2 2 0 010-4h.09A1.7 1.7 0 004.6 9a1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06A1.7 1.7 0 009 4.6a1.7 1.7 0 001-1.55V3a2 2 0 014 0v.09A1.7 1.7 0 0015.4 4.6a1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06A1.7 1.7 0 0019.4 9a1.7 1.7 0 001.55 1H21a2 2 0 010 4h-.09a1.7 1.7 0 00-1.51 1z"/></svg>
-      </button>
       <button class="icon-btn" id="logoutBtn" title="خروج">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M13 5a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2h5a2 2 0 002-2"/></svg>
       </button>
@@ -3406,21 +3403,6 @@ document.getElementById('showFreeLessonsBtn').onclick = async () => {
     }).join('');
   }
   show('screen-free-lessons');
-};
-
-document.getElementById('settingsBtn').onclick = async () => {
-  show('screen-admin'); // نفتح الشاشة فوراً حتى ما يحس المستخدم بأي تأخير
-  if (!initialAuthCheckDone) {
-    document.getElementById('adminLoginCard').classList.add('hidden');
-    document.getElementById('adminPanel').classList.add('hidden');
-    await initialAuthCheckPromise; // ننتظر بصمت لين يخلص فحص الجلسة المحفوظة (يأخذ أجزاء من الثانية عادةً)
-  }
-  if (currentStaffRole) {
-    enterAdminPanel(); // مسجّل دخول أصلاً — يدخل مباشرة بدون طلب اسم مستخدم/كلمة سر من جديد
-  } else {
-    document.getElementById('adminPanel').classList.add('hidden');
-    document.getElementById('adminLoginCard').classList.remove('hidden');
-  }
 };
 
 
