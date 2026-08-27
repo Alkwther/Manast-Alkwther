@@ -8047,18 +8047,16 @@ async function openTeacherUploadBooklet(destination) {
 
   if (tchUploadDestination === 'store') {
     document.getElementById('tchUploadTitle').textContent = '📤 رفع مادة داخل متجري الخاص';
-    document.getElementById('tchUploadHint').textContent = 'هذي المادة تظهر بمتجرك الخاص فقط، وأنت تتكفّل بتوصيلها حسب أجور التوصيل المحددة بإعدادات متجرك.';
-    document.getElementById('tchBookletDeliveryModeWrap').classList.add('hidden');
-    document.getElementById('tchBookletDeliveryFeeWrap').classList.add('hidden');
+    document.getElementById('tchUploadHint').textContent = 'هذي المادة تظهر بمتجرك الخاص فقط. اختر مين يتكفّل بتوصيلها.';
+    document.getElementById('tchBookletDeliveryModeWrap').classList.remove('hidden');
     document.getElementById('tchBookletGradeWrap').classList.add('hidden'); // مواد المتجر تُعرض كقائمة واحدة بمتجرك، ما تحتاج تصنيف مرحلة/صف
-    const storeFee = (currentTeacher && currentTeacher.storeDeliveryFee) || 0;
-    document.getElementById('tchBookletStoreFeeNotice').classList.remove('hidden');
-    document.getElementById('tchBookletStoreFeeNotice').textContent = `🚚 هذي المادة توصّلها أنت بنفسك — أجور التوصيل الثابتة لمتجرك حالياً: ${storeFee} د.ع (تقدر تغيّرها من "متجري الخاص")`;
+    updateTchStoreDeliveryModeUI();
   } else {
     document.getElementById('tchUploadTitle').textContent = '📤 ارفع ملزمتك أو دفترك';
     document.getElementById('tchUploadHint').textContent = 'ارفع صورة احترافية، وحدد نوعها واسمها وسعرها — راح تُعرض بصفوف مكتبة الكوثر العامة للطلاب';
     document.getElementById('tchBookletDeliveryModeWrap').classList.remove('hidden');
     document.getElementById('tchBookletGradeWrap').classList.remove('hidden');
+    document.getElementById('tchBookletDeliveryFeeWrap').classList.toggle('hidden', document.getElementById('tchBookletDeliveryMode').value !== 'teacher');
     document.getElementById('tchBookletStoreFeeNotice').classList.add('hidden');
   }
   updateTchBookletPlatformPctLabel();
@@ -8071,7 +8069,7 @@ function getTeacherDeliveryPercent(mode) {
   return t.libraryDeliveryPercent != null ? t.libraryDeliveryPercent : 30;
 }
 function updateTchBookletPlatformPctLabel() {
-  const mode = tchUploadDestination === 'store' ? 'teacher' : document.getElementById('tchBookletDeliveryMode').value;
+  const mode = document.getElementById('tchBookletDeliveryMode').value;
   document.getElementById('tchBookletPlatformPct').textContent = getTeacherDeliveryPercent(mode);
 }
 function populateTchBookletGradeSelect() {
@@ -8079,8 +8077,24 @@ function populateTchBookletGradeSelect() {
   document.getElementById('tchBookletGrade').innerHTML = (LIBRARY_STAGE_GRADES[stage]||[]).map(g => `<option>${g}</option>`).join('');
 }
 document.getElementById('tchBookletStage').addEventListener('change', populateTchBookletGradeSelect);
+function updateTchStoreDeliveryModeUI() {
+  const mode = document.getElementById('tchBookletDeliveryMode').value;
+  document.getElementById('tchBookletDeliveryFeeWrap').classList.add('hidden'); // بالمتجر ما نحتاج إدخال يدوي بأي الحالتين
+  const notice = document.getElementById('tchBookletStoreFeeNotice');
+  notice.classList.remove('hidden');
+  if (mode === 'teacher') {
+    const storeFee = (currentTeacher && currentTeacher.storeDeliveryFee) || 0;
+    notice.textContent = `🚚 هذي المادة توصّلها أنت بنفسك — أجور التوصيل الثابتة لمتجرك حالياً: ${storeFee} د.ع (تقدر تغيّرها من "متجري الخاص")`;
+  } else {
+    notice.textContent = `📦 هذي المادة توصّلها المكتبة نيابة عنك — تُطبّق أجور توصيل المكتبة المعتادة.`;
+  }
+}
 document.getElementById('tchBookletDeliveryMode').addEventListener('change', (e) => {
-  document.getElementById('tchBookletDeliveryFeeWrap').classList.toggle('hidden', e.target.value !== 'teacher');
+  if (tchUploadDestination === 'store') {
+    updateTchStoreDeliveryModeUI();
+  } else {
+    document.getElementById('tchBookletDeliveryFeeWrap').classList.toggle('hidden', e.target.value !== 'teacher');
+  }
   updateTchBookletPlatformPctLabel();
   document.getElementById('tchBookletPrice').dispatchEvent(new Event('input'));
 });
@@ -8097,7 +8111,7 @@ document.getElementById('tchBookletImageInput').addEventListener('change', async
 });
 document.getElementById('tchBookletPrice').addEventListener('input', (e) => {
   const price = +e.target.value || 0;
-  const mode = tchUploadDestination === 'store' ? 'teacher' : document.getElementById('tchBookletDeliveryMode').value;
+  const mode = document.getElementById('tchBookletDeliveryMode').value;
   const pct = getTeacherDeliveryPercent(mode);
   const platformShare = Math.round(price * pct / 100);
   const myShare = price - platformShare;
@@ -8121,8 +8135,8 @@ document.getElementById('submitTeacherBookletBtn').onclick = async () => {
   let deliveryMode, teacherDeliveryFee;
   if (tchUploadDestination === 'store') {
     if (!currentTeacher.storeEnabled) { alert('فعّل متجرك الخاص أولاً من "متجري الخاص" قبل ما ترفع مواد فيه'); return; }
-    deliveryMode = 'teacher';
-    teacherDeliveryFee = currentTeacher.storeDeliveryFee || 0;
+    deliveryMode = document.getElementById('tchBookletDeliveryMode').value; // توصيلي الخاص، أو توصيل المكتبة — نفس خيار صفوف المكتبة
+    teacherDeliveryFee = deliveryMode === 'teacher' ? (currentTeacher.storeDeliveryFee || 0) : null; // بالتوصيل الذاتي نستخدم أجرة المتجر الثابتة تلقائياً
   } else {
     deliveryMode = document.getElementById('tchBookletDeliveryMode').value;
     teacherDeliveryFee = deliveryMode === 'teacher' ? (+document.getElementById('tchBookletDeliveryFee').value || 0) : null;
