@@ -8635,16 +8635,27 @@ document.getElementById('customerNotifSoundToggleBtn').onclick = () => setCustom
 
 let currentChatThread = null; // { threadId, myRole, myId, myName }
 
+// هوية مجهولة دائمة لكل جهاز — تُنشأ مرة وحدة وتبقى محفوظة، تضمن إن كل زائر يشوف بس محادثته الخاصة
+// حتى لو ما سجّل رقمه أو دخل كطالب/أستاذ إطلاقاً (بدل الاعتماد بس على رقم الهاتف المحفوظ)
+function getOrCreateAnonId() {
+  let id = localStorage.getItem('kawthar_anon_id');
+  if (!id) {
+    id = 'anon_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem('kawthar_anon_id', id);
+  }
+  return id;
+}
 function currentIdentity() {
   if (currentStudent) return { role: 'student', id: currentStudent.phone, name: currentStudent.name };
   if (currentTeacher) return { role: 'teacher', id: currentTeacher.phone, name: currentTeacher.name };
   if (currentStaffRole) return { role: 'staff', id: currentStaffName, name: currentStaffName };
-  // زبون خارجي (ما سجّل كطالب أو أستاذ) — نستخدم بياناته المحفوظة من أول طلب سواه
+  // زبون خارجي (ما سجّل كطالب أو أستاذ) — نستخدم بياناته المحفوظة من أول طلب سواه إن وجدت
   try {
     const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
     if (saved && saved.phone) return { role: 'customer', id: saved.phone, name: saved.name || saved.phone };
   } catch(e) { console.error(e); }
-  return null;
+  // ما عنده رقم محفوظ بعد — نعطيه هوية مجهولة خاصة فيه بس، تضمن عزل محادثته عن أي زائر ثاني
+  return { role: 'customer', id: getOrCreateAnonId(), name: 'زائر' };
 }
 
 let currentChatUnsubscribe = null;
@@ -8837,14 +8848,7 @@ document.getElementById('chatSendBtn').onclick = async () => {
 // مراسلة الزبون لمكتبة الكوثر (أيقونة 💬 بجانب اسم البرنامج) — متاحة لأي زائر حتى لو ما طلب من قبل
 function openLibraryCustomerChat() {
   if (currentStaffRole) { openStaffMessagesInbox(); return; } // المشرف/الموظف يشوف كل المحادثات، مو محادثة نفسه
-  let me = currentIdentity();
-  if (!me) {
-    const phone = prompt('أدخل رقم هاتفك للتواصل مع المكتبة:');
-    if (!phone || !phone.trim()) return;
-    const name = prompt('أدخل اسمك:');
-    saveDeliveryInfo({ name: (name||phone).trim(), phone: phone.trim(), province:'', district:'', landmark:'', altPhone:'' });
-    me = currentIdentity();
-  }
+  const me = currentIdentity(); // ما ترجع null أبداً الحين — أي زائر يحصل على هوية خاصة فيه تلقائياً
   openChat(`libcustomer_${me.id}`, '💬 مراسلة مكتبة الكوثر');
   setupLibraryCustomerChatBadge(me.id);
 }
