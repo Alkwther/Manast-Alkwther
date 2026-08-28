@@ -4824,12 +4824,16 @@ document.getElementById('saveTbStagePkgBtn').onclick = async () => {
 };
 
 document.getElementById('addTbGradeBtn').onclick = async () => {
-  const name = document.getElementById('tbGradeName').value.trim();
+  const rawName = document.getElementById('tbGradeName').value;
+  const name = normalizeGradeName(rawName);
   const stage = document.getElementById('tbGradeStage').value;
   if (!name) { alert('اكتب اسم الصف'); return; }
-  const countSnap = await db.collection('textbookGrades').get();
-  if (countSnap.docs.some(d => d.data().name === name)) { alert('هذا الصف موجود مسبقاً'); return; }
   const id = tbSafeId(name);
+  // نتحقق مباشرة عبر المعرّف الثابت (وليس بمقارنة نصوص) — هذا يمنع التكرار حتى لو الاسم مكتوب
+  // بمسافات أو رموز غير مرئية مختلفة شكلياً لكنها نفس الصف فعلياً
+  const existingDoc = await db.collection('textbookGrades').doc(id).get();
+  if (existingDoc.exists) { alert('هذا الصف موجود مسبقاً'); return; }
+  const countSnap = await db.collection('textbookGrades').get();
   await db.collection('textbookGrades').doc(id).set({ name, stage, order: countSnap.size, createdAt: Date.now() }, { merge: true });
   document.getElementById('tbGradeName').value = '';
   alert('تمت إضافة الصف ✅');
@@ -4841,21 +4845,32 @@ const DEFAULT_TB_GRADES = {
   middle: ["الأول متوسط","الثاني متوسط","الثالث متوسط"],
   secondary: ["الرابع علمي","الرابع أدبي","الخامس علمي","الخامس أدبي","السادس علمي","السادس أدبي"]
 };
+// توحيد اسم الصف/المادة: يشيل أي مسافات إضافية أو حروف غير مرئية (زيرو-ويدث، اتجاه الكتابة...) ويوحّد
+// شكل الحروف (Unicode NFC) — هذا يضمن إن نفس الاسم دائماً يعطي نفس المعرّف حتى لو انكتب بطريقة مختلفة شكلياً
+function normalizeGradeName(str) {
+  return (str || '')
+    .normalize('NFC')
+    .replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g, '') // حروف غير مرئية (zero-width, تحكم الاتجاه)
+    .trim()
+    .replace(/\s+/g, ' '); // مسافات متعددة → مسافة وحدة
+}
 // معرّف ثابت من اسم الصف/المادة، حتى لو انسحب الزرع مرتين بنفس اللحظة (نت ضعيف مثلاً) ما ينضاف صف مكرر أبداً
 function tbSafeId(str) {
-  return (str || '').trim().replace(/[\/\.\#\$\[\]]/g, '_');
+  return normalizeGradeName(str).replace(/[\/\.\#\$\[\]]/g, '_');
 }
 
 async function seedDefaultTbGradesIfNeeded() {
   const snap = await db.collection('textbookGrades').get();
-  const existingNames = new Set(snap.docs.map(d => d.data().name));
+  const existingNames = new Set(snap.docs.map(d => normalizeGradeName(d.data().name)));
   let order = snap.size;
   const batchPromises = [];
   for (const [stage, names] of Object.entries(DEFAULT_TB_GRADES)) {
-    for (const name of names) {
+    for (const rawGradeName of names) {
+      const name = normalizeGradeName(rawGradeName);
       if (existingNames.has(name)) continue;
       existingNames.add(name); // نضيفه فوراً للمجموعة المحلية حتى ما ينضاف مرتين بنفس الاستدعاء
       const id = tbSafeId(name);
+      // set بمعرّف ثابت (deterministic) حتى لو تكرر الاستدعاء بنفس اللحظة، يكتب على نفس المستند بدل ما ينشئ نسخة جديدة
       batchPromises.push(db.collection('textbookGrades').doc(id).set({ name, stage, order: order++, createdAt: Date.now() }, { merge: true }));
     }
   }
@@ -4881,7 +4896,7 @@ const DEFAULT_TB_SUBJECTS = {
 async function seedDefaultTbSubjectsIfNeeded() {
   const gradesSnap = await db.collection('textbookGrades').get();
   const gradeIdByName = {};
-  gradesSnap.docs.forEach(d => { gradeIdByName[d.data().name] = d.id; });
+  gradesSnap.docs.forEach(d => { gradeIdByName[normalizeGradeName(d.data().name)] = d.id; });
 
   const subjectsSnap = await db.collection('textbookSubjects').get();
   const existingByGrade = {};
@@ -4893,7 +4908,7 @@ async function seedDefaultTbSubjectsIfNeeded() {
 
   const batchPromises = [];
   for (const [gradeName, subjects] of Object.entries(DEFAULT_TB_SUBJECTS)) {
-    const gradeId = gradeIdByName[gradeName];
+    const gradeId = gradeIdByName[normalizeGradeName(gradeName)];
     if (!gradeId) continue;
     const existingNames = existingByGrade[gradeId] || new Set();
     for (const name of subjects) {
@@ -4912,7 +4927,7 @@ async function cleanupDuplicateTbGrades() {
   const keeperIdByName = {};
   const dupToKeeper = {}; // duplicateGradeId -> keeperGradeId
   gradesSnap.docs.forEach(d => {
-    const name = d.data().name;
+    const name = normalizeGradeName(d.data().name);
     if (keeperIdByName[name]) dupToKeeper[d.id] = keeperIdByName[name];
     else keeperIdByName[name] = d.id;
   });
@@ -11563,6 +11578,7 @@ function setupCustomerNotifications(phone) {
 // ── Data (يُحمَّل من Firestore بدل القيم الثابتة) ──
 let TB_GRADES = {}; // { gradeId: { name, stage, pkg, books:[{name, image}] } }
 let TB_PRICING = { tier1Price: 4000, tier2Price: 3000, tier1Max: 3 };
+let tbAutoCleanupDone = false; // يمنع تكرار محاولة التنظيف التلقائي أكثر من مرة بنفس الجلسة
 const STAGE_LABELS = { primary: { icon:'🏫', label:'المرحلة الابتدائية' }, middle: { icon:'🏛️', label:'المرحلة المتوسطة' }, secondary: { icon:'🎓', label:'المرحلة الإعدادية' } };
 
 async function tbLoadData() {
@@ -11597,6 +11613,26 @@ async function tbLoadData() {
       const g = d.data();
       TB_GRADES[d.id] = { name: g.name, stage: g.stage, pkg: stagePkgPrices[g.stage] || 20000, books: subjectsByGrade[d.id] || [] };
     });
+
+    // فحص ذاتي: لو صار أي تكرار بأسماء الصفوف (حتى لو كان قديم أو جا من أي سبب)، ننظفه تلقائياً
+    // بصمت بالخلفية بدون ما يحتاج أحد يضغط زر — هذا يمنع ظهور أي تكرار للمستخدم النهائي نهائياً
+    const nameCount = {};
+    gradesSnap.docs.forEach(d => {
+      const n = normalizeGradeName(d.data().name);
+      nameCount[n] = (nameCount[n] || 0) + 1;
+    });
+    const hasDuplicates = Object.values(nameCount).some(c => c > 1);
+    if (hasDuplicates && !tbAutoCleanupDone) {
+      tbAutoCleanupDone = true; // مرة وحدة بكل جلسة، حتى لو فشل التنظيف ما يعيد المحاولة بحلقة لا نهائية
+      (async () => {
+        try {
+          await ensureAuthed();
+          await cleanupDuplicateTbGrades();
+          await tbLoadData();
+          tbRenderStageBlocks();
+        } catch(e) { console.error('auto cleanup duplicate grades failed', e); }
+      })();
+    }
 
     // نزرع الصفوف الافتراضية بصمت وبالخلفية فقط أول مرة بتاريخ المشروع (المجموعة فاضية تماماً) — ما يوقف عرض أي بيانات موجودة أصلاً
     if (gradesSnap.empty) {
