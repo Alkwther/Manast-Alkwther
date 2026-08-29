@@ -3,22 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>مكتبة الكوثر</title>
+<title>مكتبة الكوثر - لوحة التحكم</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#10203f">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="مكتبة الكوثر">
+<meta name="apple-mobile-web-app-title" content="لوحة تحكم الكوثر">
 <link rel="icon" href="icon-192.png">
-<meta property="og:title" content="مكتبة الكوثر">
-<meta property="og:description" content="مكتبة تعليمية للكتب والملازم والدفاتر، مطبعة لطباعة الكتب والملازم، ومنصة تعليمية للطلاب">
-<meta property="og:image" content="https://alkwther.github.io/Manast-Alkwther/icon-512.png">
+<meta property="og:title" content="لوحة تحكم مكتبة الكوثر">
+<meta property="og:description" content="لوحة تحكم المشرف والموظفين — إدارة الطلبات والملازم والكتب والزبائن">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="مكتبة الكوثر">
-<meta name="twitter:description" content="مكتبة تعليمية للكتب والملازم والدفاتر، مطبعة لطباعة الكتب والملازم، ومنصة تعليمية للطلاب">
-<meta name="twitter:image" content="https://alkwther.github.io/Manast-Alkwther/icon-512.png">
+<meta name="twitter:title" content="لوحة تحكم مكتبة الكوثر">
+<meta name="twitter:description" content="لوحة تحكم المشرف والموظفين — إدارة الطلبات والملازم والكتب والزبائن">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -736,6 +734,8 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 <body>
 <div id="app">
 
+
+
   <!-- بانر هروب من متصفح انستقرام/فيسبوك/تيك توك الداخلي — يظهر تلقائياً بس لو انفتحنا من داخل هالتطبيقات على أندرويد -->
   <div id="inAppBrowserEscapeBanner" class="hidden" style="position:sticky;top:0;z-index:9999;background:#fff3e0;border-bottom:2px solid #f0b429;padding:10px 14px;font-size:13px;text-align:center;color:#7a4d00;">
     📌 لأفضل تجربة، افتح الصفحة بمتصفحك مباشرة
@@ -744,16 +744,23 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 
   <div class="topbar">
     <div class="brand"><img src="icon-192.png" alt="شعار مكتبة الكوثر"><h1>مكتبة الكوثر</h1>
-      <button class="icon-btn hidden" id="libChatIconBtn" onclick="openLibraryCustomerChat()" title="مراسلة المكتبة" style="position:relative;">
+    </div>
+    <div style="display:flex;gap:14px;align-items:center;">
+      <button class="icon-btn" onclick="openLibraryCustomerChat()" title="مراسلة المكتبة" style="position:relative;">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.4 8.4 0 01-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.4 8.4 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
         <span id="libCustomerChatBadge" class="hidden" style="position:absolute;top:-4px;left:-6px;background:#dc2626;color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:bold;">0</span>
       </button>
-    </div>
-    <div style="display:flex;gap:14px;align-items:center;">
+      <button class="icon-btn" id="topOrdersBtn" onclick="show('screen-admin'); openAdminSection('library-hub'); openAdminSection('library-orders'); switchOrdersTab('new');" title="طلبات المكتبة" style="position:relative;display:none;">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+        <span id="topOrdersBadge" class="hidden" style="position:absolute;top:-4px;left:-6px;background:#dc2626;color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:bold;">0</span>
+      </button>
       <button class="icon-btn" onclick="shareThePlatform()" title="شارك البرنامج">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-3.9M8.6 13.5l6.8 3.9"/></svg>
       </button>
-      <button class="icon-btn" id="logoutBtn" title="خروج">
+      <button class="icon-btn" id="settingsBtn" title="دخول المشرف / الموظف" style="display:none;">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 01-4 0v-.09A1.7 1.7 0 009 19.4a1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.7 1.7 0 004.6 15a1.7 1.7 0 00-1.55-1H3a2 2 0 010-4h.09A1.7 1.7 0 004.6 9a1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06A1.7 1.7 0 009 4.6a1.7 1.7 0 001-1.55V3a2 2 0 014 0v.09A1.7 1.7 0 0015.4 4.6a1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06A1.7 1.7 0 0019.4 9a1.7 1.7 0 001.55 1H21a2 2 0 010 4h-.09a1.7 1.7 0 00-1.51 1z"/></svg>
+      </button>
+      <button class="icon-btn" id="logoutBtn" title="خروج" style="display:none;">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#f0dfae" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M13 5a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2h5a2 2 0 002-2"/></svg>
       </button>
     </div>
@@ -1120,9 +1127,6 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     <p class="upload-hint">يمكن إضافة أكثر من صورة دفعة واحدة. تُضغط الصور تلقائياً لتناسب المساحة المتاحة وتبقى واضحة على الجوال.</p>
   </div>
 </div>
-
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 
 
   </div>
@@ -2552,6 +2556,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     <button class="btn secondary hidden" id="tchMyOrdersBtn" onclick="teacherOrdersContextName=null; show('screen-teacher-orders'); switchTeacherOrdersTab('new');">📦 طلبات ملازمي (توصيلي الخاص)</button>
     <button class="btn secondary" onclick="openStaffTeacherChatFromTeacher()">💬 الدردشة مع الإدارة <span id="teacherChatUnreadBadge" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></button>
     <button class="btn secondary" id="tchBuyCodeBtn" onclick="openTeacherBuyCode()">🎫 عرض أكواد الاشتراك</button>
+    <button class="btn secondary" id="tchAddFreeLessonBtn" onclick="openTeacherFreeLessons()">🎁 إضافة دروس مجانية</button>
     <button class="btn secondary" onclick="show('screen-print-shop')">🖨️ المطبعة — أسعار الطباعة</button>
     <div class="card" id="tchAddClassCard">
       <h3>➕ إضافة صف تدرّسه</h3>
@@ -2567,6 +2572,35 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <h3 style="margin-bottom:10px;color:#10203f;">🧾 طلبات زبائن ملازمك</h3>
       <div id="tchBookletCustomersList"></div>
     </div>
+  </div>
+
+  <!-- إضافة دروس مجانية (الأستاذ نفسه) -->
+  <div class="screen hidden" id="screen-teacher-free-lessons">
+    <button class="btn secondary" onclick="show('screen-teacher-dashboard')">← رجوع</button>
+    <div class="card">
+      <h3>🎁 إضافة درس مجاني جديد</h3>
+      <p style="font-size:12.5px;color:#8a90a3;margin-top:-4px;">الدرس المجاني يظهر لأي طالب بدون ما يحتاج يفعّل اشتراك — طريقة جيدة تعرّف فيها الطلاب على أسلوبك بالتدريس.</p>
+      <label>المرحلة الدراسية</label>
+      <select id="tflGrade"></select>
+      <label>اسم المادة</label>
+      <input id="tflSubject" placeholder="مثال: رياضيات">
+      <label>عنوان الدرس</label>
+      <input id="tflTitle" placeholder="مثال: مقدمة في القطع المخروطية">
+      <label>كتابة نص / شرح (اختياري)</label>
+      <textarea id="tflText" rows="4" placeholder="اكتب أي شرح أو ملاحظات نصيّة عن الدرس هنا..."></textarea>
+      <label>رابط يوتيوب (اختياري)</label>
+      <input id="tflVideoUrl" placeholder="https://youtube.com/...">
+      <label>إضافة صور (اختياري، يمكن اختيار أكثر من صورة)</label>
+      <input type="file" id="tflImagesInput" accept="image/*" multiple>
+      <div id="tflImagesPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"></div>
+      <label style="margin-top:10px;">إضافة ملف PDF (اختياري، الحجم الأقصى 700 كيلوبايت)</label>
+      <input type="file" id="tflPdfInput" accept="application/pdf">
+      <p id="tflPdfName" style="font-size:12px;color:#8a90a3;margin:4px 0 0;"></p>
+      <button class="btn" id="tflSubmitBtn" style="margin-top:12px;">✅ نشر الدرس المجاني</button>
+      <p id="tflMsg" style="font-size:13px;margin-top:8px;"></p>
+    </div>
+    <h3 style="margin:16px 0 10px;color:#10203f;">📂 دروسي المجانية المرفوعة</h3>
+    <div id="tflMyLessonsList"></div>
   </div>
 
   <!-- شراء كود: قائمة صفوف الأستاذ -->
@@ -2643,16 +2677,14 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <div id="tchBookletImagePreview" style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;"></div>
       <label>اسم المادة</label>
       <input id="tchBookletTitle" placeholder="مثال: ملزمة الرياضيات - الفصل الأول">
-      <div id="tchBookletGradeWrap">
-        <label>المرحلة</label>
-        <select id="tchBookletStage">
-          <option value="primary">ابتدائية</option>
-          <option value="middle">متوسطة</option>
-          <option value="secondary">إعدادية</option>
-        </select>
-        <label>الصف</label>
-        <select id="tchBookletGrade"></select>
-      </div>
+      <label>المرحلة</label>
+      <select id="tchBookletStage">
+        <option value="primary">ابتدائية</option>
+        <option value="middle">متوسطة</option>
+        <option value="secondary">إعدادية</option>
+      </select>
+      <label>الصف</label>
+      <select id="tchBookletGrade"></select>
       <label>السعر الكلي بالمكتبة (دينار)</label>
       <input id="tchBookletPrice" type="number" placeholder="مثال: 10000">
       <div id="tchBookletDeliveryModeWrap">
@@ -2858,6 +2890,15 @@ const OWNER_AUTH_EMAIL = "owner@kawthar-admin.app";
 const STAFF_AUTH_DOMAIN = "kawthar-staff.app";
 const TEACHER_AUTH_DOMAIN = "kawthar-teachers.app";
 function staffEmailFromUsername(username) { return `${username}@${STAFF_AUTH_DOMAIN}`; }
+// بحث عن الموظف بدون حساسية لحالة الأحرف (كبير/صغير) — لازم لأن Firebase يحوّل البريد الإلكتروني
+// (وبالتالي اسم المستخدم المستخرج منه عند استرجاع الجلسة) دائماً لحروف صغيرة، بينما اسم المستخدم
+// المخزّن بقاعدة البيانات ممكن يكون بالحالة الأصلية اللي كتبها المشرف عند إضافة الموظف.
+async function findStaffByUsernameCI(username) {
+  const target = (username || '').toLowerCase();
+  const snap = await db.collection('staff').get();
+  const match = snap.docs.find(d => (d.data().username || '').toLowerCase() === target);
+  return match ? { id: match.id, data: match.data() } : null;
+}
 function teacherEmailFromPhone(phone) { return `${phone}@${TEACHER_AUTH_DOMAIN}`; }
 // تطبيق Firebase ثانوي: يُستخدم فقط عند إنشاء حساب موظف جديد من طرف المالك،
 // حتى ما ينسحب المالك من جلسته الحالية (Firebase يسجّل دخول تلقائي لأي حساب تنشئه)
@@ -2890,7 +2931,7 @@ async function registerFcmToken(identityType, identityId) {
   try {
     if (Notification.permission === 'default') await Notification.requestPermission();
     if (Notification.permission !== 'granted') return;
-    if (!messaging) messaging = firebase.messaging();
+    if (!messaging) messaging = firebase.app('KawtharAdminPanel').messaging();
     const registration = await navigator.serviceWorker.ready;
     const token = await messaging.getToken({ vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: registration });
     if (!token) return;
@@ -2901,15 +2942,27 @@ async function registerFcmToken(identityType, identityId) {
 }
 
 let db, auth, currentStudent = null;
+function dbg() {} // لوحة التشخيص أُزيلت — هذي دالة فارغة فقط حتى ما تنكسر بقية الأسطر اللي تناديها
 const GRADES = ["الأول ابتدائي","الثاني ابتدائي","الثالث ابتدائي","الرابع ابتدائي","الخامس ابتدائي","السادس ابتدائي","الأول متوسط","الثاني متوسط","الثالث متوسط","الرابع علمي","الرابع أدبي","الخامس علمي","الخامس أدبي","السادس علمي","السادس أدبي","الرابع الصناعي","الخامس الصناعي","السادس الصناعي","الرابع التجاري","الخامس التجاري","السادس التجاري","الرابع الزراعي","الخامس الزراعي","السادس الزراعي"];
 const STUDENT_AUTH_DOMAIN = "kawthar-students.app"; // نطاق وهمي لتحويل رقم الهاتف لبريد إلكتروني يقبله Firebase Auth
 function studentEmailFromPhone(phone) { return `${phone}@${STUDENT_AUTH_DOMAIN}`; }
 
 try {
-  firebase.initializeApp(firebaseConfig);
-  db = firebase.firestore();
-  auth = firebase.auth();
-  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => console.error('persistence error', e));
+  // نعطي تطبيق Firebase هنا اسم خاص ("KawtharAdminPanel") بدل الاسم الافتراضي —
+  // السبب: موقع لوحة التحكم هذا وموقع الزبون/الطالب/الأستاذ الرئيسي منشورين على نفس النطاق
+  // (alkwther.github.io)، والمتصفح يخزّن جلسة الدخول بشكل مشترك بين كل المواقع على نفس النطاق.
+  // فلو استخدمنا الاسم الافتراضي هنا، تسجيل دخولك كمشرف/موظف بهذي اللوحة كان يخلي الموقع
+  // الرئيسي (الخاص بالزبائن والطلاب والأساتذة) يظهر "مسجّل دخول" بنفس اسمك بالغلط.
+  // إعطاء اسم مستقل يفصل جلسة هذي اللوحة تماماً عن جلسة الموقع الرئيسي.
+  const adminFirebaseApp = firebase.initializeApp(firebaseConfig, 'KawtharAdminPanel');
+  db = adminFirebaseApp.firestore();
+  auth = adminFirebaseApp.auth();
+  // ملاحظة: أزلنا استدعاء setPersistence لأنه كان المصدر الحقيقي لمشكلة "تسجيل الدخول ما يبقى محفوظ".
+  // السبب: هذا الاستدعاء يعيد تهيئة نظام حفظ الجلسة بعد ما يكون Firebase قد بدأ فعلاً
+  // بقراءة الجلسة المحفوظة من الجهاز (بالخلفية) — يعني يحصل تعارض توقيت (race condition):
+  // يوصل أحياناً "ما فيه مستخدم محفوظ" رغم وجود جلسة فعلية، فيسجّل البرنامج دخول "زائر مجهول"
+  // تلقائياً (auth.signInAnonymously) ويمسح الجلسة الحقيقية القديمة نهائياً بهذي اللحظة.
+  // أصلاً وضع "LOCAL" هو الوضع الافتراضي لمتصفحات الويب بدون أي استدعاء إضافي، فحذفه آمن 100%.
   // تخزين محلي دائم لقاعدة البيانات: أي بيانات وصلت مرة (صفوف، مواد، ملازم...) تضل محفوظة بالجهاز
   // وتُعرض فوراً حتى بدون نت، وأي طلب يُرسل وقت انقطاع النت ينحفظ محلياً ويوصل تلقائياً أول ما يرجع الاتصال
   db.enablePersistence({ synchronizeTabs: true }).catch(e => {
@@ -3103,7 +3156,6 @@ function daysRemaining(expiryMs) {
 
 function afterLogin() {
   document.getElementById('bottomNav').classList.remove('hidden');
-  updateChatIconVisibility(); // طالب مسجّل دخول = هوية حقيقية، تظهر أيقونة المراسلة
   // إذا فتح الزبون رابط مشاركة (فولدر/كراسة/صف/ملزمة/طلب...)، نوديه له مباشرة
   // حتى لو كانت جلسته محفوظة أصلاً — قبل أي تحويل تلقائي للصفحة الرئيسية أو صفحة التفعيل
   if (typeof routeFromHash === 'function' && routeFromHash()) return;
@@ -3408,6 +3460,22 @@ document.getElementById('showFreeLessonsBtn').onclick = async () => {
   show('screen-free-lessons');
 };
 
+async function enterAdminArea() {
+  show('screen-admin'); // نفتح الشاشة فوراً حتى ما يحس المستخدم بأي تأخير
+  if (!initialAuthCheckDone) {
+    document.getElementById('adminLoginCard').classList.add('hidden');
+    document.getElementById('adminPanel').classList.add('hidden');
+    await initialAuthCheckPromise; // ننتظر بصمت لين يخلص فحص الجلسة المحفوظة (يأخذ أجزاء من الثانية عادةً)
+  }
+  if (currentStaffRole) {
+    enterAdminPanel(); // مسجّل دخول أصلاً — يدخل مباشرة بدون طلب اسم مستخدم/كلمة سر من جديد
+  } else {
+    document.getElementById('adminPanel').classList.add('hidden');
+    document.getElementById('adminLoginCard').classList.remove('hidden');
+  }
+}
+document.getElementById('settingsBtn').onclick = enterAdminArea;
+
 
 // ---------- الاختبار ----------
 let quizQuestions = [], quizAnswers = {};
@@ -3622,7 +3690,6 @@ function prefillSavedDeliveryInfo() {
 }
 function saveDeliveryInfo(info) {
   try { localStorage.setItem('kawthar_delivery_info', JSON.stringify(info)); } catch(e) { console.error(e); }
-  updateChatIconVisibility(); // صار عنده هوية حقيقية الحين (طلب أول مرة) — تظهر أيقونة المراسلة
 }
 function calcCartDeliveryFee() {
   const ids = Object.keys(cart);
@@ -3917,7 +3984,6 @@ async function showMyOrders(phoneOverride) {
     } catch(e) { console.error(e); }
   }
   updatePresenceHeartbeat(); // نسجّله "متصل الآن" فوراً أول ما تتضح هويته
-  updateChatIconVisibility(); // صار عنده هوية حقيقية الحين — تظهر أيقونة المراسلة
   show('screen-my-orders'); // نفتح الشاشة فوراً حتى لو صار تأخير أو خطأ بتحميل الطلبات
   const list = document.getElementById('myOrdersList');
   const notYouLink = currentStudent ? '' : `<p style="text-align:center;margin:0 0 12px;"><a href="#" onclick="switchMyOrdersPhone();return false;" style="color:#0e6fa8;font-size:13px;font-weight:bold;">ليس رقمك؟ سجّل برقم آخر</a></p>`;
@@ -4008,12 +4074,16 @@ function fullLogout() {
   currentStaffRole = null;
   currentStaffPermissions = {};
   currentTeacher = null;
+  teacherModeWatcherStarted = false;
   document.getElementById('adminPanel').classList.add('hidden');
   document.getElementById('adminLoginCard').classList.remove('hidden');
   document.getElementById('adminUser').value = '';
   document.getElementById('adminPass').value = '';
   document.getElementById('bottomNav').classList.add('hidden');
-  show('screen-welcome');
+  document.getElementById('topOrdersBtn').style.display = 'none';
+  // هذي نسخة المشرف/الموظف فقط (لوحة التحكم) — بعد الخروج يرجع لشاشة تسجيل دخول
+  // المشرف/الموظف نفسها، مو لصفحة الزبون العادي (مكتبة/مطبعة/منصة تعليمية)
+  show('screen-admin');
 }
 document.getElementById('logoutBtn').onclick = fullLogout;
 document.getElementById('printShopLogoutBtn').onclick = fullLogout;
@@ -4099,15 +4169,17 @@ document.getElementById('adminLoginBtn').onclick = async () => {
   // دخول موظف
   try {
     await auth.signInWithEmailAndPassword(staffEmailFromUsername(nameInput), pass);
-    const q = await db.collection('staff').where('username','==',nameInput).limit(1).get();
-    if (q.empty) { setMsg('adminMsg','حسابك موجود لكن بياناتك ناقصة، تواصل مع الإدارة', false); return; }
-    const staff = q.docs[0].data();
+    dbg('LOGIN: signInWithEmailAndPassword ok for ' + staffEmailFromUsername(nameInput) + ', auth.currentUser=' + (auth.currentUser ? auth.currentUser.email : 'null'));
+    const found = await findStaffByUsernameCI(nameInput);
+    if (!found) { setMsg('adminMsg','حسابك موجود لكن بياناتك ناقصة، تواصل مع الإدارة', false); return; }
+    const staff = found.data;
     currentStaffName = staff.name;
     currentStaffRole = 'employee';
     currentStaffPermissions = staff.permissions || {};
     enterAdminPanel();
   } catch(e) {
     console.error(e);
+    dbg('LOGIN ERROR: ' + e.code + ' | ' + e.message);
     if (e.code === 'auth/user-not-found') setMsg('adminMsg','اسم المستخدم غير موجود', false);
     else if (e.code === 'auth/wrong-password') setMsg('adminMsg','كلمة السر غير صحيحة', false);
     else setMsg('adminMsg','خطأ بالاتصال', false);
@@ -4122,7 +4194,7 @@ function setupNewOrdersBadgeWatcher() {
   let firstSnap = true;
   db.collection('orders').where('status','==','pending').onSnapshot(snap => {
     const count = snap.docs.filter(d => d.data().fulfillment !== 'teacher').length;
-    ['ordersUnreadBadge','ordersUnreadBadge2'].forEach(bid => {
+    ['ordersUnreadBadge','ordersUnreadBadge2','topOrdersBadge'].forEach(bid => {
       const badge = document.getElementById(bid);
       if (!badge) return;
       if (count > 0) { badge.textContent = count; badge.classList.remove('hidden'); }
@@ -4136,6 +4208,42 @@ function setupNewOrdersBadgeWatcher() {
   }, e => console.error('setupNewOrdersBadgeWatcher failed', e));
 }
 
+// مراقب تثبيتات جديدة للبرنامج — يشتغل بس وقت ما لوحة التحكم مفتوحة أمامك (ليس إشعار push حقيقي وقت البرنامج مغلق تماماً)
+// يشغّل نغمة تنبيه ويطلع إشعار متصفح لحظي، ويحدّث الرقم بالأعلى فوراً بدون ما تحتاج تحدّث الصفحة يدوياً
+let newInstallsWatcherStarted = false;
+function setupNewInstallsWatcher() {
+  if (newInstallsWatcherStarted) return;
+  newInstallsWatcherStarted = true;
+  if (window.Notification && Notification.permission === 'default') {
+    Notification.requestPermission().catch(()=>{});
+  }
+  let firstSnap = true;
+  db.collection('appInstalls').orderBy('installedAt','desc').limit(50).onSnapshot(snap => {
+    if (!firstSnap) {
+      snap.docChanges().forEach(ch => {
+        if (ch.type !== 'added') return;
+        const p = ch.doc.data();
+        const device = deviceInfoFromUserAgent(p.userAgent);
+        if (isNotificationSoundEnabled()) playNotificationBeep();
+        if (window.Notification && Notification.permission === 'granted') {
+          try {
+            new Notification('📲 تثبيت جديد للبرنامج', {
+              body: `${p.name || p.phone || 'مستخدم مجهول'} — ${device.label}`,
+              icon: 'icon-192.png'
+            });
+          } catch(e) { console.error(e); }
+        }
+      });
+      // نحدّث الرقم الإجمالي فوراً بدون انتظار فتح تبويب "ثبّتوا البرنامج" يدوياً
+      db.collection('appInstalls').count().get().then(c => {
+        const el = document.getElementById('installsCount');
+        if (el) el.textContent = c.data().count;
+      }).catch(()=>{});
+    }
+    firstSnap = false;
+  }, e => console.error('setupNewInstallsWatcher failed', e));
+}
+
 function enterAdminPanel() {
   document.getElementById('adminLoginCard').classList.add('hidden');
   document.getElementById('adminUser').value = '';
@@ -4146,12 +4254,14 @@ function enterAdminPanel() {
   document.getElementById('adminMenu').classList.remove('hidden');
   setupAdminNotifications();
   setupNewOrdersBadgeWatcher();
+  if (currentStaffRole === 'admin') setupNewInstallsWatcher(); // إشعارات "تثبيت جديد للبرنامج" تخص المشرف الرئيسي فقط، ما توصل للموظفين
   refreshBellBadge();
   registerFcmToken('staff', currentStaffRole === 'admin' ? 'owner' : currentStaffName);
 
   if (currentStaffRole === 'admin') {
     document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
     populateGradeSelects(GRADES);
+    document.getElementById('topOrdersBtn').style.display = '';
   } else {
     // إظهار عناصر القائمة المسموحة فقط حسب صلاحيات الموظف (5 فئات فقط: المنصة التعليمية، المكتبة، الموظفين، خدمة العملاء، الإعلانات)
     document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
@@ -4161,6 +4271,8 @@ function enterAdminPanel() {
       const allowed = !!perms[key];
       item.classList.toggle('hidden', !allowed);
     });
+    // أيقونة طلبات المكتبة بالأعلى تظهر فقط للموظف اللي عنده صلاحية "المكتبة"
+    document.getElementById('topOrdersBtn').style.display = perms.library ? '' : 'none';
     // كل الصفوف متاحة لأي موظف عنده صلاحية "المنصة التعليمية" (ما عاد التقييد حسب مرحلة معينة)
     populateGradeSelects(GRADES);
   }
@@ -4387,6 +4499,17 @@ async function loadTeachersAdmin() {
         <button class="small-btn" onclick="copyTeacherPassword('${d.id}')">📋 نسخ</button>
         <button class="small-btn" onclick="changeTeacherPassword('${d.id}','${t.phone}')">✏️ تغيير كلمة السر</button>
       </div>
+      <div style="background:#f6f0e4;border-radius:10px;padding:10px;margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <label style="font-size:12px;margin-bottom:2px;">🎓 نوع النشاط (يتحكم بما يظهر له بلوحته)</label>
+          <select id="tchMode-${d.id}" style="margin-bottom:0;">
+            <option value="teaching" ${(t.mode||'both') === 'teaching' ? 'selected' : ''}>📖 التدريس بالمنصة فقط</option>
+            <option value="booklets" ${(t.mode||'both') === 'booklets' ? 'selected' : ''}>📦 بيع الملازم فقط</option>
+            <option value="both" ${(t.mode||'both') === 'both' ? 'selected' : ''}>🎓 كلاهما (تدريس + بيع ملازم)</option>
+          </select>
+        </div>
+        <button class="small-btn" onclick="saveTeacherMode('${d.id}')" style="height:44px;">💾 حفظ</button>
+      </div>
       <div style="background:#f2f7fa;border-radius:10px;padding:10px;margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <div style="flex:1;min-width:150px;">
           <label style="font-size:12px;margin-bottom:2px;">الجنس (ذكر/أنثى)</label>
@@ -4430,6 +4553,14 @@ async function saveTeacherGender(teacherId) {
   const gender = document.getElementById(`tchGender-${teacherId}`).value;
   await db.collection('teachers').doc(teacherId).update({ gender });
   alert('تم حفظ الجنس ✅');
+  loadTeachersAdmin();
+}
+// يغيّر نوع نشاط الأستاذ (تدريس/بيع ملازم/كلاهما) — ينعكس على لوحة الأستاذ من أول مرة يفتحها
+// بعد هذا التغيير (أو فوراً لو كان بنفس اللحظة داخل جلسته، عبر مراقب مباشر مربوط بجلسته)
+async function saveTeacherMode(teacherId) {
+  const mode = document.getElementById(`tchMode-${teacherId}`).value;
+  await db.collection('teachers').doc(teacherId).update({ mode });
+  alert('تم حفظ نوع النشاط ✅ — سينعكس على لوحة الأستاذ');
   loadTeachersAdmin();
 }
 async function saveTeacherPercents(teacherId) {
@@ -4824,16 +4955,12 @@ document.getElementById('saveTbStagePkgBtn').onclick = async () => {
 };
 
 document.getElementById('addTbGradeBtn').onclick = async () => {
-  const rawName = document.getElementById('tbGradeName').value;
-  const name = normalizeGradeName(rawName);
+  const name = document.getElementById('tbGradeName').value.trim();
   const stage = document.getElementById('tbGradeStage').value;
   if (!name) { alert('اكتب اسم الصف'); return; }
-  const id = tbSafeId(name);
-  // نتحقق مباشرة عبر المعرّف الثابت (وليس بمقارنة نصوص) — هذا يمنع التكرار حتى لو الاسم مكتوب
-  // بمسافات أو رموز غير مرئية مختلفة شكلياً لكنها نفس الصف فعلياً
-  const existingDoc = await db.collection('textbookGrades').doc(id).get();
-  if (existingDoc.exists) { alert('هذا الصف موجود مسبقاً'); return; }
   const countSnap = await db.collection('textbookGrades').get();
+  if (countSnap.docs.some(d => d.data().name === name)) { alert('هذا الصف موجود مسبقاً'); return; }
+  const id = tbSafeId(name);
   await db.collection('textbookGrades').doc(id).set({ name, stage, order: countSnap.size, createdAt: Date.now() }, { merge: true });
   document.getElementById('tbGradeName').value = '';
   alert('تمت إضافة الصف ✅');
@@ -4845,32 +4972,21 @@ const DEFAULT_TB_GRADES = {
   middle: ["الأول متوسط","الثاني متوسط","الثالث متوسط"],
   secondary: ["الرابع علمي","الرابع أدبي","الخامس علمي","الخامس أدبي","السادس علمي","السادس أدبي"]
 };
-// توحيد اسم الصف/المادة: يشيل أي مسافات إضافية أو حروف غير مرئية (زيرو-ويدث، اتجاه الكتابة...) ويوحّد
-// شكل الحروف (Unicode NFC) — هذا يضمن إن نفس الاسم دائماً يعطي نفس المعرّف حتى لو انكتب بطريقة مختلفة شكلياً
-function normalizeGradeName(str) {
-  return (str || '')
-    .normalize('NFC')
-    .replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g, '') // حروف غير مرئية (zero-width, تحكم الاتجاه)
-    .trim()
-    .replace(/\s+/g, ' '); // مسافات متعددة → مسافة وحدة
-}
 // معرّف ثابت من اسم الصف/المادة، حتى لو انسحب الزرع مرتين بنفس اللحظة (نت ضعيف مثلاً) ما ينضاف صف مكرر أبداً
 function tbSafeId(str) {
-  return normalizeGradeName(str).replace(/[\/\.\#\$\[\]]/g, '_');
+  return (str || '').trim().replace(/[\/\.\#\$\[\]]/g, '_');
 }
 
 async function seedDefaultTbGradesIfNeeded() {
   const snap = await db.collection('textbookGrades').get();
-  const existingNames = new Set(snap.docs.map(d => normalizeGradeName(d.data().name)));
+  const existingNames = new Set(snap.docs.map(d => d.data().name));
   let order = snap.size;
   const batchPromises = [];
   for (const [stage, names] of Object.entries(DEFAULT_TB_GRADES)) {
-    for (const rawGradeName of names) {
-      const name = normalizeGradeName(rawGradeName);
+    for (const name of names) {
       if (existingNames.has(name)) continue;
       existingNames.add(name); // نضيفه فوراً للمجموعة المحلية حتى ما ينضاف مرتين بنفس الاستدعاء
       const id = tbSafeId(name);
-      // set بمعرّف ثابت (deterministic) حتى لو تكرر الاستدعاء بنفس اللحظة، يكتب على نفس المستند بدل ما ينشئ نسخة جديدة
       batchPromises.push(db.collection('textbookGrades').doc(id).set({ name, stage, order: order++, createdAt: Date.now() }, { merge: true }));
     }
   }
@@ -4896,7 +5012,7 @@ const DEFAULT_TB_SUBJECTS = {
 async function seedDefaultTbSubjectsIfNeeded() {
   const gradesSnap = await db.collection('textbookGrades').get();
   const gradeIdByName = {};
-  gradesSnap.docs.forEach(d => { gradeIdByName[normalizeGradeName(d.data().name)] = d.id; });
+  gradesSnap.docs.forEach(d => { gradeIdByName[d.data().name] = d.id; });
 
   const subjectsSnap = await db.collection('textbookSubjects').get();
   const existingByGrade = {};
@@ -4908,7 +5024,7 @@ async function seedDefaultTbSubjectsIfNeeded() {
 
   const batchPromises = [];
   for (const [gradeName, subjects] of Object.entries(DEFAULT_TB_SUBJECTS)) {
-    const gradeId = gradeIdByName[normalizeGradeName(gradeName)];
+    const gradeId = gradeIdByName[gradeName];
     if (!gradeId) continue;
     const existingNames = existingByGrade[gradeId] || new Set();
     for (const name of subjects) {
@@ -4927,7 +5043,7 @@ async function cleanupDuplicateTbGrades() {
   const keeperIdByName = {};
   const dupToKeeper = {}; // duplicateGradeId -> keeperGradeId
   gradesSnap.docs.forEach(d => {
-    const name = normalizeGradeName(d.data().name);
+    const name = d.data().name;
     if (keeperIdByName[name]) dupToKeeper[d.id] = keeperIdByName[name];
     else keeperIdByName[name] = d.id;
   });
@@ -5840,7 +5956,7 @@ function renderOrdersFromCache() {
   const newCount = allRows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed').length;
   const totalUnreadMsgs = Object.values(unreadByOrderId).reduce((s,n) => s+n, 0);
   const combinedBadgeCount = newCount + totalUnreadMsgs;
-  ['ordersUnreadBadge','ordersUnreadBadge2'].forEach(bid => {
+  ['ordersUnreadBadge','ordersUnreadBadge2','topOrdersBadge'].forEach(bid => {
     const badge = document.getElementById(bid);
     if (!badge) return;
     if (combinedBadgeCount > 0) { badge.textContent = combinedBadgeCount; badge.classList.remove('hidden'); }
@@ -6070,29 +6186,53 @@ async function loadOnlineNow() {
           <div>
             <p style="font-weight:bold;margin:0;">🟢 ${p.name || p.phone || 'مجهول'} <span style="color:#8a90a3;font-weight:normal;font-size:12px;">${roleLabels[p.role]||''}</span></p>
             <p style="margin:4px 0 0;color:#8a90a3;">${p.phone ? '📞 '+p.phone : ''} ${p.province ? '— 📍 '+p.province : ''}</p>
+            <p style="margin:4px 0 0;color:#10203f;font-size:12px;font-weight:600;">${deviceInfoFromUserAgent(p.userAgent).label}</p>
             <p style="margin:4px 0 0;color:#8a90a3;font-size:12px;">آخر نشاط: ${new Date(p.lastActiveAt).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})}</p>
           </div>
         </div>
       </div>`).join('');
-  } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+  } catch(e) { console.error(e); list.innerHTML = `<p style="color:#b91c1c;">تعذّر التحميل: ${e.code||''} ${e.message||''}</p>`; }
+}
+// يستنتج نوع الجهاز ونظام التشغيل من نص الـ userAgent المحفوظ وقت التثبيت
+function deviceInfoFromUserAgent(ua) {
+  if (!ua) return { label: '❔ غير معروف', os: 'unknown' };
+  if (/iPhone/i.test(ua)) return { label: '📱 آيفون (iPhone)', os: 'ios' };
+  if (/iPad/i.test(ua)) return { label: '📱 آيباد (iPad)', os: 'ios' };
+  if (/Android/i.test(ua)) return { label: '🤖 أندرويد (Android)', os: 'android' };
+  if (/Windows/i.test(ua)) return { label: '💻 ويندوز (Windows)', os: 'windows' };
+  if (/Macintosh|Mac OS/i.test(ua)) return { label: '💻 ماك (Mac)', os: 'mac' };
+  return { label: '❔ غير معروف', os: 'unknown' };
 }
 async function loadAppInstalls() {
   const list = document.getElementById('appInstallsList');
   list.innerHTML = '<p>جاري التحميل...</p>';
   try {
-    const snap = await db.collection('appInstalls').orderBy('installedAt','desc').limit(200).get();
-    document.getElementById('installsCount').textContent = snap.size;
+    // العدد الإجمالي الحقيقي لكل التثبيتات المسجّلة منذ إطلاق البرنامج (بدون حد أقصى) —
+    // منفصل عن قائمة العرض حتى يبقى دقيق حتى لو تجاوز عدد التثبيتات 200
+    try {
+      const countSnap = await db.collection('appInstalls').count().get();
+      document.getElementById('installsCount').textContent = countSnap.data().count;
+    } catch(countErr) {
+      // لو الإصدار القديم من Firestore ما يدعم count()، نكتفي بعدد القائمة المعروضة كحل بديل
+      console.error('count() failed, falling back', countErr);
+    }
+    const snap = await db.collection('appInstalls').orderBy('installedAt','desc').limit(500).get();
+    if (!document.getElementById('installsCount').textContent || document.getElementById('installsCount').textContent === '0') {
+      document.getElementById('installsCount').textContent = snap.size;
+    }
     if (snap.empty) { list.innerHTML = '<div class="card"><p>ما فيه تثبيتات مسجّلة بعد.</p></div>'; return; }
     const roleLabels = { customer:'👤 زبون', student:'🎓 طالب', teacher:'🧑‍🏫 أستاذ', promoter:'🎯 مروّج', unknown:'❔ غير معروف' };
-    list.innerHTML = snap.docs.map(d => {
+    list.innerHTML = (snap.size >= 500 ? '<div class="card" style="background:#fff3e0;"><p style="margin:0;color:#7a4d00;">⚠️ يعرض هنا آخر 500 تثبيت فقط (الأحدث)، مع إن الإجمالي الحقيقي بالأعلى صحيح بالكامل.</p></div>' : '') + snap.docs.map(d => {
       const p = d.data();
+      const device = deviceInfoFromUserAgent(p.userAgent);
       return `<div class="card" style="cursor:pointer;" onclick="${p.phone ? `openCustomerProfile('${p.phone}')` : ''}">
         <p style="font-weight:bold;margin:0;">📲 ${p.name || p.phone || 'مجهول'} <span style="color:#8a90a3;font-weight:normal;font-size:12px;">${roleLabels[p.role]||roleLabels.unknown}</span></p>
         <p style="margin:4px 0 0;color:#8a90a3;">${p.phone ? '📞 '+p.phone : ''} ${p.province ? '— 📍 '+p.province : ''}</p>
+        <p style="margin:4px 0 0;color:#10203f;font-size:12px;font-weight:600;">${device.label}</p>
         <p style="margin:4px 0 0;color:#8a90a3;font-size:12px;">🗓️ ${new Date(p.installedAt).toLocaleString('ar-EG',{dateStyle:'medium',timeStyle:'short'})}</p>
       </div>`;
     }).join('');
-  } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+  } catch(e) { console.error(e); list.innerHTML = `<p style="color:#b91c1c;">تعذّر التحميل: ${e.code||''} ${e.message||''}</p>`; }
 }
 function renderCustomersByProvince() {
   const box = document.getElementById('customersByProvinceList');
@@ -7252,9 +7392,9 @@ async function copySingleOrder(id) {
   const doc = await db.collection('orders').doc(id).get();
   if (!doc.exists) return;
   const o = doc.data();
-  await robustCopy(buildOrderBlock(o));
-  // لو أول مرة تُنسخ، نسجّل وقت النسخ (يبدأ حساب تطور الحالة تلقائياً من هذا الوقت)
-  // ولو انسخت من قبل، نسمح بإعادة النسخ العادية بدون ما نغيّر وقت النسخ الأصلي
+  // نحدّث الحالة أول شي قبل محاولة النسخ نفسها — حتى لو فشلت عملية النسخ أو تعلّقت
+  // (مثلاً بمتصفح مدمج داخل تطبيق تلغرام/واتساب ما يدعم النسخ التلقائي ويطلع نافذة يدوية)
+  // الطلب يتحول لـ"قيد التنفيذ" بأي الأحوال، بدل ما يبقى عالق بقائمة "جديدة" رغم إنك ضغطت نسخ فعلاً
   if (!o.processingAt) {
     const update = { status:'processing', processingAt: Date.now(), seenByStaff: true };
     if (o.fulfillment !== 'teacher' && !o.deliveringThresholdAt) {
@@ -7266,6 +7406,7 @@ async function copySingleOrder(id) {
   }
   refreshBellBadge();
   loadOrdersAdmin();
+  await robustCopy(buildOrderBlock(o));
 }
 
 async function computePlatformOwedForOrder(order) {
@@ -7468,8 +7609,8 @@ document.getElementById('copyAllOrdersBtn').onclick = async () => {
   const notCopiedDocs = snap.docs.filter(d => !d.data().processingAt);
   if (notCopiedDocs.length === 0) { alert('لا توجد طلبات جديدة بانتظار النسخ.'); return; }
   const fullText = notCopiedDocs.map(d => buildOrderBlock(d.data())).join('\n\n');
-  await robustCopy(fullText);
-  // تحديث وقت النسخ فقط — الحالة المعروضة للزبون تُحسب تلقائياً بمرور الوقت عبر computeEffectiveStatus
+  // نحدّث حالة الطلبات أول شي، قبل محاولة النسخ نفسها — حتى لو تعلّقت عملية النسخ (نافذة يدوية
+  // بمتصفح مقيّد مثلاً)، الطلبات تتحول لـ"قيد التنفيذ" بأي الأحوال
   const now = Date.now();
   await Promise.all(notCopiedDocs.map(d => db.collection('orders').doc(d.id).update({ processingAt: now, seenByStaff: true })));
   refreshBellBadge();
@@ -7478,6 +7619,7 @@ document.getElementById('copyAllOrdersBtn').onclick = async () => {
   btn.textContent = '✅ تم النسخ — الحالة تتحدّث تلقائياً للزبون';
   setTimeout(() => { btn.textContent = original; }, 2500);
   loadOrdersAdmin();
+  await robustCopy(fullText);
 };
 
 
@@ -7734,6 +7876,157 @@ document.getElementById('teacherRegisterBtn').onclick = async () => {
 };
 
 function teacherTitle(gender) { return gender === 'female' ? 'أستاذة' : 'أستاذ'; }
+// يراقب مستند الأستاذ نفسه حيّاً — لو المشرف/الموظف غيّر نوع نشاطه وهو بنفس الجلسة،
+// تتحدّث لوحته فوراً بدون ما يحتاج يسجّل خروج ودخول من جديد
+let teacherModeWatcherStarted = false;
+function watchOwnTeacherMode() {
+  if (teacherModeWatcherStarted || !currentTeacher) return;
+  teacherModeWatcherStarted = true;
+  db.collection('teachers').doc(currentTeacher.id).onSnapshot(doc => {
+    if (!doc.exists || !currentTeacher) return;
+    const data = doc.data();
+    if (data.mode !== currentTeacher.mode) {
+      currentTeacher.mode = data.mode;
+      applyTeacherModeUI();
+    }
+  }, e => console.error(e));
+}
+
+// ---------- إضافة دروس مجانية (الأستاذ نفسه) ----------
+let tflSelectedImages = [];
+let tflSelectedPdfBase64 = null;
+function openTeacherFreeLessons() {
+  document.getElementById('tflGrade').innerHTML = GRADES.map(g => `<option>${g}</option>`).join('');
+  document.getElementById('tflSubject').value = '';
+  document.getElementById('tflTitle').value = '';
+  document.getElementById('tflText').value = '';
+  document.getElementById('tflVideoUrl').value = '';
+  document.getElementById('tflImagesInput').value = '';
+  document.getElementById('tflPdfInput').value = '';
+  document.getElementById('tflPdfName').textContent = '';
+  document.getElementById('tflMsg').textContent = '';
+  tflSelectedImages = [];
+  tflSelectedPdfBase64 = null;
+  renderTflImagesPreview();
+  show('screen-teacher-free-lessons');
+  loadMyFreeLessons();
+}
+function compressImageForFreeLesson(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX_DIM = 1280;
+        let w = img.width, h = img.height;
+        if (w > h && w > MAX_DIM) { h = Math.round(h * MAX_DIM/w); w = MAX_DIM; }
+        else if (h >= w && h > MAX_DIM) { w = Math.round(w * MAX_DIM/h); h = MAX_DIM; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.65));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function renderTflImagesPreview() {
+  const box = document.getElementById('tflImagesPreview');
+  box.innerHTML = tflSelectedImages.map((img, i) => `
+    <div style="position:relative;">
+      <img src="${img}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;">
+      <button onclick="removeTflImage(${i})" style="position:absolute;top:-6px;left:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;line-height:1;">✕</button>
+    </div>`).join('');
+}
+function removeTflImage(i) { tflSelectedImages.splice(i,1); renderTflImagesPreview(); }
+document.getElementById('tflImagesInput').addEventListener('change', async () => {
+  const files = Array.from(document.getElementById('tflImagesInput').files);
+  for (const file of files) {
+    try { tflSelectedImages.push(await compressImageForFreeLesson(file)); }
+    catch(e) { console.error(e); }
+  }
+  document.getElementById('tflImagesInput').value = '';
+  renderTflImagesPreview();
+});
+document.getElementById('tflPdfInput').addEventListener('change', () => {
+  const file = document.getElementById('tflPdfInput').files[0];
+  if (!file) { tflSelectedPdfBase64 = null; document.getElementById('tflPdfName').textContent = ''; return; }
+  if (file.size > 700*1024) {
+    alert(`حجم الملف كبير (${Math.round(file.size/1024)} كيلوبايت) — الحد الأقصى 700 كيلوبايت. اختر ملف أصغر.`);
+    document.getElementById('tflPdfInput').value = '';
+    tflSelectedPdfBase64 = null;
+    document.getElementById('tflPdfName').textContent = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    tflSelectedPdfBase64 = e.target.result;
+    document.getElementById('tflPdfName').textContent = `📄 ${file.name} (${Math.round(file.size/1024)} كيلوبايت)`;
+  };
+  reader.readAsDataURL(file);
+});
+document.getElementById('tflSubmitBtn').onclick = async () => {
+  const grade = document.getElementById('tflGrade').value;
+  const subject = document.getElementById('tflSubject').value.trim();
+  const title = document.getElementById('tflTitle').value.trim();
+  const text = document.getElementById('tflText').value.trim();
+  const videoUrl = document.getElementById('tflVideoUrl').value.trim();
+  if (!subject || !title) { setMsg('tflMsg','لازم تكتب اسم المادة وعنوان الدرس على الأقل', false); return; }
+  if (!videoUrl && !text && tflSelectedImages.length === 0 && !tflSelectedPdfBase64) {
+    setMsg('tflMsg','أضف على الأقل شي وحد: نص، رابط فيديو، صورة، أو ملف PDF', false); return;
+  }
+  try {
+    await db.collection('lessons').add({
+      grade, subject, chapter: 'عام', title,
+      videoUrl: videoUrl || null,
+      description: text || null,
+      images: tflSelectedImages,
+      pdfFile: tflSelectedPdfBase64 || null,
+      pdfUrl: null,
+      free: true,
+      teacherName: currentTeacher.name,
+      addedBy: currentTeacher.name,
+      createdAt: Date.now()
+    });
+    setMsg('tflMsg','✅ تم نشر الدرس المجاني بنجاح', true);
+    document.getElementById('tflSubject').value = '';
+    document.getElementById('tflTitle').value = '';
+    document.getElementById('tflText').value = '';
+    document.getElementById('tflVideoUrl').value = '';
+    document.getElementById('tflPdfInput').value = '';
+    document.getElementById('tflPdfName').textContent = '';
+    tflSelectedImages = [];
+    tflSelectedPdfBase64 = null;
+    renderTflImagesPreview();
+    loadMyFreeLessons();
+  } catch(e) {
+    console.error(e);
+    setMsg('tflMsg', 'تعذّر النشر: ' + (e.message||'خطأ غير معروف'), false);
+  }
+};
+async function loadMyFreeLessons() {
+  const list = document.getElementById('tflMyLessonsList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('lessons').where('teacherName','==', currentTeacher.name).where('free','==',true).get();
+    if (snap.empty) { list.innerHTML = '<div class="card"><p>ما نشرت أي درس مجاني بعد.</p></div>'; return; }
+    const rows = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt||0)-(a.createdAt||0));
+    list.innerHTML = rows.map(l => `
+      <div class="lesson-row">
+        <div class="title">${l.title}<br><span style="font-size:12px;color:#8a90a3;">${l.subject} — ${l.grade}</span></div>
+        <button class="small-btn" onclick="deleteMyFreeLesson('${l.id}')">🗑️</button>
+      </div>`).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+}
+async function deleteMyFreeLesson(id) {
+  if (!confirm('حذف هذا الدرس المجاني؟')) return;
+  await db.collection('lessons').doc(id).delete();
+  loadMyFreeLessons();
+}
 
 document.getElementById('teacherLoginBtn').onclick = async () => {
   const phone = toEnglishDigits(document.getElementById('teacherPhone').value.trim().replace(/[\s\-]/g,''));
@@ -7749,10 +8042,10 @@ document.getElementById('teacherLoginBtn').onclick = async () => {
     document.getElementById('teacherPhotoPreview').src = t.photo || DEFAULT_AVATAR;
     db.collection('teacherPhoneIndex').doc(t.phone).set({ name: t.name }).catch(e => console.error(e));
     applyTeacherModeUI();
+    watchOwnTeacherMode();
     setupTeacherOrderMessageNotifications();
     refreshTeacherBellBadge();
     registerFcmToken('teacher', t.phone);
-    updateChatIconVisibility(); // أستاذ سجّل دخول = هوية حقيقية، تظهر أيقونة المراسلة
     show('screen-teacher-dashboard'); // نعرض اللوحة فوراً، والبيانات تكمل تحميلها بالخلفية بدون ما تعطّل الدخول
     (async () => {
       const activeList = await getActiveGradesList();
@@ -7875,6 +8168,7 @@ function applyTeacherModeUI() {
   document.getElementById('tchClassesHeading').classList.toggle('hidden', !isTeaching);
   document.getElementById('teacherClassesList').classList.toggle('hidden', !isTeaching);
   document.getElementById('tchBuyCodeBtn').classList.toggle('hidden', !isTeaching);
+  document.getElementById('tchAddFreeLessonBtn').classList.toggle('hidden', !isTeaching);
 
   document.getElementById('tchBookletCustomersSection').classList.toggle('hidden', mode !== 'booklets');
   if (mode === 'booklets') loadTeacherBookletCustomers();
@@ -8062,16 +8356,16 @@ async function openTeacherUploadBooklet(destination) {
 
   if (tchUploadDestination === 'store') {
     document.getElementById('tchUploadTitle').textContent = '📤 رفع مادة داخل متجري الخاص';
-    document.getElementById('tchUploadHint').textContent = 'هذي المادة تظهر بمتجرك الخاص فقط. اختر مين يتكفّل بتوصيلها.';
-    document.getElementById('tchBookletDeliveryModeWrap').classList.remove('hidden');
-    document.getElementById('tchBookletGradeWrap').classList.add('hidden'); // مواد المتجر تُعرض كقائمة واحدة بمتجرك، ما تحتاج تصنيف مرحلة/صف
-    updateTchStoreDeliveryModeUI();
+    document.getElementById('tchUploadHint').textContent = 'هذي المادة تظهر بمتجرك الخاص فقط، وأنت تتكفّل بتوصيلها حسب أجور التوصيل المحددة بإعدادات متجرك.';
+    document.getElementById('tchBookletDeliveryModeWrap').classList.add('hidden');
+    document.getElementById('tchBookletDeliveryFeeWrap').classList.add('hidden');
+    const storeFee = (currentTeacher && currentTeacher.storeDeliveryFee) || 0;
+    document.getElementById('tchBookletStoreFeeNotice').classList.remove('hidden');
+    document.getElementById('tchBookletStoreFeeNotice').textContent = `🚚 هذي المادة توصّلها أنت بنفسك — أجور التوصيل الثابتة لمتجرك حالياً: ${storeFee} د.ع (تقدر تغيّرها من "متجري الخاص")`;
   } else {
     document.getElementById('tchUploadTitle').textContent = '📤 ارفع ملزمتك أو دفترك';
     document.getElementById('tchUploadHint').textContent = 'ارفع صورة احترافية، وحدد نوعها واسمها وسعرها — راح تُعرض بصفوف مكتبة الكوثر العامة للطلاب';
     document.getElementById('tchBookletDeliveryModeWrap').classList.remove('hidden');
-    document.getElementById('tchBookletGradeWrap').classList.remove('hidden');
-    document.getElementById('tchBookletDeliveryFeeWrap').classList.toggle('hidden', document.getElementById('tchBookletDeliveryMode').value !== 'teacher');
     document.getElementById('tchBookletStoreFeeNotice').classList.add('hidden');
   }
   updateTchBookletPlatformPctLabel();
@@ -8084,7 +8378,7 @@ function getTeacherDeliveryPercent(mode) {
   return t.libraryDeliveryPercent != null ? t.libraryDeliveryPercent : 30;
 }
 function updateTchBookletPlatformPctLabel() {
-  const mode = document.getElementById('tchBookletDeliveryMode').value;
+  const mode = tchUploadDestination === 'store' ? 'teacher' : document.getElementById('tchBookletDeliveryMode').value;
   document.getElementById('tchBookletPlatformPct').textContent = getTeacherDeliveryPercent(mode);
 }
 function populateTchBookletGradeSelect() {
@@ -8092,24 +8386,8 @@ function populateTchBookletGradeSelect() {
   document.getElementById('tchBookletGrade').innerHTML = (LIBRARY_STAGE_GRADES[stage]||[]).map(g => `<option>${g}</option>`).join('');
 }
 document.getElementById('tchBookletStage').addEventListener('change', populateTchBookletGradeSelect);
-function updateTchStoreDeliveryModeUI() {
-  const mode = document.getElementById('tchBookletDeliveryMode').value;
-  document.getElementById('tchBookletDeliveryFeeWrap').classList.add('hidden'); // بالمتجر ما نحتاج إدخال يدوي بأي الحالتين
-  const notice = document.getElementById('tchBookletStoreFeeNotice');
-  notice.classList.remove('hidden');
-  if (mode === 'teacher') {
-    const storeFee = (currentTeacher && currentTeacher.storeDeliveryFee) || 0;
-    notice.textContent = `🚚 هذي المادة توصّلها أنت بنفسك — أجور التوصيل الثابتة لمتجرك حالياً: ${storeFee} د.ع (تقدر تغيّرها من "متجري الخاص")`;
-  } else {
-    notice.textContent = `📦 هذي المادة توصّلها المكتبة نيابة عنك — تُطبّق أجور توصيل المكتبة المعتادة.`;
-  }
-}
 document.getElementById('tchBookletDeliveryMode').addEventListener('change', (e) => {
-  if (tchUploadDestination === 'store') {
-    updateTchStoreDeliveryModeUI();
-  } else {
-    document.getElementById('tchBookletDeliveryFeeWrap').classList.toggle('hidden', e.target.value !== 'teacher');
-  }
+  document.getElementById('tchBookletDeliveryFeeWrap').classList.toggle('hidden', e.target.value !== 'teacher');
   updateTchBookletPlatformPctLabel();
   document.getElementById('tchBookletPrice').dispatchEvent(new Event('input'));
 });
@@ -8126,7 +8404,7 @@ document.getElementById('tchBookletImageInput').addEventListener('change', async
 });
 document.getElementById('tchBookletPrice').addEventListener('input', (e) => {
   const price = +e.target.value || 0;
-  const mode = document.getElementById('tchBookletDeliveryMode').value;
+  const mode = tchUploadDestination === 'store' ? 'teacher' : document.getElementById('tchBookletDeliveryMode').value;
   const pct = getTeacherDeliveryPercent(mode);
   const platformShare = Math.round(price * pct / 100);
   const myShare = price - platformShare;
@@ -8141,8 +8419,8 @@ document.getElementById('submitTeacherBookletBtn').onclick = async () => {
   const image = images[0] || null;
   const title = document.getElementById('tchBookletTitle').value.trim();
   const itemType = document.getElementById('tchBookletType').value; // 'booklet' | 'notebook'
-  const stage = tchUploadDestination === 'store' ? '' : document.getElementById('tchBookletStage').value;
-  const grade = tchUploadDestination === 'store' ? '' : document.getElementById('tchBookletGrade').value;
+  const stage = document.getElementById('tchBookletStage').value;
+  const grade = document.getElementById('tchBookletGrade').value;
   const price = +document.getElementById('tchBookletPrice').value;
   if (!image) { alert('ارفع صورة واحدة على الأقل للمادة'); return; }
   if (!title || !price) { alert('اكتب اسم المادة والسعر'); return; }
@@ -8150,8 +8428,8 @@ document.getElementById('submitTeacherBookletBtn').onclick = async () => {
   let deliveryMode, teacherDeliveryFee;
   if (tchUploadDestination === 'store') {
     if (!currentTeacher.storeEnabled) { alert('فعّل متجرك الخاص أولاً من "متجري الخاص" قبل ما ترفع مواد فيه'); return; }
-    deliveryMode = document.getElementById('tchBookletDeliveryMode').value; // توصيلي الخاص، أو توصيل المكتبة — نفس خيار صفوف المكتبة
-    teacherDeliveryFee = deliveryMode === 'teacher' ? (currentTeacher.storeDeliveryFee || 0) : null; // بالتوصيل الذاتي نستخدم أجرة المتجر الثابتة تلقائياً
+    deliveryMode = 'teacher';
+    teacherDeliveryFee = currentTeacher.storeDeliveryFee || 0;
   } else {
     deliveryMode = document.getElementById('tchBookletDeliveryMode').value;
     teacherDeliveryFee = deliveryMode === 'teacher' ? (+document.getElementById('tchBookletDeliveryFee').value || 0) : null;
@@ -8672,41 +8950,16 @@ document.getElementById('customerNotifSoundToggleBtn').onclick = () => setCustom
 
 let currentChatThread = null; // { threadId, myRole, myId, myName }
 
-// هوية مجهولة دائمة لكل جهاز — تُنشأ مرة وحدة وتبقى محفوظة، تضمن إن كل زائر يشوف بس محادثته الخاصة
-// حتى لو ما سجّل رقمه أو دخل كطالب/أستاذ إطلاقاً (بدل الاعتماد بس على رقم الهاتف المحفوظ)
-function getOrCreateAnonId() {
-  let id = localStorage.getItem('kawthar_anon_id');
-  if (!id) {
-    id = 'anon_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
-    localStorage.setItem('kawthar_anon_id', id);
-  }
-  return id;
-}
-// أيقونة "مراسلة المكتبة" تظهر بس لمن عنده هوية حقيقية (سجّل كطالب/أستاذ، أو سبق وطلب وحفظ رقمه) —
-// تختفي تماماً عن أي زائر جديد ما سجّل ولا طلب شي بعد
-function hasRealIdentity() {
-  if (currentStudent || currentTeacher || currentStaffRole) return true;
-  try {
-    const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
-    return !!(saved && saved.phone);
-  } catch(e) { return false; }
-}
-function updateChatIconVisibility() {
-  const btn = document.getElementById('libChatIconBtn');
-  if (!btn) return;
-  btn.classList.toggle('hidden', !hasRealIdentity());
-}
 function currentIdentity() {
   if (currentStudent) return { role: 'student', id: currentStudent.phone, name: currentStudent.name };
   if (currentTeacher) return { role: 'teacher', id: currentTeacher.phone, name: currentTeacher.name };
   if (currentStaffRole) return { role: 'staff', id: currentStaffName, name: currentStaffName };
-  // زبون خارجي (ما سجّل كطالب أو أستاذ) — نستخدم بياناته المحفوظة من أول طلب سواه إن وجدت
+  // زبون خارجي (ما سجّل كطالب أو أستاذ) — نستخدم بياناته المحفوظة من أول طلب سواه
   try {
     const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
     if (saved && saved.phone) return { role: 'customer', id: saved.phone, name: saved.name || saved.phone };
   } catch(e) { console.error(e); }
-  // ما عنده رقم محفوظ بعد — نعطيه هوية مجهولة خاصة فيه بس، تضمن عزل محادثته عن أي زائر ثاني
-  return { role: 'customer', id: getOrCreateAnonId(), name: 'زائر' };
+  return null;
 }
 
 let currentChatUnsubscribe = null;
@@ -8899,7 +9152,14 @@ document.getElementById('chatSendBtn').onclick = async () => {
 // مراسلة الزبون لمكتبة الكوثر (أيقونة 💬 بجانب اسم البرنامج) — متاحة لأي زائر حتى لو ما طلب من قبل
 function openLibraryCustomerChat() {
   if (currentStaffRole) { openStaffMessagesInbox(); return; } // المشرف/الموظف يشوف كل المحادثات، مو محادثة نفسه
-  const me = currentIdentity(); // ما ترجع null أبداً الحين — أي زائر يحصل على هوية خاصة فيه تلقائياً
+  let me = currentIdentity();
+  if (!me) {
+    const phone = prompt('أدخل رقم هاتفك للتواصل مع المكتبة:');
+    if (!phone || !phone.trim()) return;
+    const name = prompt('أدخل اسمك:');
+    saveDeliveryInfo({ name: (name||phone).trim(), phone: phone.trim(), province:'', district:'', landmark:'', altPhone:'' });
+    me = currentIdentity();
+  }
   openChat(`libcustomer_${me.id}`, '💬 مراسلة مكتبة الكوثر');
   setupLibraryCustomerChatBadge(me.id);
 }
@@ -8918,7 +9178,7 @@ async function openStaffMessagesInbox() {
       const m = d.data();
       const phone = (m.threadId||'').slice('libcustomer_'.length);
       if (!phone) return;
-      if (!byPhone[phone]) byPhone[phone] = { phone, lastText:'', lastAt:0, lastFromRole:null, lastFromName:'', customerName: phone };
+      if (!byPhone[phone]) byPhone[phone] = { phone, lastText:'', lastAt:0, lastFromRole:null, lastFromName:'', customerName: phone, hasUnread:false };
       const row = byPhone[phone];
       if ((m.createdAt||0) > row.lastAt) {
         row.lastText = m.text || (m.image ? '📷 صورة' : '');
@@ -8931,6 +9191,8 @@ async function openStaffMessagesInbox() {
         row.customerName = m.fromName;
         row.customerNameAt = m.createdAt||0;
       }
+      // هذي المحادثة فيها رسالة غير مقروءة من الزبون (نظهر علامة "غير مقروءة" جنب اسمه بالقائمة)
+      if (m.fromRole !== 'staff' && m.readByStaff === false) row.hasUnread = true;
     });
     const rows = Object.values(byPhone).sort((a,b) => b.lastAt - a.lastAt);
     if (rows.length === 0) { list.innerHTML = '<div class="card"><p>ما فيه محادثات بعد.</p></div>'; return; }
@@ -8947,10 +9209,10 @@ async function openStaffMessagesInbox() {
     }
 
     list.innerHTML = rows.map(r => `
-      <div class="card" style="cursor:pointer;" onclick="openChat('libcustomer_${r.phone}','💬 مراسلة ${(r.customerName||r.phone).replace(/'/g,"")}')">
+      <div class="card" style="cursor:pointer;${r.hasUnread ? 'border-right:4px solid #dc2626;' : ''}" onclick="openChat('libcustomer_${r.phone}','💬 مراسلة ${(r.customerName||r.phone).replace(/'/g,"")}')">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
-            <p style="font-weight:bold;margin:0;">👤 ${r.customerName || r.phone}</p>
+            <p style="font-weight:bold;margin:0;">👤 ${r.customerName || r.phone} ${r.hasUnread ? '<span style="background:#dc2626;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:bold;margin-right:6px;">غير مقروءة</span>' : ''}</p>
             <p style="margin:4px 0 0;color:#8a90a3;font-size:13px;">${r.lastFromRole === 'staff' ? `بواسطة ${r.lastFromName}: ` : ''}${r.lastText}</p>
           </div>
           <button class="small-btn" onclick="event.stopPropagation(); openCustomerProfile('${r.phone}')">📦 طلباته</button>
@@ -8977,6 +9239,9 @@ function setupLibraryCustomerChatBadge(phone) {
     .where('threadId','==', `libcustomer_${phone}`)
     .where('readByCustomer','==', false)
     .onSnapshot(snap => {
+      // لو الجلسة الحالية موظف/مشرف، هذي الشارة مخصصة لمحادثات الزبائن كلها ويديرها مراقب ثاني —
+      // نتجاهل هذا التحديث حتى ما يتعارض معه رقم هاتف زبون قديم محفوظ بنفس الجهاز
+      if (currentStaffRole) return;
       const count = snap.docs.filter(d => d.data().fromRole === 'staff').length;
       updateLibraryCustomerChatBadge(count);
       if (!firstSnapshot) {
@@ -9913,7 +10178,7 @@ function updatePresenceHeartbeat() {
     if (currentStudent) { phone = currentStudent.phone; name = currentStudent.name; province = currentStudent.province; role = 'student'; }
     if (currentTeacher) { phone = currentTeacher.phone; name = currentTeacher.name; role = 'teacher'; }
     if (!phone) return; // ما عندنا هوية معروفة بعد (زائر ما سجّل رقمه)
-    db.collection('presence').doc(phone).set({ phone, name, province, role, lastActiveAt: Date.now() }, { merge: true }).catch(e => console.error(e));
+    db.collection('presence').doc(phone).set({ phone, name, province, role, lastActiveAt: Date.now(), userAgent: navigator.userAgent }, { merge: true }).catch(e => console.error(e));
   } catch(e) { console.error(e); }
 }
 setInterval(() => { if (document.visibilityState === 'visible') updatePresenceHeartbeat(); }, 60000);
@@ -9951,10 +10216,11 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
     } catch(e) {}
   })();
   auth.onAuthStateChanged(async (user) => {
+    dbg('onAuthStateChanged fired. user=' + (user ? (user.email || ('no-email uid:'+user.uid)) : 'null'));
     if (!user) {
-      // زائر يتصفح المكتبة أو الدروس المجانية بدون تسجيل: نسجّله دخول مجهول
-      // حتى تشتغل معه قواعد الأمان (تتطلب مصادقة لأي كتابة)
-      auth.signInAnonymously().catch(e => console.error('anon auth failed', e));
+      // لوحة التحكم (نسخة المشرف/الموظف) ما تحتاج دخول "زائر مجهول" إطلاقاً — إذا ما فيه جلسة محفوظة
+      // نوقف هنا فقط ونعرض نموذج تسجيل الدخول. (حذفنا استدعاء signInAnonymously من هذي النسخة
+      // لأنه كان يشكّل خطر يمسح جلسة المشرف المحفوظة بأي سباق توقيت مستقبلي).
       markInitialAuthCheckDone();
       return;
 
@@ -9985,6 +10251,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
     // استرجاع جلسة المشرف الرئيسي (المالك)
     if (!currentStaffRole && user.email === OWNER_AUTH_EMAIL) {
+      dbg('restoring OWNER session...');
       currentStaffName = 'المشرف'; currentStaffRole = 'admin'; currentStaffPermissions = {};
       show('screen-admin');
       enterAdminPanel();
@@ -9993,17 +10260,19 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
     // استرجاع جلسة الموظف
     if (!currentStaffRole && user.email && user.email.endsWith('@'+STAFF_AUTH_DOMAIN)) {
+      dbg('restoring EMPLOYEE session, querying staff collection...');
       const username = user.email.split('@')[0];
       try {
-        const q = await db.collection('staff').where('username','==',username).limit(1).get();
-        if (!q.empty) {
-          const staff = q.docs[0].data();
+        const found = await findStaffByUsernameCI(username);
+        dbg('staff query result: found=' + !!found);
+        if (found) {
+          const staff = found.data;
           currentStaffName = staff.name; currentStaffRole = 'employee'; currentStaffPermissions = staff.permissions || {};
           show('screen-admin');
           enterAdminPanel();
           return;
         }
-      } catch(e) { console.error(e); }
+      } catch(e) { console.error(e); dbg('staff query ERROR: ' + e.code + ' | ' + e.message); }
     }
 
     // استرجاع جلسة الأستاذ
@@ -10018,6 +10287,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
           document.getElementById('teacherPhotoPreview').src = t.photo || DEFAULT_AVATAR;
           db.collection('teacherPhoneIndex').doc(t.phone).set({ name: t.name }).catch(e => console.error(e));
           applyTeacherModeUI();
+          watchOwnTeacherMode();
           setupTeacherOrderMessageNotifications();
           refreshTeacherBellBadge();
           registerFcmToken('teacher', t.phone);
@@ -10033,26 +10303,17 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
         }
       } catch(e) { console.error(e); }
     }
-    } finally {
+    } catch(e) { dbg('OUTER auth-restore ERROR: ' + e.message); }
+    finally {
+      dbg('auth restore finished. currentStaffRole=' + currentStaffRole);
       markInitialAuthCheckDone(); // يخلي زر "دخول المشرف/الموظف" يعرف متى تنتهي محاولة استرجاع الجلسة المحفوظة
     }
   });
   loadAnnouncements();
-  initialAuthCheckPromise.then(() => { updatePresenceHeartbeat(); updateChatIconVisibility(); }); // نسجّل "متصل الآن" ونحدّث ظهور أيقونة المراسلة أول ما تتضح هوية المستخدم (لو معروفة)
+  initialAuthCheckPromise.then(() => updatePresenceHeartbeat()); // نسجّل "متصل الآن" أول ما تتضح هوية المستخدم (لو معروفة)
+  // ---- نسخة المشرف/الموظف: تفتح مباشرة على شاشة الإدارة، ما تمر أبداً على الصفحة الرئيسية للزبون ----
   if (!routeFromHash()) {
-    show('screen-welcome');
-    // إذا كان عندنا رقم هاتف زبون محفوظ محلياً (سبق فتح "طلباتي" من رابط أو بالكتابة اليدوية)،
-    // نوديه مباشرة لطلباته بدل الصفحة الرئيسية — بس لو ما صار أي تسجيل دخول رسمي (موظف/طالب/أستاذ) بالأثناء
-    initialAuthCheckPromise.then(() => {
-      if (currentStudent || currentStaffRole || currentTeacher) return; // فيه جلسة رسمية أهم، ما نتدخل
-      if (!document.getElementById('screen-welcome').classList.contains('hidden')) {
-        // لسا واقفين بالصفحة الرئيسية (ما تحرك المستخدم لمكان ثاني بالأثناء)
-        try {
-          const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
-          if (saved && saved.phone) showMyOrders(saved.phone);
-        } catch(e) { console.error(e); }
-      }
-    });
+    enterAdminArea();
   }
 })();
 
@@ -10160,9 +10421,11 @@ async function refreshBellBadge() {
     const ordersSnap = { docs: allOrdersSnap.docs.filter(d => d.data().seenByStaff !== true), size: 0 };
     ordersSnap.size = ordersSnap.docs.length;
     const msgsSnap = await db.collection('messages').where('readByStaff','==', false).get();
+    // ملاحظة: رسائل الزبائن العامة (libcustomer_) استُثنيت من هذا العدّاد عمداً — لها شارتها
+    // الخاصة على أيقونة 💬 بالأعلى، والجرس 🔔 مخصّص فقط للطلبات ورسائل الطلبات وخدمة العملاء
     const relevantMsgs = msgsSnap.docs.filter(d => {
       const tid = d.data().threadId || '';
-      return (tid.startsWith('order_') || tid.startsWith('support_') || tid.startsWith('libcustomer_')) && d.data().fromRole !== 'staff';
+      return (tid.startsWith('order_') || tid.startsWith('support_')) && d.data().fromRole !== 'staff';
     });
     const total = ordersSnap.size + relevantMsgs.length;
     const badge = document.getElementById('bellUnreadBadge');
@@ -10188,7 +10451,7 @@ async function openNotificationCenter() {
     const msgsSnap = await db.collection('messages').where('readByStaff','==', false).get();
     const relevantMsgs = msgsSnap.docs.filter(d => {
       const tid = d.data().threadId || '';
-      return (tid.startsWith('order_') || tid.startsWith('support_') || tid.startsWith('libcustomer_'));
+      return (tid.startsWith('order_') || tid.startsWith('support_'));
     });
 
     const items = [];
@@ -10330,6 +10593,17 @@ function setupAdminNotifications() {
     adminMessagesListenerStarted = true;
     let firstMessagesSnapshot = true;
     db.collection('messages').where('readByStaff','==', false).onSnapshot(snap => {
+      // شارة أيقونة 💬 (محادثات الزبائن العامة) — تتحدّث كل مرة بما فيها أول تحميل للصفحة،
+      // حتى تكون صحيحة فوراً بدون انتظار رسالة جديدة.
+      // العدد هنا هو عدد "المحادثات" (زبائن) اللي فيها رسالة غير مقروءة، مو عدد الرسائل نفسها —
+      // لو نفس الزبون أرسل 3 رسائل ما زالت غير مقروءة، تُحسب محادثة واحدة بس
+      const libCustomerUnreadThreads = new Set(
+        snap.docs
+          .filter(d => { const m = d.data(); return (m.threadId||'').startsWith('libcustomer_') && m.fromRole !== 'staff'; })
+          .map(d => d.data().threadId)
+      );
+      updateLibraryCustomerChatBadge(libCustomerUnreadThreads.size);
+
       if (firstMessagesSnapshot) { firstMessagesSnapshot = false; return; }
       let hasNewOrderMsg = false;
       snap.docChanges().forEach(change => {
@@ -11578,7 +11852,6 @@ function setupCustomerNotifications(phone) {
 // ── Data (يُحمَّل من Firestore بدل القيم الثابتة) ──
 let TB_GRADES = {}; // { gradeId: { name, stage, pkg, books:[{name, image}] } }
 let TB_PRICING = { tier1Price: 4000, tier2Price: 3000, tier1Max: 3 };
-let tbAutoCleanupDone = false; // يمنع تكرار محاولة التنظيف التلقائي أكثر من مرة بنفس الجلسة
 const STAGE_LABELS = { primary: { icon:'🏫', label:'المرحلة الابتدائية' }, middle: { icon:'🏛️', label:'المرحلة المتوسطة' }, secondary: { icon:'🎓', label:'المرحلة الإعدادية' } };
 
 async function tbLoadData() {
@@ -11613,26 +11886,6 @@ async function tbLoadData() {
       const g = d.data();
       TB_GRADES[d.id] = { name: g.name, stage: g.stage, pkg: stagePkgPrices[g.stage] || 20000, books: subjectsByGrade[d.id] || [] };
     });
-
-    // فحص ذاتي: لو صار أي تكرار بأسماء الصفوف (حتى لو كان قديم أو جا من أي سبب)، ننظفه تلقائياً
-    // بصمت بالخلفية بدون ما يحتاج أحد يضغط زر — هذا يمنع ظهور أي تكرار للمستخدم النهائي نهائياً
-    const nameCount = {};
-    gradesSnap.docs.forEach(d => {
-      const n = normalizeGradeName(d.data().name);
-      nameCount[n] = (nameCount[n] || 0) + 1;
-    });
-    const hasDuplicates = Object.values(nameCount).some(c => c > 1);
-    if (hasDuplicates && !tbAutoCleanupDone) {
-      tbAutoCleanupDone = true; // مرة وحدة بكل جلسة، حتى لو فشل التنظيف ما يعيد المحاولة بحلقة لا نهائية
-      (async () => {
-        try {
-          await ensureAuthed();
-          await cleanupDuplicateTbGrades();
-          await tbLoadData();
-          tbRenderStageBlocks();
-        } catch(e) { console.error('auto cleanup duplicate grades failed', e); }
-      })();
-    }
 
     // نزرع الصفوف الافتراضية بصمت وبالخلفية فقط أول مرة بتاريخ المشروع (المجموعة فاضية تماماً) — ما يوقف عرض أي بيانات موجودة أصلاً
     if (gradesSnap.empty) {
@@ -11672,8 +11925,14 @@ function tbRenderStageBlocks() {
   const container = document.getElementById('tbStageBlocks');
   const stages = ['primary','middle','secondary'];
   const gradesByStage = { primary: [], middle: [], secondary: [] };
+  const seenNamesPerStage = { primary: new Set(), middle: new Set(), secondary: new Set() };
   Object.entries(TB_GRADES).forEach(([gid, g]) => {
-    if (gradesByStage[g.stage]) gradesByStage[g.stage].push([gid, g]);
+    if (!gradesByStage[g.stage]) return;
+    // حماية من تكرار نفس اسم الصف مرتين (لو تكرر بقاعدة البيانات بالغلط) — نعرض أول وحدة بس ونتجاهل الباقي
+    const seen = seenNamesPerStage[g.stage];
+    if (seen.has(g.name)) return;
+    seen.add(g.name);
+    gradesByStage[g.stage].push([gid, g]);
   });
   const blocksHtml = stages.map(stage => {
     const grades = gradesByStage[stage];
