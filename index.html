@@ -9946,6 +9946,29 @@ if ('serviceWorker' in navigator) {
 }
 
 // ---------- استرجاع الجلسة ----------
+// حماية للأجهزة المشتركة (جهاز الزبون/الطالب/الأستاذ): المتصفح أحياناً ما يعيد تحميل الصفحة
+// من الصفر لما يرجع المستخدم للبرنامج (يبقيها معلّقة بالخلفية كما هي)، فلو كانت آخر شاشة
+// مفتوحة هي شاشة دخول داخلية (المشرف/الموظف) وما صار تسجيل دخول فعلي، نرجّعها تلقائياً
+// للصفحة الرئيسية حتى ما يشوفها أي زبون أو طالب أو أستاذ عرضاً بعد ما يفتح البرنامج
+function kickStrandedInternalScreens() {
+  const adminScreen = document.getElementById('screen-admin');
+  const adminPanel = document.getElementById('adminPanel');
+  const isOnUnauthedAdminLogin = adminScreen && !adminScreen.classList.contains('hidden')
+    && adminPanel && adminPanel.classList.contains('hidden') && !currentStaffRole;
+  const teacherLoginScreen = document.getElementById('screen-teacher-login');
+  const isOnUnauthedTeacherLogin = teacherLoginScreen && !teacherLoginScreen.classList.contains('hidden') && !currentTeacher;
+  if (isOnUnauthedAdminLogin || isOnUnauthedTeacherLogin) {
+    show('screen-welcome');
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') kickStrandedInternalScreens();
+});
+// حماية إضافية لحالة استرجاع الصفحة من ذاكرة المتصفح (bfcache) بدل تحميلها من جديد بالكامل
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) kickStrandedInternalScreens();
+});
+
 function forceLogoutOtherSession() {
   if (auth.currentUser) auth.signOut().catch(e => console.error(e));
   localStorage.removeItem('kawthar_phone');
