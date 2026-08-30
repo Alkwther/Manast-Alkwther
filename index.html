@@ -3575,11 +3575,13 @@ function renderLibraryNav() {
     const thumb = images[0]
       ? `<img src="${images[0]}" style="width:90px;height:90px;object-fit:cover;border-radius:12px;margin-inline-end:14px;flex-shrink:0;cursor:pointer;" onclick='openImageGallery(${JSON.stringify(images)})'>`
       : `<div style="width:90px;height:90px;border-radius:12px;background:#eef1f8;display:flex;align-items:center;justify-content:center;font-size:32px;margin-inline-end:14px;flex-shrink:0;">📘</div>`;
+    const safeTitle = (b.title||'').replace(/'/g,"\\'");
+    const safeDesc = ((b.teacherName ? 'أ. '+b.teacherName+' — ' : '') + b.price + ' د.ع').replace(/'/g,"\\'");
     return `<div class="card">
       <div style="display:flex;align-items:flex-start;">${thumb}<div class="title" style="flex:1;">${b.title}${b.teacherName ? `<br><span style="font-size:12px;color:#8a90a3;">أ. ${b.teacherName}</span>` : ''}<br><span style="color:#b8903c;font-weight:bold;">${b.price} د.ع</span></div></div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
         ${images.length ? `<button class="small-btn" onclick='openImageGallery(${JSON.stringify(images)})'>📷 مشاهدة الصور${images.length>1?' ('+images.length+')':''}</button>` : ''}
-        <button class="small-btn" onclick="navigator.clipboard.writeText(window.location.origin + window.location.pathname + '#book=${b.id}').then(()=>alert('تم نسخ رابط الملزمة ✅'))">🔗 نسخ الرابط</button>
+        <button class="small-btn" onclick="navigator.clipboard.writeText(buildSharePreviewLink('#book=${b.id}','${safeTitle}','${safeDesc}')).then(()=>alert('تم نسخ رابط الملزمة ✅'))">🔗 نسخ الرابط</button>
         <button class="play" style="margin:0;flex:1;" onclick="addToCart('${b.id}','${b.title.replace(/'/g,"\\'")} — ${libraryNavGrade.replace(/'/g,"\\'")}',${b.price})">أضف للسلة</button>
       </div>
     </div>`;
@@ -3590,7 +3592,7 @@ function openLibraryStage(stage) { libraryNavStage = stage; libraryNavGrade = nu
 function openLibraryGrade(grade) { libraryNavGrade = grade; renderLibraryNav(); }
 function shareBookletGradeLink(mode) {
   if (!libraryNavGrade) return;
-  const link = window.location.origin + window.location.pathname + '#bkgrade=' + encodeURIComponent(libraryNavGrade);
+  const link = buildSharePreviewLink('#bkgrade=' + encodeURIComponent(libraryNavGrade), 'ملازم ' + libraryNavGrade, 'ملازم ودفاتر ' + libraryNavGrade + ' — مكتبة الكوثر');
   if (mode === 'copy') {
     navigator.clipboard.writeText(link).then(() => alert('تم نسخ رابط الفولدر ✅'));
   } else {
@@ -5441,9 +5443,19 @@ async function openWorkbookItemsScreen(folderId, folderName) {
 
 // ---------- مشاركة روابط الكراسات والفولدرات والصفوف ----------
 const LINK_OPEN_TIP = '\n\n📌 إذا ما فتحت الصفحة مباشرة، اضغط ⋮ فوق يمين الشاشة واختر "فتح في المتصفح/Chrome".';
+// رابط "معاينة احترافية": بدل ما نشارك رابط التطبيق مباشرة (اللي واتساب/فيسبوك ما يقدر يعرف شنو بداخله
+// لأنه رابط بعد # ما يوصل للسيرفر أصلاً)، نمرّر عبر Worker خفيف يرجع عنوان/وصف/صورة صحيحة لبرامج
+// المعاينة (بوت واتساب مثلاً)، وأي إنسان حقيقي يفتحه يتحول فوراً لصفحة التطبيق الحقيقية بدون أي تأخير محسوس.
+const SHARE_PREVIEW_BASE = 'https://kawthar-preview.mnstalkwthr.workers.dev/';
+function buildSharePreviewLink(hash, title, desc) {
+  const to = window.location.origin + window.location.pathname + hash;
+  return SHARE_PREVIEW_BASE + '?to=' + encodeURIComponent(to)
+    + '&title=' + encodeURIComponent(title || 'مكتبة الكوثر')
+    + '&desc=' + encodeURIComponent(desc || 'مكتبة تعليمية للكتب والملازم والدفاتر');
+}
 function shareWorkbookFolderLink(mode) {
   if (!currentCustomerWbFolderId) return;
-  const link = window.location.origin + window.location.pathname + '#wbfolder=' + currentCustomerWbFolderId;
+  const link = buildSharePreviewLink('#wbfolder=' + currentCustomerWbFolderId, currentCustomerWbFolderName, 'كراسات ' + currentCustomerWbFolderName + ' — مكتبة الكوثر');
   if (mode === 'copy') {
     navigator.clipboard.writeText(link).then(() => alert('تم نسخ رابط الفولدر ✅'));
   } else {
@@ -5452,7 +5464,7 @@ function shareWorkbookFolderLink(mode) {
   }
 }
 function shareWorkbookItemLink(itemId, itemTitle) {
-  const link = window.location.origin + window.location.pathname + '#wbitem=' + itemId;
+  const link = buildSharePreviewLink('#wbitem=' + itemId, itemTitle, 'كراسة ' + itemTitle + ' — مكتبة الكوثر');
   const text = `📔 ${itemTitle} — مكتبة الكوثر\n${link}${LINK_OPEN_TIP}`;
   if (confirm('اضغط "موافق" لنسخ الرابط، أو "إلغاء" للمشاركة عبر واتساب')) {
     navigator.clipboard.writeText(link).then(() => alert('تم نسخ رابط الكراسة ✅'));
@@ -5471,11 +5483,12 @@ async function openWorkbookItemView(itemId) {
 function shareGradeLink(mode) {
   if (!currentGrade) return;
   const g = TB_GRADES[currentGrade];
-  const link = window.location.origin + window.location.pathname + '#grade=' + currentGrade;
+  const gname = g ? g.name : '';
+  const link = buildSharePreviewLink('#grade=' + currentGrade, gname, 'كتب ' + gname + ' — مطبعة الكوثر');
   if (mode === 'copy') {
     navigator.clipboard.writeText(link).then(() => alert('تم نسخ رابط الصف ✅'));
   } else {
-    const text = `📚 ${g ? g.name : ''} — مطبعة الكوثر\n${link}${LINK_OPEN_TIP}`;
+    const text = `📚 ${gname} — مطبعة الكوثر\n${link}${LINK_OPEN_TIP}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   }
 }
@@ -8442,7 +8455,8 @@ async function openTeacherStoreDetail(teacherName) {
   show('screen-teacher-store-detail');
   const teacherSnap = await db.collection('teachers').where('name','==', teacherName).limit(1).get();
   const t = teacherSnap.empty ? {} : teacherSnap.docs[0].data();
-  const storeLink = window.location.origin + window.location.pathname + '#store=' + encodeURIComponent(teacherName);
+  const storeTitle = `متجر ${teacherTitle(t.gender)} ${teacherName}`;
+  const storeLink = buildSharePreviewLink('#store=' + encodeURIComponent(teacherName), storeTitle, t.storeDescription || ('ملازم ودفاتر ' + teacherTitle(t.gender) + ' ' + teacherName + ' — مكتبة الكوثر'));
   document.getElementById('teacherStoreDetailHeader').innerHTML = `
     <h3 style="margin-bottom:6px;">🏪 متجر ${teacherTitle(t.gender)} ${teacherName}</h3>
     <p style="color:#8a90a3;margin:0 0 10px;">${t.storeDescription || ''}</p>
@@ -8461,11 +8475,13 @@ async function openTeacherStoreDetail(teacherName) {
       const thumb = images[0]
         ? `<img src="${images[0]}" style="width:96px;height:96px;object-fit:cover;border-radius:12px;margin-inline-end:14px;flex-shrink:0;cursor:pointer;" onclick="openImageGalleryEnc('${encodeURIComponent(JSON.stringify(images))}')">`
         : `<div style="width:96px;height:96px;border-radius:12px;background:#eef1f8;display:flex;align-items:center;justify-content:center;font-size:32px;margin-inline-end:14px;flex-shrink:0;">📘</div>`;
+      const safeTitle = (b.title||'').replace(/'/g,"\\'");
+      const safeDesc = (typeLabel + ' — ' + (b.grade||'') + ' — ' + b.price + ' د.ع').replace(/'/g,"\\'");
       return `<div class="card">
         <div style="display:flex;align-items:flex-start;">${thumb}<div class="title" style="flex:1;">${b.title}<br><span style="font-size:12px;color:#8a90a3;">${typeLabel} — ${b.grade||''}</span><br><span style="color:#b8903c;font-weight:bold;">${b.price} د.ع</span></div></div>
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
           ${images.length ? `<button class="small-btn" onclick="openImageGalleryEnc('${encodeURIComponent(JSON.stringify(images))}')">📷 مشاهدة الصور${images.length>1?' ('+images.length+')':''}</button>` : ''}
-          <button class="small-btn" onclick="navigator.clipboard.writeText(window.location.origin + window.location.pathname + '#book=${b.id}').then(()=>alert('تم نسخ رابط الملزمة ✅'))">🔗 نسخ الرابط</button>
+          <button class="small-btn" onclick="navigator.clipboard.writeText(buildSharePreviewLink('#book=${b.id}','${safeTitle}','${safeDesc}')).then(()=>alert('تم نسخ رابط الملزمة ✅'))">🔗 نسخ الرابط</button>
           <button class="play" style="margin:0;flex:1;" onclick="addStoreItemToCart('${b.id}')">أضف للسلة</button>
         </div>
       </div>`;
