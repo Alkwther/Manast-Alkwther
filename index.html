@@ -5446,9 +5446,13 @@ const LINK_OPEN_TIP = '\n\n📌 إذا ما فتحت الصفحة مباشرة،
 // رابط "معاينة احترافية": بدل ما نشارك رابط التطبيق مباشرة (اللي واتساب/فيسبوك ما يقدر يعرف شنو بداخله
 // لأنه رابط بعد # ما يوصل للسيرفر أصلاً)، نمرّر عبر Worker خفيف يرجع عنوان/وصف/صورة صحيحة لبرامج
 // المعاينة (بوت واتساب مثلاً)، وأي إنسان حقيقي يفتحه يتحول فوراً لصفحة التطبيق الحقيقية بدون أي تأخير محسوس.
+// ملاحظة: هذي الميزة معطّلة مؤقتاً (SHARE_PREVIEW_ENABLED = false) لين يخلّص إعداد الـ Worker
+// على Cloudflare بالكامل ويتأكد إنه شغّال — بمجرد ما يخلّص، تتغيّر لـ true وتشتغل الميزة تلقائياً.
+const SHARE_PREVIEW_ENABLED = false;
 const SHARE_PREVIEW_BASE = 'https://kawthar-preview.mnstalkwthr.workers.dev/';
 function buildSharePreviewLink(hash, title, desc) {
   const to = window.location.origin + window.location.pathname + hash;
+  if (!SHARE_PREVIEW_ENABLED) return to; // مؤقتاً: رابط مباشر عادي بدون المرور بالـ Worker
   return SHARE_PREVIEW_BASE + '?to=' + encodeURIComponent(to)
     + '&title=' + encodeURIComponent(title || 'مكتبة الكوثر')
     + '&desc=' + encodeURIComponent(desc || 'مكتبة تعليمية للكتب والملازم والدفاتر');
