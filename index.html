@@ -5505,14 +5505,27 @@ window.shareWorkbookItemLink = shareWorkbookItemLink;
 window.shareGradeLink = shareGradeLink;
 
 
+function shareNotebooksLink(mode) {
+  const link = buildSharePreviewLink('#notebooks', 'الدفاتر', 'دفاتر بمختلف عدد الصفحات — مكتبة الكوثر');
+  if (mode === 'copy') {
+    navigator.clipboard.writeText(link).then(() => alert('تم نسخ رابط الدفاتر ✅'));
+  } else {
+    const text = `📓 الدفاتر — مكتبة الكوثر\n${link}${LINK_OPEN_TIP}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  }
+}
 async function openNotebooksScreen() {
   show('screen-notebooks');
   const list = document.getElementById('notebooksList');
   list.innerHTML = '<p>جاري التحميل...</p>';
+  const shareBar = `<div style="display:flex;gap:8px;margin-bottom:14px;">
+    <button type="button" class="btn btn-secondary" style="flex:1;font-size:.78rem;padding:10px;" onclick="shareNotebooksLink('copy')">🔗 نسخ رابط الفولدر</button>
+    <button type="button" class="btn" style="flex:1;font-size:.78rem;padding:10px;background:linear-gradient(135deg,#25d366,#1da851);color:#fff;" onclick="shareNotebooksLink('whatsapp')">💬 مشاركة واتساب</button>
+  </div>`;
   try {
     const snap = await db.collection('notebooks').orderBy('createdAt','desc').get();
-    if (snap.empty) { list.innerHTML = '<div class="card" style="text-align:center;"><p style="font-size:15px;font-weight:bold;color:#10203f;">📓 سوف تتوفر الدفاتر قريباً</p></div>'; return; }
-    list.innerHTML = snap.docs.map(d => {
+    if (snap.empty) { list.innerHTML = shareBar + '<div class="card" style="text-align:center;"><p style="font-size:15px;font-weight:bold;color:#10203f;">📓 سوف تتوفر الدفاتر قريباً</p></div>'; return; }
+    list.innerHTML = shareBar + snap.docs.map(d => {
       const n = d.data();
       const thumb = n.image
         ? `<img src="${n.image}" style="width:52px;height:52px;object-fit:cover;border-radius:9px;margin-inline-end:12px;flex-shrink:0;">`
@@ -5523,7 +5536,7 @@ async function openNotebooksScreen() {
       </div>`;
     }).join('');
     renderCartBar();
-  } catch(e) { console.error(e); list.innerHTML = '<div class="card"><p>تعذّر تحميل الدفاتر.</p></div>'; }
+  } catch(e) { console.error(e); list.innerHTML = shareBar + '<div class="card"><p>تعذّر تحميل الدفاتر.</p></div>'; }
 }
 
 function renderBookAdminItem(d) {
