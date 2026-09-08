@@ -5136,7 +5136,7 @@ document.getElementById('nbImage').addEventListener('change', async (e) => {
   if (!file) { preview.innerHTML = ''; return; }
   preview.innerHTML = '<p>⏳ جاري تجهيز الصورة...</p>';
   try {
-    const url = await uploadImageFile(file, 500);
+    const url = await uploadImageFile(file, 1080, 0.85);
     preview.innerHTML = `<img src="${url}" style="width:100px;border-radius:8px;">`;
     preview.dataset.image = url;
   } catch(err) { console.error(err); preview.innerHTML = '<p style="color:#b91c1c;">تعذّر رفع الصورة: ' + (err.message||"خطأ غير معروف") + '</p>'; }
