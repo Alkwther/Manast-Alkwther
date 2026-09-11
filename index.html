@@ -955,6 +955,12 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 
   <div id="bookletsContainer"></div>
 
+  <div class="result totalResultBox" id="orderSummaryBox" style="display:none;">
+    <div class="result-row"><span>مجموع كل الملازم (بدون توصيل)</span><span class="val" id="rOrderBaseTotal">— دينار</span></div>
+    <div class="result-row" id="rOrderDeliveryRow" style="display:none;"><span>التوصيل (مرة وحدة للطلب كامل)</span><span class="val" id="rOrderDelivery">— دينار</span></div>
+    <div class="total-box"><span class="total-label">السعر النهائي للطلب</span><span class="total-val" id="rOrderGrandTotal">0 <span>د.ع</span></span></div>
+  </div>
+
   <button type="button" class="btn btn-outline" id="addBookletBtn" style="margin-bottom:16px;">+ إضافة ملزمة أخرى</button>
 
   <div class="contact-card" id="contactCard">
@@ -1725,6 +1731,12 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
             <input type="checkbox" id="notifSoundToggle" style="width:auto;margin:0;"> 🔊 تشغيل صوت الإشعارات (بيب)
           </label>
           <button class="btn secondary" style="margin-top:10px;" onclick="markAllCurrentNotificationsReadNow()">✅ تحديد الكل كمقروء الآن</button>
+        </div>
+        <div class="card">
+          <h3 style="margin:0;">🧹 تنظيف الدردشات القديمة</h3>
+          <p style="color:#8a90a3;font-size:13px;margin:8px 0;">يحذف التطبيق تلقائياً رسائل الدردشة الأقدم من شهرين عشان توفر مساحة بقاعدة البيانات — يشتغل بصمت بالخلفية كل يوم. تقدر تشغّله يدوياً الحين لو حبيت.</p>
+          <button class="btn secondary" id="manualMsgCleanupBtn">🧹 نظّف الآن</button>
+          <p id="manualMsgCleanupResult" style="color:#10203f;font-size:13px;margin-top:8px;"></p>
         </div>
         <div id="notificationCenterList"></div>
       </div>
@@ -4197,6 +4209,7 @@ function enterAdminPanel() {
   setupNewOrdersBadgeWatcher();
   refreshBellBadge();
   registerFcmToken('staff', currentStaffRole === 'admin' ? 'owner' : currentStaffName);
+  autoCleanupOldMessages();
 
   if (currentStaffRole === 'admin') {
     document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
@@ -4969,6 +4982,44 @@ async function seedDefaultTbSubjectsIfNeeded() {
   }
   if (batchPromises.length) await Promise.all(batchPromises);
 }
+
+// ---------- تنظيف تلقائي للمحادثات القديمة (أكثر من شهرين) ----------
+// عشان تبقى مساحة Firestore متوفرة ويضل التطبيق سريع، نحذف رسائل الدردشة (messages) اللي
+// عمرها أكثر من شهرين تلقائياً. يشتغل بصمت بالخلفية كل مرة يفتح فيها أي موظف/مشرف لوحة التحكم،
+// وما يشتغل أكثر من مرة كل 24 ساعة (حتى لا يعيد نفس الفحص بكل فتحة للوحة).
+const MSG_CLEANUP_LOCALSTORAGE_KEY = 'kawthar_lastMsgCleanup';
+const MSG_MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000; // شهرين تقريباً (٦٠ يوم)
+async function autoCleanupOldMessages(force) {
+  try {
+    const last = +(localStorage.getItem(MSG_CLEANUP_LOCALSTORAGE_KEY) || 0);
+    if (!force && Date.now() - last < 24 * 60 * 60 * 1000) return; // انفحص مرة كل يوم بس
+    const cutoff = Date.now() - MSG_MAX_AGE_MS;
+    const snap = await db.collection('messages').where('createdAt', '<', cutoff).get();
+    if (!snap.empty) {
+      // Firestore يسمح بحد أقصى 500 مستند بكل batch — نقسّمها إذا كانت أكثر
+      const docs = snap.docs;
+      for (let i = 0; i < docs.length; i += 450) {
+        const batch = db.batch();
+        docs.slice(i, i + 450).forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+      console.log(`تم حذف ${docs.length} رسالة دردشة أقدم من شهرين`);
+    }
+    localStorage.setItem(MSG_CLEANUP_LOCALSTORAGE_KEY, String(Date.now()));
+    return snap.size;
+  } catch(e) {
+    console.error('autoCleanupOldMessages failed', e);
+    return null;
+  }
+}
+document.getElementById('manualMsgCleanupBtn').onclick = async () => {
+  const btn = document.getElementById('manualMsgCleanupBtn');
+  const resultEl = document.getElementById('manualMsgCleanupResult');
+  btn.disabled = true; resultEl.textContent = '⏳ جاري التنظيف...';
+  const count = await autoCleanupOldMessages(true);
+  btn.disabled = false;
+  resultEl.textContent = count === null ? '⚠️ صار خطأ أثناء التنظيف' : `✅ تم حذف ${count} رسالة قديمة`;
+};
 
 // تنظيف التكرار الحالي (لو صار تكرار بسبب استدعاء الزرع أكثر من مرة بنفس اللحظة)
 async function cleanupDuplicateTbGrades() {
@@ -10925,6 +10976,7 @@ function setupCustomerNotifications(phone) {
   }
 
   let booklets = [newBooklet()];
+  let orderDeliveryFee = 0; // التوصيل المحسوب مرة وحدة لكامل الطلب (يحدّثه recalcOrderSummary)
 
   function renderBooklets(){
     bookletsContainer.innerHTML = booklets.map((b, i) => `
@@ -10976,6 +11028,7 @@ function setupCustomerNotifications(phone) {
         booklets = booklets.filter(b => b.id !== parseInt(btn.dataset.id));
         renderBooklets();
         updateContactVisibility();
+        recalcOrderSummary();
       });
     });
   }
@@ -11052,9 +11105,8 @@ function setupCustomerNotifications(phone) {
     const pagesTotal = pages * paperPrice;
     const unitPrice = pagesTotal + coverPrice;
     const baseTotal = unitPrice * copies;
-    const deliveryFee = (copies > 0 && copies < FREE_DELIVERY_THRESHOLD) ? DELIVERY_FEE : 0;
-    const totalPrice = baseTotal + deliveryFee;
-
+    // ملاحظة: التوصيل ما يُحسب هنا لكل ملزمة لحالها — يُحسب مرة وحدة للطلب كامل
+    // بدالة recalcOrderSummary() بالأسفل، حسب مجموع كل الملازم مع بعض
     block.querySelector('.rPagePrice').textContent = fmt(paperPrice) + ' دينار';
     block.querySelector('.rPagesTotal').textContent = fmt(pagesTotal) + ' دينار';
     block.querySelector('.rCover').textContent = fmt(coverPrice) + ' دينار';
@@ -11064,20 +11116,41 @@ function setupCustomerNotifications(phone) {
     if(copies > 0){
       totalBox.style.display = 'block';
       block.querySelector('.rBaseTotal').textContent = fmt(baseTotal) + ' دينار';
-      const delRow = block.querySelector('.rDeliveryRow');
-      if(deliveryFee > 0){
-        delRow.style.display = 'flex';
-        block.querySelector('.rDelivery').textContent = fmt(deliveryFee) + ' دينار';
-      } else {
-        delRow.style.display = 'none';
-      }
-      block.querySelector('.rTotal').innerHTML = fmt(totalPrice) + ' <span>د.ع</span>';
+      block.querySelector('.rDeliveryRow').style.display = 'none';
+      block.querySelector('.rTotal').innerHTML = fmt(baseTotal) + ' <span>د.ع</span>';
     } else {
       totalBox.style.display = 'none';
     }
 
-    Object.assign(b, { pages, copies, paperName, coverName, paperPrice, coverPrice, unitPrice, baseTotal, deliveryFee, totalPrice });
+    Object.assign(b, { pages, copies, paperName, coverName, paperPrice, coverPrice, unitPrice, baseTotal, deliveryFee: 0, totalPrice: baseTotal });
     updateContactVisibility();
+    recalcOrderSummary();
+  }
+
+  // يحسب التوصيل مرة وحدة لكامل الطلب (مو لكل ملزمة لحالها): 4000 دينار إذا مجموع كل
+  // نسخ الملازم أقل من 50، ومجاني إذا 50 نسخة أو أكثر بالمجموع
+  function recalcOrderSummary(){
+    const active = booklets.filter(b => b.copies > 0);
+    const box = document.getElementById('orderSummaryBox');
+    if(active.length === 0){ box.style.display = 'none'; return; }
+    const totalCopies = active.reduce((sum, b) => sum + b.copies, 0);
+    const baseTotal = active.reduce((sum, b) => sum + b.baseTotal, 0);
+    const deliveryFee = (totalCopies > 0 && totalCopies < FREE_DELIVERY_THRESHOLD) ? DELIVERY_FEE : 0;
+    const grandTotal = baseTotal + deliveryFee;
+
+    box.style.display = 'block';
+    document.getElementById('rOrderBaseTotal').textContent = fmt(baseTotal) + ' دينار';
+    const delRow = document.getElementById('rOrderDeliveryRow');
+    if(deliveryFee > 0){
+      delRow.style.display = 'flex';
+      document.getElementById('rOrderDelivery').textContent = fmt(deliveryFee) + ' دينار';
+    } else {
+      delRow.style.display = 'flex';
+      document.getElementById('rOrderDelivery').textContent = 'مجاني 🎉';
+    }
+    document.getElementById('rOrderGrandTotal').innerHTML = fmt(grandTotal) + ' <span>د.ع</span>';
+
+    orderDeliveryFee = deliveryFee; // متغيّر عام يستخدمه buildOrderText و saveBookingToFirebase
   }
 
   function updateContactVisibility(){
@@ -11089,6 +11162,7 @@ function setupCustomerNotifications(phone) {
   addBookletBtn.addEventListener('click', () => {
     booklets.push(newBooklet());
     renderBooklets();
+    recalcOrderSummary();
   });
 
   function buildOrderText(){
@@ -11103,7 +11177,7 @@ function setupCustomerNotifications(phone) {
     if(phone) msg += 'الهاتف: ' + phone + '\n';
     msg += '\n';
 
-    let grand = 0;
+    let baseGrand = 0;
     booklets.forEach((b, i) => {
       if(b.pages <= 0) return;
       msg += bookletLabel(i) + ':\n';
@@ -11113,14 +11187,17 @@ function setupCustomerNotifications(phone) {
       msg += 'سعر الملزمة الواحدة: ' + fmt(b.unitPrice) + ' دينار\n';
       if(b.copies > 0){
         msg += 'العدد: ' + fmt(b.copies) + '\n';
-        msg += 'التوصيل: ' + (b.deliveryFee > 0 ? (fmt(b.deliveryFee) + ' دينار') : 'مجاني') + '\n';
-        msg += 'السعر الكلي: ' + fmt(b.totalPrice) + ' دينار\n';
-        grand += b.totalPrice;
+        msg += 'السعر الكلي: ' + fmt(b.baseTotal) + ' دينار\n';
+        baseGrand += b.baseTotal;
       }
       msg += '\n';
     });
 
-    if(grand > 0) msg += 'المجموع الكلي لكل الملازم: ' + fmt(grand) + ' دينار\n';
+    if(baseGrand > 0){
+      msg += 'مجموع كل الملازم (بدون توصيل): ' + fmt(baseGrand) + ' دينار\n';
+      msg += 'التوصيل (مرة وحدة للطلب كامل): ' + (orderDeliveryFee > 0 ? (fmt(orderDeliveryFee) + ' دينار') : 'مجاني') + '\n';
+      msg += 'السعر النهائي للطلب: ' + fmt(baseGrand + orderDeliveryFee) + ' دينار\n';
+    }
     msg += '\nالرجاء تثبيت الحجز، شكراً.';
     return msg;
   }
@@ -11154,9 +11231,10 @@ function setupCustomerNotifications(phone) {
     const record = {
       date: new Date().toISOString(),
       name, address, phone, channel,
+      deliveryFee: orderDeliveryFee, // توصيل واحد لكامل الطلب، مو لكل ملزمة
       booklets: activeBooklets.map(b => ({
         pages: b.pages, copies: b.copies, paperName: b.paperName, coverName: b.coverName,
-        unitPrice: b.unitPrice, deliveryFee: b.deliveryFee, totalPrice: b.totalPrice
+        unitPrice: b.unitPrice, totalPrice: b.baseTotal
       }))
     };
     return printShopDb.ref('bookings').push().set(record);
