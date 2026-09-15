@@ -5582,7 +5582,18 @@ async function openNotebooksScreen() {
     <button type="button" class="btn btn-secondary" style="flex:1;font-size:.78rem;padding:10px;" onclick="shareNotebooksLink('copy')">🔗 نسخ رابط الفولدر</button>
     <button type="button" class="btn" style="flex:1;font-size:.78rem;padding:10px;background:linear-gradient(135deg,#25d366,#1da851);color:#fff;" onclick="shareNotebooksLink('whatsapp')">💬 مشاركة واتساب</button>
   </div>`;
+  const retryHtml = shareBar + `<div class="card" style="text-align:center;">
+    <p>⚠️ الاتصال بالإنترنت ضعيف حالياً، تعذّر تحميل الدفاتر.</p>
+    <button class="btn secondary" style="margin-top:8px;" onclick="openNotebooksScreen()">🔄 إعادة المحاولة</button>
+  </div>`;
+  let settled = false; // يصير true بمجرد ما تنعرض بيانات حقيقية أو رسالة خطأ — يمنع الشبكة الأمان من الكتابة فوقها لاحقاً
+  // شبكة أمان مطلقة: مهما صار، إذا الشاشة ضلت عالقة على "جاري التحميل" أكثر من 12 ثانية
+  // (لأي سبب غير متوقع)، نظهر رسالة وزر إعادة محاولة بدل ما تضل معلّقة للأبد
+  const hardSafetyTimer = setTimeout(() => { if (!settled) { settled = true; list.innerHTML = retryHtml; } }, 12000);
+
   const renderList = (snap) => {
+    settled = true;
+    clearTimeout(hardSafetyTimer);
     if (snap.empty) { list.innerHTML = shareBar + '<div class="card" style="text-align:center;"><p style="font-size:15px;font-weight:bold;color:#10203f;">📓 سوف تتوفر الدفاتر قريباً</p></div>'; return; }
     list.innerHTML = shareBar + snap.docs.map(d => {
       const n = d.data();
@@ -5600,27 +5611,36 @@ async function openNotebooksScreen() {
     renderCartBar();
   };
 
-  const query = db.collection('notebooks').orderBy('createdAt','desc');
-  let shownFromCache = false;
-  // أول شي نحاول من الكاش المحفوظ بالجهاز (فوري، حتى بدون إنترنت أصلاً)
   try {
-    const cacheSnap = await query.get({ source: 'cache' });
-    if (!cacheSnap.empty) { renderList(cacheSnap); shownFromCache = true; }
-  } catch(e) { /* ما فيه كاش محفوظ بعد — عادي، نكمل على الخادم */ }
+    const query = db.collection('notebooks').orderBy('createdAt','desc');
+    let shownFromCache = false;
+    // أول شي نحاول من الكاش المحفوظ بالجهاز (فوري، حتى بدون إنترنت أصلاً) — بمهلة قصيرة
+    // حتى لو تعليق هذا الجزء نفسه (مثلاً تعارض بين أكثر من تبويب مفتوح)، ما يوقف باقي الشاشة
+    try {
+      const cacheSnap = await withTimeout(query.get({ source: 'cache' }), 3000);
+      if (!cacheSnap.empty) { renderList(cacheSnap); shownFromCache = true; settled = false; } // نخليها false عشان لسا ننتظر رد الخادم الأحدث
+    } catch(e) { /* ما فيه كاش محفوظ بعد أو تأخر — عادي، نكمل على الخادم */ }
 
-  // وبنفس الوقت نحاول نجيب أحدث نسخة من الخادم، بمهلة أقصاها 8 ثواني حتى لو الإنترنت ضعيف
-  try {
-    const snap = await withTimeout(query.get({ source: 'server' }), 8000);
-    renderList(snap);
-  } catch(e) {
-    console.error(e);
-    if (!shownFromCache) {
-      list.innerHTML = shareBar + `<div class="card" style="text-align:center;">
-        <p>⚠️ الاتصال بالإنترنت ضعيف حالياً، تعذّر تحميل الدفاتر.</p>
-        <button class="btn secondary" style="margin-top:8px;" onclick="openNotebooksScreen()">🔄 إعادة المحاولة</button>
-      </div>`;
+    // وبعدها نحاول نجيب أحدث نسخة من الخادم، بمهلة أقصاها 8 ثواني حتى لو الإنترنت ضعيف
+    try {
+      const snap = await withTimeout(query.get({ source: 'server' }), 8000);
+      renderList(snap);
+    } catch(e) {
+      console.error(e);
+      if (!shownFromCache) {
+        settled = true;
+        clearTimeout(hardSafetyTimer);
+        list.innerHTML = retryHtml;
+      } else {
+        settled = true;
+        clearTimeout(hardSafetyTimer);
+      }
+      // إذا كان عندنا عرض من الكاش أصلاً، نتركه ظاهر بدل ما نمسحه برسالة خطأ
     }
-    // إذا كان عندنا عرض من الكاش أصلاً، نتركه ظاهر بدل ما نمسحه برسالة خطأ
+  } catch(e) {
+    // أي خطأ غير متوقع خارج الحالتين أعلاه — نفس معاملة ضعف الاتصال
+    console.error(e);
+    if (!settled) { settled = true; clearTimeout(hardSafetyTimer); list.innerHTML = retryHtml; }
   }
 }
 
