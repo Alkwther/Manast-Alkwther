@@ -5565,6 +5565,15 @@ function shareNotebooksLink(mode) {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   }
 }
+// يحاول يجيب البيانات من الخادم خلال مهلة زمنية معينة؛ إذا الإنترنت ضعيف وما وصل رد
+// خلال المهلة، يرفض العملية بدل ما يعلّق الشاشة على "جاري التحميل..." إلى الأبد
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+  ]);
+}
+
 async function openNotebooksScreen() {
   show('screen-notebooks');
   const list = document.getElementById('notebooksList');
@@ -5573,8 +5582,7 @@ async function openNotebooksScreen() {
     <button type="button" class="btn btn-secondary" style="flex:1;font-size:.78rem;padding:10px;" onclick="shareNotebooksLink('copy')">🔗 نسخ رابط الفولدر</button>
     <button type="button" class="btn" style="flex:1;font-size:.78rem;padding:10px;background:linear-gradient(135deg,#25d366,#1da851);color:#fff;" onclick="shareNotebooksLink('whatsapp')">💬 مشاركة واتساب</button>
   </div>`;
-  try {
-    const snap = await db.collection('notebooks').orderBy('createdAt','desc').get();
+  const renderList = (snap) => {
     if (snap.empty) { list.innerHTML = shareBar + '<div class="card" style="text-align:center;"><p style="font-size:15px;font-weight:bold;color:#10203f;">📓 سوف تتوفر الدفاتر قريباً</p></div>'; return; }
     list.innerHTML = shareBar + snap.docs.map(d => {
       const n = d.data();
@@ -5590,7 +5598,30 @@ async function openNotebooksScreen() {
       </div>`;
     }).join('');
     renderCartBar();
-  } catch(e) { console.error(e); list.innerHTML = shareBar + '<div class="card"><p>تعذّر تحميل الدفاتر.</p></div>'; }
+  };
+
+  const query = db.collection('notebooks').orderBy('createdAt','desc');
+  let shownFromCache = false;
+  // أول شي نحاول من الكاش المحفوظ بالجهاز (فوري، حتى بدون إنترنت أصلاً)
+  try {
+    const cacheSnap = await query.get({ source: 'cache' });
+    if (!cacheSnap.empty) { renderList(cacheSnap); shownFromCache = true; }
+  } catch(e) { /* ما فيه كاش محفوظ بعد — عادي، نكمل على الخادم */ }
+
+  // وبنفس الوقت نحاول نجيب أحدث نسخة من الخادم، بمهلة أقصاها 8 ثواني حتى لو الإنترنت ضعيف
+  try {
+    const snap = await withTimeout(query.get({ source: 'server' }), 8000);
+    renderList(snap);
+  } catch(e) {
+    console.error(e);
+    if (!shownFromCache) {
+      list.innerHTML = shareBar + `<div class="card" style="text-align:center;">
+        <p>⚠️ الاتصال بالإنترنت ضعيف حالياً، تعذّر تحميل الدفاتر.</p>
+        <button class="btn secondary" style="margin-top:8px;" onclick="openNotebooksScreen()">🔄 إعادة المحاولة</button>
+      </div>`;
+    }
+    // إذا كان عندنا عرض من الكاش أصلاً، نتركه ظاهر بدل ما نمسحه برسالة خطأ
+  }
 }
 
 function renderBookAdminItem(d) {
