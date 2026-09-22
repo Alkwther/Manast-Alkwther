@@ -2711,6 +2711,8 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
         <label>سعر التوصيل الذي تحدده أنت (دينار)</label>
         <input id="tchBookletDeliveryFee" type="number" placeholder="مثال: 3000">
       </div>
+      <label>رابط يوتيوب (اختياري)</label>
+      <input id="tchBookletYoutubeUrl" type="url" placeholder="https://youtube.com/... — شرح أو مقدمة عن المادة">
       <div id="tchBookletStoreFeeNotice" class="hidden" style="background:#eef1f8;border-radius:10px;padding:10px 14px;margin:10px 0;font-size:13px;color:#0e6fa8;"></div>
       <div class="box" style="background:#f6f7fb;border-radius:10px;padding:12px 14px;margin:10px 0;border-inline-start:4px solid #0e8fa8;">
         <p style="margin:0;">حصتك من كل نسخة: <b id="tchBookletMyShare" style="color:#15803d;">— دينار</b></p>
@@ -3593,6 +3595,7 @@ function renderLibraryNav() {
       <div style="display:flex;align-items:flex-start;">${thumb}<div class="title" style="flex:1;">${b.title}${b.teacherName ? `<br><span style="font-size:12px;color:#8a90a3;">أ. ${b.teacherName}</span>` : ''}<br><span style="color:#b8903c;font-weight:bold;">${b.price} د.ع</span></div></div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
         ${images.length ? `<button class="small-btn" onclick='openImageGallery(${JSON.stringify(images)})'>📷 مشاهدة الصور${images.length>1?' ('+images.length+')':''}</button>` : ''}
+        ${b.youtubeUrl ? `<button class="small-btn" onclick="window.open('${b.youtubeUrl.replace(/'/g,"\\'")}','_blank')">▶️ يوتيوب</button>` : ''}
         <button class="small-btn" onclick="navigator.clipboard.writeText(buildSharePreviewLink('#book=${b.id}','${safeTitle}','${safeDesc}')).then(()=>alert('تم نسخ رابط الملزمة ✅'))">🔗 نسخ الرابط</button>
         <button class="play" style="margin:0;flex:1;" onclick="addToCart('${b.id}','${b.title.replace(/'/g,"\\'")} — ${libraryNavGrade.replace(/'/g,"\\'")}',${b.price})">أضف للسلة</button>
       </div>
@@ -8352,6 +8355,7 @@ async function openTeacherUploadBooklet(destination) {
   document.getElementById('tchBookletDeliveryMode').value = 'library';
   document.getElementById('tchBookletDeliveryFeeWrap').classList.add('hidden');
   document.getElementById('tchBookletDeliveryFee').value = '';
+  document.getElementById('tchBookletYoutubeUrl').value = '';
   document.getElementById('tchBookletMyShare').textContent = '— دينار';
   document.getElementById('tchBookletPlatformShare').textContent = '— دينار';
   document.getElementById('tchBookletTotalPrice').textContent = '— دينار';
@@ -8440,8 +8444,10 @@ document.getElementById('submitTeacherBookletBtn').onclick = async () => {
   const stage = tchUploadDestination === 'store' ? '' : document.getElementById('tchBookletStage').value;
   const grade = tchUploadDestination === 'store' ? '' : document.getElementById('tchBookletGrade').value;
   const price = +document.getElementById('tchBookletPrice').value;
+  const youtubeUrl = document.getElementById('tchBookletYoutubeUrl').value.trim();
   if (!image) { alert('ارفع صورة واحدة على الأقل للمادة'); return; }
   if (!title || !price) { alert('اكتب اسم المادة والسعر'); return; }
+  if (youtubeUrl && !/youtu\.?be/i.test(youtubeUrl)) { alert('رابط اليوتيوب غير صحيح'); return; }
 
   let deliveryMode, teacherDeliveryFee;
   if (tchUploadDestination === 'store') {
@@ -8461,6 +8467,7 @@ document.getElementById('submitTeacherBookletBtn').onclick = async () => {
       title, price, stage, grade, image, images, itemType,
       teacherName: currentTeacher.name, teacherShare,
       deliveryMode, teacherDeliveryFee,
+      youtubeUrl: youtubeUrl || null,
       storeItem: tchUploadDestination === 'store',
       addedBy: currentTeacher.name, createdAt: Date.now()
     });
@@ -8606,6 +8613,7 @@ async function openTeacherStoreDetail(teacherName) {
         <div style="display:flex;align-items:flex-start;">${thumb}<div class="title" style="flex:1;">${b.title}<br><span style="font-size:12px;color:#8a90a3;">${typeLabel} — ${b.grade||''}</span><br><span style="color:#b8903c;font-weight:bold;">${b.price} د.ع</span></div></div>
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
           ${images.length ? `<button class="small-btn" onclick="openImageGalleryEnc('${encodeURIComponent(JSON.stringify(images))}')">📷 مشاهدة الصور${images.length>1?' ('+images.length+')':''}</button>` : ''}
+          ${b.youtubeUrl ? `<button class="small-btn" onclick="window.open('${b.youtubeUrl.replace(/'/g,"\\'")}','_blank')">▶️ يوتيوب</button>` : ''}
           <button class="small-btn" onclick="navigator.clipboard.writeText(buildSharePreviewLink('#book=${b.id}','${safeTitle}','${safeDesc}')).then(()=>alert('تم نسخ رابط الملزمة ✅'))">🔗 نسخ الرابط</button>
           <button class="play" style="margin:0;flex:1;" onclick="addStoreItemToCart('${b.id}')">أضف للسلة</button>
         </div>
