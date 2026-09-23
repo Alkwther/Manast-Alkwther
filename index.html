@@ -2777,23 +2777,24 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     <button class="btn secondary" onclick="if (teacherOrdersContextName) { show('screen-admin'); openAdminSection('library-hub'); openAdminSection('library-teacher-stores'); } else { show('screen-teacher-dashboard'); }">← رجوع</button>
     <div class="card">
       <h3>📦 طلبات ملازمي (توصيلي الخاص)</h3>
-      <p>هذي الطلبات على الملازم اللي تتكفّل بتوصيلها بنفسك — ما تشوفها المكتبة أبداً.</p>
+      <p>هذي الطلبات على الملازم اللي تتكفّل بتوصيلها بنفسك — ما تشوفها المكتبة أبداً. أي تحديث تسويه المكتبة على حالة الطلب يظهر لك هنا مباشرة.</p>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
-      <button class="small-btn" id="tchOrdersTabNew" style="flex:1;background:#dc2626;color:#fff;">🆕 جديدة</button>
-      <button class="small-btn" id="tchOrdersTabProcessing" style="flex:1;">⚙️ قيد التنفيذ</button>
-      <button class="small-btn" id="tchOrdersTabDelivering" style="flex:1;">🚚 قيد التوصيل</button>
-      <button class="small-btn" id="tchOrdersTabCompleted" style="flex:1;">✅ تم التوصيل</button>
-      <button class="small-btn" id="tchOrdersTabCancelled" style="flex:1;">❌ ملغاة</button>
+      <button class="small-btn" id="tchOrdersTabNew" style="flex:1;min-width:100px;">📦 قيد التحضير <span id="tchOrdersTabNewCount"></span></button>
+      <button class="small-btn" id="tchOrdersTabProcessing" style="flex:1;min-width:100px;">⚙️ قيد التنفيذ <span id="tchOrdersTabProcessingCount"></span></button>
+      <button class="small-btn" id="tchOrdersTabDelivering" style="flex:1;min-width:100px;">🚚 قيد التوصيل <span id="tchOrdersTabDeliveringCount"></span></button>
+      <button class="small-btn" id="tchOrdersTabCompleted" style="flex:1;min-width:100px;">✅ تم التسليم <span id="tchOrdersTabCompletedCount"></span></button>
+      <button class="small-btn" id="tchOrdersTabCancelled" style="flex:1;min-width:100px;">🚫 تم الإلغاء <span id="tchOrdersTabCancelledCount"></span></button>
+      <button class="small-btn" id="tchOrdersTabProblems" style="flex:1;min-width:100px;">⚠️ المشاكل <span id="tchOrdersTabProblemsCount"></span></button>
     </div>
     <div id="teacherOrdersList"></div>
 
     <h3 style="margin:18px 0 10px;color:#10203f;">📊 سجل الطلبات حسب الفترة (كل الحالات — بما فيها الملغية)</h3>
-    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
-      <button class="small-btn" id="tchOrdersPeriodDay" style="flex:1;">اليوم</button>
-      <button class="small-btn" id="tchOrdersPeriodWeek" style="flex:1;">الأسبوع</button>
-      <button class="small-btn" id="tchOrdersPeriodMonth" style="flex:1;">الشهر</button>
-      <button class="small-btn" id="tchOrdersPeriodYear" style="flex:1;">السنة</button>
+    <div class="stat-row">
+      <div class="stat-box" style="cursor:pointer;" id="tchOrdersPeriodDay" onclick="loadTeacherOrdersByPeriod('day')"><div class="num" id="tchOrdersPeriodDayCount">0</div><div class="label">اليوم</div></div>
+      <div class="stat-box" style="cursor:pointer;" id="tchOrdersPeriodWeek" onclick="loadTeacherOrdersByPeriod('week')"><div class="num" id="tchOrdersPeriodWeekCount">0</div><div class="label">الأسبوع</div></div>
+      <div class="stat-box" style="cursor:pointer;" id="tchOrdersPeriodMonth" onclick="loadTeacherOrdersByPeriod('month')"><div class="num" id="tchOrdersPeriodMonthCount">0</div><div class="label">الشهر</div></div>
+      <div class="stat-box" style="cursor:pointer;" id="tchOrdersPeriodYear" onclick="loadTeacherOrdersByPeriod('year')"><div class="num" id="tchOrdersPeriodYearCount">0</div><div class="label">السنة</div></div>
     </div>
     <div id="teacherOrdersPeriodList"></div>
   </div>
@@ -8205,21 +8206,25 @@ async function loadTeacherBookletCustomers() {
 let currentTeacherOrdersTab = 'new';
 function switchTeacherOrdersTab(tab) {
   currentTeacherOrdersTab = tab;
-  const colors = { new:'#dc2626', processing:'#0e6fa8', delivering:'#16a34a', completed:'#16a34a', cancelled:'#dc2626' };
-  ['tchOrdersTabNew','tchOrdersTabProcessing','tchOrdersTabDelivering','tchOrdersTabCompleted','tchOrdersTabCancelled'].forEach(bid => {
+  // نفس ألوان طلبات المكتبة بالضبط — كل حالة إلها لون ثابت خاص بها (يبقى ظاهر حتى لو ما كانت التبويب المفعّل)
+  const colors = { new:'#dc2626', processing:'#0e6fa8', delivering:'#16a34a', completed:'#6b21a8', cancelled:'#374151', problems:'#b91c1c' };
+  const ids = { new:'tchOrdersTabNew', processing:'tchOrdersTabProcessing', delivering:'tchOrdersTabDelivering', completed:'tchOrdersTabCompleted', cancelled:'tchOrdersTabCancelled', problems:'tchOrdersTabProblems' };
+  Object.entries(ids).forEach(([key, bid]) => {
     const btn = document.getElementById(bid);
-    btn.style.background = ''; btn.style.color = '';
+    btn.style.background = colors[key];
+    btn.style.color = '#fff';
+    btn.style.opacity = (key === tab) ? '1' : '.55';
+    btn.style.outline = (key === tab) ? '3px solid #10203f' : 'none';
   });
-  const activeBtnId = { new:'tchOrdersTabNew', processing:'tchOrdersTabProcessing', delivering:'tchOrdersTabDelivering', completed:'tchOrdersTabCompleted', cancelled:'tchOrdersTabCancelled' }[tab];
-  document.getElementById(activeBtnId).style.background = colors[tab];
-  document.getElementById(activeBtnId).style.color = '#fff';
   loadTeacherOrders();
+  loadTeacherOrdersPeriodStats();
 }
 document.getElementById('tchOrdersTabNew').onclick = () => switchTeacherOrdersTab('new');
 document.getElementById('tchOrdersTabProcessing').onclick = () => switchTeacherOrdersTab('processing');
 document.getElementById('tchOrdersTabDelivering').onclick = () => switchTeacherOrdersTab('delivering');
 document.getElementById('tchOrdersTabCompleted').onclick = () => switchTeacherOrdersTab('completed');
 document.getElementById('tchOrdersTabCancelled').onclick = () => switchTeacherOrdersTab('cancelled');
+document.getElementById('tchOrdersTabProblems').onclick = () => switchTeacherOrdersTab('problems');
 
 let teacherOrdersContextName = null; // null = يستخدم currentTeacher.name (شاشة الأستاذ نفسه)؛ أو اسم محدد لو فتحها المشرف/الموظف
 function getTeacherOrdersContextName() { return teacherOrdersContextName || (currentTeacher && currentTeacher.name); }
@@ -8229,12 +8234,26 @@ async function loadTeacherOrders() {
   try {
     const snap = await db.collection('orders').where('fulfillmentTeacherName','==', getTeacherOrdersContextName()).where('fulfillment','==','teacher').get();
     const rows = snap.docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }));
+    // نحسب عدد كل تصنيف بنفس اللحظة عشان نحدّث الأرقام فوق كل تبويب (زي طلبات المكتبة بالضبط)
+    const counts = {
+      new: rows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed' && !o.hasProblem).length,
+      processing: rows.filter(({o}) => !!o.processingAt && o.status === 'processing' && !o.hasProblem).length,
+      delivering: rows.filter(({o}) => o.status === 'delivering' && !o.hasProblem).length,
+      completed: rows.filter(({o}) => o.status === 'completed' && !o.hasProblem).length,
+      cancelled: rows.filter(({o}) => o.status === 'cancelled' && !o.hasProblem).length,
+      problems: rows.filter(({o}) => !!o.hasProblem).length,
+    };
+    Object.entries(counts).forEach(([key, n]) => {
+      const el = document.getElementById(`tchOrdersTab${key.charAt(0).toUpperCase()}${key.slice(1)}Count`);
+      if (el) el.textContent = n > 0 ? `(${n})` : '';
+    });
     let filtered;
-    if (currentTeacherOrdersTab === 'new') filtered = rows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed');
-    else if (currentTeacherOrdersTab === 'processing') filtered = rows.filter(({o}) => !!o.processingAt && o.status === 'processing');
-    else if (currentTeacherOrdersTab === 'delivering') filtered = rows.filter(({o}) => o.status === 'delivering');
-    else if (currentTeacherOrdersTab === 'completed') filtered = rows.filter(({o}) => o.status === 'completed');
-    else filtered = rows.filter(({o}) => o.status === 'cancelled');
+    if (currentTeacherOrdersTab === 'problems') filtered = rows.filter(({o}) => !!o.hasProblem);
+    else if (currentTeacherOrdersTab === 'new') filtered = rows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed' && !o.hasProblem);
+    else if (currentTeacherOrdersTab === 'processing') filtered = rows.filter(({o}) => !!o.processingAt && o.status === 'processing' && !o.hasProblem);
+    else if (currentTeacherOrdersTab === 'delivering') filtered = rows.filter(({o}) => o.status === 'delivering' && !o.hasProblem);
+    else if (currentTeacherOrdersTab === 'completed') filtered = rows.filter(({o}) => o.status === 'completed' && !o.hasProblem);
+    else filtered = rows.filter(({o}) => o.status === 'cancelled' && !o.hasProblem);
     filtered.sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
     if (filtered.length === 0) { list.innerHTML = '<div class="card"><p>لا توجد طلبات بهذا التصنيف.</p></div>'; return; }
     list.innerHTML = filtered.map(({id,o}) => renderTeacherOrderCard(id, o)).join('');
@@ -8261,7 +8280,7 @@ function renderTeacherOrderCard(id, o, useOwnStatus) {
     } else if (effectiveTab === 'processing') {
       actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','delivering')" style="background:#16a34a;color:#fff;">🚚 قيد التوصيل</button>`;
     } else if (effectiveTab === 'delivering') {
-      actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','completed')" style="background:#16a34a;color:#fff;">✅ تم التوصيل</button>`;
+      actionsHtml += `<button class="small-btn" onclick="teacherSetOrderStatus('${id}','completed')" style="background:#6b21a8;color:#fff;">✅ تم التسليم</button>`;
     }
     if (['new','processing','delivering'].includes(effectiveTab)) {
       actionsHtml += `<button class="small-btn" onclick="teacherCancelOrder('${id}')" style="background:#fef2f2;color:#dc2626;">❌ إلغاء الطلب</button>`;
@@ -8269,8 +8288,10 @@ function renderTeacherOrderCard(id, o, useOwnStatus) {
     actionsHtml += `<button class="small-btn" onclick="copyOrderLink('${id}')">🔗 نسخ رابط الطلب</button>`;
   }
   const statusBadge = useOwnStatus ? `<span style="background:#eef1f8;color:#10203f;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">${ORDER_STATUS_LABELS[o.status]||o.status}</span>` : '';
-  return `<div class="card">
+  const cardStyle = o.hasProblem ? 'background:#fee2e2;border:3px solid #b91c1c;' : '';
+  return `<div class="card" style="${cardStyle}">
     <p style="margin:0;color:#0e6fa8;font-weight:bold;">🚚 التوصيل: أنت (توصيلك الخاص) ${statusBadge}</p>
+    ${o.hasProblem ? `<p style="background:#b91c1c;color:#fff;border-radius:8px;padding:8px 12px;font-weight:bold;margin:6px 0;">⚠️ في مشكلة بهذا الطلب: ${o.problemText||''}</p>` : ''}
     <p style="margin:4px 0 0;"><b>👤 ${o.studentName}</b> — 📞 ${o.phone}</p>
     <p style="margin:4px 0;color:#8a90a3;">${o.province||''} ${o.district? '- '+o.district : ''}</p>
     <p style="margin:4px 0;">${itemsText}</p>
@@ -8300,14 +8321,24 @@ function getPeriodStart(period) {
   return 0;
 }
 const PERIOD_LABELS = { day:'اليوم', week:'الأسبوع', month:'الشهر', year:'السنة' };
+async function loadTeacherOrdersPeriodStats() {
+  // يحسب أرقام اليوم/الأسبوع/الشهر/السنة كلها بنفس اللحظة (زي صندوق إحصائية طلبات المكتبة بالضبط)
+  try {
+    const snap = await db.collection('orders').where('fulfillmentTeacherName','==', getTeacherOrdersContextName()).where('fulfillment','==','teacher').get();
+    const rows = snap.docs.map(d => ({ createdAt: d.data().createdAt||0 }));
+    ['day','week','month','year'].forEach(period => {
+      const cutoff = getPeriodStart(period);
+      const count = rows.filter(r => r.createdAt >= cutoff).length;
+      const el = document.getElementById(`tchOrdersPeriod${period.charAt(0).toUpperCase()}${period.slice(1)}Count`);
+      if (el) el.textContent = count;
+    });
+  } catch(e) { console.error(e); }
+}
 async function loadTeacherOrdersByPeriod(period) {
   ['tchOrdersPeriodDay','tchOrdersPeriodWeek','tchOrdersPeriodMonth','tchOrdersPeriodYear'].forEach(bid => {
-    const btn = document.getElementById(bid);
-    btn.style.background = ''; btn.style.color = '';
+    document.getElementById(bid).style.outline = 'none';
   });
-  const activeBtnId = { day:'tchOrdersPeriodDay', week:'tchOrdersPeriodWeek', month:'tchOrdersPeriodMonth', year:'tchOrdersPeriodYear' }[period];
-  document.getElementById(activeBtnId).style.background = '#10203f';
-  document.getElementById(activeBtnId).style.color = '#fff';
+  document.getElementById({ day:'tchOrdersPeriodDay', week:'tchOrdersPeriodWeek', month:'tchOrdersPeriodMonth', year:'tchOrdersPeriodYear' }[period]).style.outline = '3px solid #10203f';
   const list = document.getElementById('teacherOrdersPeriodList');
   list.innerHTML = '<p>جاري التحميل...</p>';
   try {
