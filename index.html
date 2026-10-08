@@ -2567,6 +2567,9 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     <button class="btn secondary" id="tchUploadBookletBtn" onclick="openTeacherUploadBooklet('store')">📤 رفع ملزمة/دفتر داخل متجري الخاص</button>
     <button class="btn secondary" id="tchUploadLibraryBtn" onclick="openTeacherUploadBooklet('library')">📚 رفع ملزمة/دفتر داخل صفوف المكتبة</button>
     <button class="btn secondary hidden" id="tchMyOrdersBtn" onclick="teacherOrdersContextName=null; show('screen-teacher-orders'); switchTeacherOrdersTab('new');">📦 طلبات ملازمي (توصيلي الخاص)</button>
+    <button class="btn secondary hidden" id="tchPlaceOrderBtn" onclick="openTeacherPlaceOrderForCustomer()">➕ إضافة طلب جديد</button>
+    <button class="btn secondary hidden" id="tchPlacedOrdersBtn" onclick="openTeacherPlacedOrdersList()">📦 طلباتي (توصيل المكتبة)</button>
+    <button class="btn secondary hidden" id="tchStockBtn" onclick="openTeacherRemainingStock()">📚 الملازم المتبقية في المكتبة</button>
     <button class="btn secondary" onclick="openStaffTeacherChatFromTeacher()">💬 الدردشة مع الإدارة <span id="teacherChatUnreadBadge" class="hidden" style="background:#dc2626;color:#fff;border-radius:10px;padding:2px 9px;font-size:12px;margin-inline-start:6px;">0</span></button>
     <button class="btn secondary" id="tchBuyCodeBtn" onclick="openTeacherBuyCode()">🎫 عرض أكواد الاشتراك</button>
     <button class="btn secondary" id="tchFreeLessonsBtn" onclick="openTeacherFreeLessons()">🎓 دروس مجانية</button>
@@ -2759,9 +2762,46 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 
   <!-- متجر أستاذ محدد (للزبون) -->
   <div class="screen hidden" id="screen-teacher-store-detail">
-    <button class="btn secondary" onclick="show('screen-teacher-stores'); loadTeacherStoresList();">← رجوع لمتاجر الأساتذة</button>
+    <button class="btn secondary" onclick="backFromTeacherStoreDetail()">← رجوع</button>
     <div class="card" id="teacherStoreDetailHeader"></div>
     <div id="teacherStoreDetailList" style="padding-bottom:80px;"></div>
+  </div>
+
+  <!-- طلبات الزبائن اللي سواها الأستاذ بنفسه وتوصيلها على المكتبة -->
+  <div class="screen hidden" id="screen-teacher-placed-orders">
+    <button class="btn secondary" onclick="show('screen-teacher-dashboard')">← رجوع</button>
+    <div class="card">
+      <h3>📦 طلباتي (توصيل المكتبة)</h3>
+      <p>هذي الطلبات اللي سويتها بنفسك لزبائنك وتوصيلها على المكتبة — أي تحديث تسويه المكتبة على حالة الطلب يظهر لك هنا مباشرة. طلبات توصيلك الذاتي تلقاها بقائمة "طلبات ملازمي" العادية.</p>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+      <button class="small-btn" id="tchLibOrdersTabNew" style="flex:1;min-width:100px;">📦 قيد التحضير <span id="tchLibOrdersTabNewCount"></span></button>
+      <button class="small-btn" id="tchLibOrdersTabProcessing" style="flex:1;min-width:100px;">⚙️ قيد التنفيذ <span id="tchLibOrdersTabProcessingCount"></span></button>
+      <button class="small-btn" id="tchLibOrdersTabDelivering" style="flex:1;min-width:100px;">🚚 قيد التوصيل <span id="tchLibOrdersTabDeliveringCount"></span></button>
+      <button class="small-btn" id="tchLibOrdersTabCompleted" style="flex:1;min-width:100px;">✅ تم التسليم <span id="tchLibOrdersTabCompletedCount"></span></button>
+      <button class="small-btn" id="tchLibOrdersTabCancelled" style="flex:1;min-width:100px;">🚫 تم الإلغاء <span id="tchLibOrdersTabCancelledCount"></span></button>
+      <button class="small-btn" id="tchLibOrdersTabProblems" style="flex:1;min-width:100px;">⚠️ المشاكل <span id="tchLibOrdersTabProblemsCount"></span></button>
+    </div>
+    <div id="teacherPlacedOrdersList"></div>
+
+    <h3 style="margin:18px 0 10px;color:#10203f;">📊 سجل الطلبات حسب الفترة (كل الحالات — بما فيها الملغية)</h3>
+    <div class="stat-row">
+      <div class="stat-box" style="cursor:pointer;" id="tchLibOrdersPeriodDay" onclick="loadTeacherPlacedOrdersByPeriod('day')"><div class="num" id="tchLibOrdersPeriodDayCount">0</div><div class="label">اليوم</div></div>
+      <div class="stat-box" style="cursor:pointer;" id="tchLibOrdersPeriodWeek" onclick="loadTeacherPlacedOrdersByPeriod('week')"><div class="num" id="tchLibOrdersPeriodWeekCount">0</div><div class="label">الأسبوع</div></div>
+      <div class="stat-box" style="cursor:pointer;" id="tchLibOrdersPeriodMonth" onclick="loadTeacherPlacedOrdersByPeriod('month')"><div class="num" id="tchLibOrdersPeriodMonthCount">0</div><div class="label">الشهر</div></div>
+      <div class="stat-box" style="cursor:pointer;" id="tchLibOrdersPeriodYear" onclick="loadTeacherPlacedOrdersByPeriod('year')"><div class="num" id="tchLibOrdersPeriodYearCount">0</div><div class="label">السنة</div></div>
+    </div>
+    <div id="teacherPlacedOrdersPeriodList"></div>
+  </div>
+
+  <!-- الملازم المتبقية بالمكتبة (قراءة فقط — الموظف/المشرف هو اللي يحدّث الأرقام) -->
+  <div class="screen hidden" id="screen-teacher-stock">
+    <button class="btn secondary" onclick="show('screen-teacher-dashboard')">← رجوع</button>
+    <div class="card">
+      <h3>📚 الملازم المتبقية في المكتبة</h3>
+      <p>هذا عدد النسخ المتوفرة حالياً من ملازمك بمخزن المكتبة — الموظف أو المشرف هو اللي يحدّث هذا العدد.</p>
+    </div>
+    <div id="teacherStockList"></div>
   </div>
 
   <div class="screen hidden" id="screen-teacher-books">
@@ -3673,7 +3713,12 @@ function renderCartBar() {
 function openCheckout() {
   renderCartItems();
   document.getElementById('ckName').value = currentStudent ? currentStudent.name : '';
-  prefillSavedDeliveryInfo();
+  if (placingOrderForTeacher) {
+    // الأستاذ يعبّي بيانات زبونه هو، مو بياناته الشخصية — نضمن الفورم يبدأ فاضي ومانسحب عنوانه المحفوظ بالخطأ
+    ['ckName','ckProvince','ckDistrict','ckLandmark','ckPhone','ckAltPhone'].forEach(id => { document.getElementById(id).value = ''; });
+  } else {
+    prefillSavedDeliveryInfo();
+  }
   show('screen-checkout');
   const existingBar = document.getElementById('cartBar');
   if (existingBar) existingBar.remove();
@@ -3808,7 +3853,7 @@ document.getElementById('ckAltPhone').addEventListener('input', (e) => {
 
 // شاشة تأكيد الحجز: تظهر فوراً بعد نجاح الطلب، فيها كل التفاصيل (المواد، الأسعار، العنوان)
 // وموعد التوصيل المتوقع، حتى يتأكد الزبون إن طلبه وصل صح بدون ما يحتاج يروح يدور بقائمة طلباته
-function showOrderConfirmationScreen(order) {
+function showOrderConfirmationScreen(order, placedByTeacherName) {
   show('screen-order-confirmation');
   const itemsText = order.items.map(it => {
     const stageLabel = it.stage ? (STAGE_LABELS_AR[it.stage] || it.stage) : '';
@@ -3834,8 +3879,14 @@ function showOrderConfirmationScreen(order) {
       <p style="color:#888;">📍 العنوان: ${order.province} - ${order.district}${order.landmark ? ' - '+order.landmark : ''}</p>
       ${deliveryDateHtml}
     </div>
+    ${placedByTeacherName ? `
+    <button class="btn" onclick="openTeacherPlaceOrderForCustomer()">➕ طلب جديد لزبون آخر</button>
+    <button class="btn secondary" style="margin-top:8px;" onclick="${order.fulfillment === 'teacher' ? `teacherOrdersContextName=null; show('screen-teacher-orders'); switchTeacherOrdersTab('new');` : `openTeacherPlacedOrdersList()`}">📋 عرض طلبات زبائني</button>
+    <button class="btn secondary" style="margin-top:8px;" onclick="show('screen-teacher-dashboard')">🔙 رجوع للوحتي</button>
+    ` : `
     <button class="btn" onclick="showMyOrders('${(order.phone||'').replace(/'/g,"\\'")}')">📦 عرض كل طلباتي</button>
     <button class="btn secondary" style="margin-top:8px;" onclick="show('screen-library')">🛍️ متابعة التسوق</button>
+    `}
   `;
 }
 
@@ -3902,6 +3953,7 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
       return;
     }
     const customerId = await getOrAssignCustomerId(phone);
+    const placedByTeacherName = placingOrderForTeacher; // نلقطها هسه قبل لا نصفّرها، تستخدم بعد نجاح الحفظ
     const newOrderData = {
       studentPhone: currentStudent ? currentStudent.phone : phone,
       studentName: name,
@@ -3909,6 +3961,7 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
       customerId, fulfillment, fulfillmentTeacherName,
       status: 'pending', seenByStaff: false, createdAt: Date.now()
     };
+    if (placedByTeacherName) newOrderData.placedByTeacherName = placedByTeacherName; // الأستاذ سوى هذا الطلب بنفسه لزبونه
     if (fulfillment !== 'teacher') {
       newOrderData.deliveringThresholdAt = computeDeliveringThresholdAt(newOrderData.createdAt);
     }
@@ -3918,15 +3971,18 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
       newOrderData.platformOwedSettled = false;
     }
     const newOrderRef = await db.collection('orders').add(newOrderData);
-    saveDeliveryInfo({ name, province, district, landmark, phone, altPhone });
+    // ما نحفظ بيانات التوصيل هذي كـ"بيانات محفوظة بالجهاز" إذا الأستاذ سوى الطلب لزبونه —
+    // هذا عنوان الزبون مو عنوان الأستاذ، وما نريد نلخبط عنوانه الشخصي المحفوظ بجهازه
+    if (!placedByTeacherName) saveDeliveryInfo({ name, province, district, landmark, phone, altPhone });
     cart = {}; saveCartToStorage();
+    placingOrderForTeacher = null;
     setupCustomerNotifications(phone);
     if (navigator.onLine === false) {
       // بدون إنترنت ما نقدر نضمن وصلت البيانات فعلاً ولا موعد التوصيل دقيق، فنكتفي برسالة الحفظ المحلي
       setMsg('checkoutMsg', '📦 تم حفظ طلبك، وسيصل تلقائياً بمجرد رجوع الإنترنت ✅', true);
       setTimeout(() => showMyOrders(phone), 700);
     } else {
-      showOrderConfirmationScreen({ ...newOrderData, id: newOrderRef.id });
+      showOrderConfirmationScreen({ ...newOrderData, id: newOrderRef.id }, placedByTeacherName);
     }
   } catch(e) { setMsg('checkoutMsg', 'خطأ عند إرسال الطلب: ' + (e.message || 'خطأ غير معروف'), false); console.error(e); }
   finally {
@@ -7181,6 +7237,8 @@ async function loadAdminTeacherStores() {
         <button class="small-btn" style="margin-top:6px;" onclick="teacherOrdersContextName='${t.name.replace(/'/g,"\\'")}'; show('screen-teacher-orders'); switchTeacherOrdersTab('new'); loadTeacherOrdersByPeriod('month');">📊 سجل طلبات هذا المتجر (اليوم/الأسبوع/الشهر/السنة)</button>
         <button class="small-btn" style="margin-top:6px;" onclick="toggleSettlementHistory('${t.id}','${t.name.replace(/'/g,"\\'")}')">📜 سجل التحاسب السابق</button>
         <div id="settlementHistory-${t.id}" class="hidden" style="margin-top:8px;"></div>
+        <button class="small-btn" style="margin-top:6px;" onclick="toggleTeacherStockPanel('${t.name.replace(/'/g,"\\'")}','${t.id}')">📦 مخزون الملازم المتبقية بالمكتبة</button>
+        <div id="stockPanel-${t.id}" class="hidden" style="margin-top:8px;background:#f6f7fb;border-radius:10px;padding:10px;"></div>
       </div>`;
     }).join('');
   } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
@@ -7202,6 +7260,59 @@ async function toggleTeacherStoreSettlement(teacherName) {
   });
   alert('تم تسجيل التحاسب ✅');
   loadAdminTeacherStores();
+}
+
+// ---------- مخزون الملازم المتبقية بالمكتبة (لكل أستاذ) ----------
+// مستند وحد لكل أستاذ بقاعدة البيانات (مو مستند لكل ملزمة) — فيه قائمة {name, qty} بسيطة،
+// الموظف/المشرف يعدّلها من هنا، والأستاذ يشوفها بس (قراءة فقط) من لوحته
+async function toggleTeacherStockPanel(teacherName, teacherDocId) {
+  const safeId = teacherName.replace(/[^\u0600-\u06FFa-zA-Z0-9]/g, '_');
+  const panel = document.getElementById(`stockPanel-${teacherDocId}`);
+  if (!panel.classList.contains('hidden')) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+  panel.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const doc = await db.collection('teacherBookletStock').doc(safeId).get();
+    const items = doc.exists ? (doc.data().items || []) : [];
+    renderTeacherStockPanel(panel, teacherName, safeId, items);
+  } catch(e) { console.error(e); panel.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+}
+function renderTeacherStockPanel(panel, teacherName, safeId, items) {
+  panel.innerHTML = `
+    <div id="stockRows-${safeId}">
+      ${items.map((it,i) => `<div style="display:flex;gap:6px;margin-bottom:6px;">
+        <input class="stockItemName" data-idx="${i}" value="${(it.name||'').replace(/"/g,'&quot;')}" placeholder="اسم الملزمة" style="flex:2;">
+        <input class="stockItemQty" data-idx="${i}" type="number" value="${it.qty||0}" placeholder="العدد" style="flex:1;">
+        <button class="small-btn" onclick="this.closest('div').remove()" style="background:#fef2f2;color:#dc2626;">🗑️</button>
+      </div>`).join('')}
+    </div>
+    <button type="button" class="small-btn" onclick="addTeacherStockRow('${safeId}')">➕ إضافة ملزمة</button>
+    <button type="button" class="btn" style="margin-top:8px;" onclick="saveTeacherStockPanel('${teacherName.replace(/'/g,"\\'")}','${safeId}')">💾 حفظ المخزون</button>
+  `;
+}
+function addTeacherStockRow(safeId) {
+  const rows = document.getElementById(`stockRows-${safeId}`);
+  const row = document.createElement('div');
+  row.style = 'display:flex;gap:6px;margin-bottom:6px;';
+  row.innerHTML = `<input class="stockItemName" value="" placeholder="اسم الملزمة" style="flex:2;">
+    <input class="stockItemQty" type="number" value="0" placeholder="العدد" style="flex:1;">
+    <button class="small-btn" onclick="this.closest('div').remove()" style="background:#fef2f2;color:#dc2626;">🗑️</button>`;
+  rows.appendChild(row);
+}
+async function saveTeacherStockPanel(teacherName, safeId) {
+  const rows = document.getElementById(`stockRows-${safeId}`);
+  const names = rows.querySelectorAll('.stockItemName');
+  const qtys = rows.querySelectorAll('.stockItemQty');
+  const items = [];
+  names.forEach((input, i) => {
+    const name = input.value.trim();
+    const qty = +qtys[i].value || 0;
+    if (name) items.push({ name, qty });
+  });
+  try {
+    await db.collection('teacherBookletStock').doc(safeId).set({ teacherName, items, updatedAt: Date.now() });
+    alert('تم حفظ المخزون ✅');
+  } catch(e) { console.error(e); alert('صار خطأ أثناء الحفظ'); }
 }
 
 // رسالة جماعية لكل الزبائن (نص و/أو صورة) — تُرسل كرسالة بمحادثة كل زبون على حدة
@@ -8231,6 +8342,9 @@ function applyTeacherModeUI() {
   document.getElementById('tchUploadBookletBtn').classList.toggle('hidden', !isBooklets);
   document.getElementById('tchUploadLibraryBtn').classList.toggle('hidden', !isBooklets);
   document.getElementById('tchMyOrdersBtn').classList.toggle('hidden', !isBooklets);
+  document.getElementById('tchPlaceOrderBtn').classList.toggle('hidden', !isBooklets);
+  document.getElementById('tchPlacedOrdersBtn').classList.toggle('hidden', !isBooklets);
+  document.getElementById('tchStockBtn').classList.toggle('hidden', !isBooklets);
 
   document.getElementById('tchAddClassCard').classList.toggle('hidden', !isTeaching);
   document.getElementById('tchClassesHeading').classList.toggle('hidden', !isTeaching);
@@ -8683,6 +8797,144 @@ async function loadTeacherStoresList() {
     }).join('');
   } catch(e) { console.error(e); list.innerHTML = '<p>تعذّر التحميل.</p>'; }
 }
+// الأستاذ يسوي طلب لزبون من متجره بنفسه (بديل عن ما يملي الزبون نفسه النموذج) — نفس تجربة
+// الزبون بالضبط (يتصفح، يضيف للسلة، يدفع التوصيل، يعبّي بيانات الزبون) لكن مُعلَّم باسم الأستاذ
+let placingOrderForTeacher = null;
+function openTeacherPlaceOrderForCustomer() {
+  if (!currentTeacher) return;
+  if (!currentTeacher.storeEnabled) { alert('فعّل متجرك الخاص أولاً من "متجري الخاص" قبل ما تسوي طلب لزبون'); return; }
+  // نفضّي السلة أول — حتى ما تنخلط أي مواد سابقة (لو كانت موجودة بالصدفة) مع طلب هذا الزبون الجديد
+  cart = {}; saveCartToStorage();
+  placingOrderForTeacher = currentTeacher.name;
+  openTeacherStoreDetail(currentTeacher.name);
+}
+function backFromTeacherStoreDetail() {
+  if (placingOrderForTeacher) { placingOrderForTeacher = null; show('screen-teacher-dashboard'); }
+  else { show('screen-teacher-stores'); loadTeacherStoresList(); }
+}
+
+// قائمة "طلباتي (توصيل المكتبة)" — الطلبات اللي سواها الأستاذ بنفسه لزبائنه وتوصيلها على المكتبة
+// (الطلبات اللي توصيلها ذاتي تظهر أصلاً بقائمة "طلبات ملازمي" العادية). نفس واجهة تلك القائمة
+// بالضبط (تبويبات ملونة + إحصائية فترة)، لكن هذي بس للعرض (المكتبة هي اللي تتحكم بالحالة).
+let currentTeacherPlacedOrdersTab = 'new';
+function switchTeacherPlacedOrdersTab(tab) {
+  currentTeacherPlacedOrdersTab = tab;
+  const colors = { new:'#dc2626', processing:'#0e6fa8', delivering:'#16a34a', completed:'#6b21a8', cancelled:'#374151', problems:'#b91c1c' };
+  const ids = { new:'tchLibOrdersTabNew', processing:'tchLibOrdersTabProcessing', delivering:'tchLibOrdersTabDelivering', completed:'tchLibOrdersTabCompleted', cancelled:'tchLibOrdersTabCancelled', problems:'tchLibOrdersTabProblems' };
+  Object.entries(ids).forEach(([key, bid]) => {
+    const btn = document.getElementById(bid);
+    btn.style.background = colors[key];
+    btn.style.color = '#fff';
+    btn.style.opacity = (key === tab) ? '1' : '.55';
+    btn.style.outline = (key === tab) ? '3px solid #10203f' : 'none';
+  });
+  loadTeacherPlacedOrders();
+  loadTeacherPlacedOrdersPeriodStats();
+}
+document.getElementById('tchLibOrdersTabNew').onclick = () => switchTeacherPlacedOrdersTab('new');
+document.getElementById('tchLibOrdersTabProcessing').onclick = () => switchTeacherPlacedOrdersTab('processing');
+document.getElementById('tchLibOrdersTabDelivering').onclick = () => switchTeacherPlacedOrdersTab('delivering');
+document.getElementById('tchLibOrdersTabCompleted').onclick = () => switchTeacherPlacedOrdersTab('completed');
+document.getElementById('tchLibOrdersTabCancelled').onclick = () => switchTeacherPlacedOrdersTab('cancelled');
+document.getElementById('tchLibOrdersTabProblems').onclick = () => switchTeacherPlacedOrdersTab('problems');
+
+function openTeacherPlacedOrdersList() {
+  show('screen-teacher-placed-orders');
+  switchTeacherPlacedOrdersTab('new');
+}
+function renderTeacherPlacedOrderCard(id, o) {
+  const itemsText = o.items.map(it => `${it.title}: ${it.price} × ${it.qty} = ${it.price*it.qty} د.ع`).join('<br>');
+  const cardStyle = o.hasProblem ? 'background:#fee2e2;border:3px solid #b91c1c;' : '';
+  return `<div class="card" style="${cardStyle}">
+    <h3 style="margin:0;">${ORDER_STATUS_LABELS[o.status] || o.status}</h3>
+    ${o.hasProblem ? `<p style="background:#b91c1c;color:#fff;border-radius:8px;padding:8px 12px;font-weight:bold;margin:6px 0;">⚠️ في مشكلة: ${o.problemText||''}</p>` : ''}
+    <p style="margin:4px 0;"><b>👤 ${o.studentName}</b> — 📞 ${o.phone}</p>
+    <p style="margin:4px 0;color:#8a90a3;">${o.province||''} ${o.district? '- '+o.district : ''}</p>
+    <p style="margin:4px 0;">${itemsText}</p>
+    <p style="margin:4px 0;color:#8a90a3;">🚚 التوصيل: ${o.deliveryFee||0} د.ع</p>
+    <p style="margin:4px 0;font-weight:bold;color:#b8903c;">💵 الإجمالي: ${o.totalPrice||0} د.ع</p>
+    ${(o.status==='pending'||o.status==='processing'||o.status==='delivering') ? `<p style="font-weight:bold;color:#0e6fa8;margin:4px 0;">📅 موعد التوصيل المتوقع: ${formatArabicDayDate(getEstimatedDeliveryDate(o))}</p>` : ''}
+    <button class="small-btn" style="margin-top:6px;" onclick="openChat('order_${id}','💬 طلب ${o.studentName}')">💬 مراسلة المكتبة بخصوص هذا الطلب</button>
+  </div>`;
+}
+async function loadTeacherPlacedOrders() {
+  const list = document.getElementById('teacherPlacedOrdersList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('orders').where('placedByTeacherName','==', currentTeacher.name).where('fulfillment','==','library').get();
+    const rows = snap.docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }));
+    const counts = {
+      new: rows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed' && !o.hasProblem).length,
+      processing: rows.filter(({o}) => !!o.processingAt && o.status === 'processing' && !o.hasProblem).length,
+      delivering: rows.filter(({o}) => o.status === 'delivering' && !o.hasProblem).length,
+      completed: rows.filter(({o}) => o.status === 'completed' && !o.hasProblem).length,
+      cancelled: rows.filter(({o}) => o.status === 'cancelled' && !o.hasProblem).length,
+      problems: rows.filter(({o}) => !!o.hasProblem).length,
+    };
+    Object.entries(counts).forEach(([key, n]) => {
+      const el = document.getElementById(`tchLibOrdersTab${key.charAt(0).toUpperCase()}${key.slice(1)}Count`);
+      if (el) el.textContent = n > 0 ? `(${n})` : '';
+    });
+    let filtered;
+    if (currentTeacherPlacedOrdersTab === 'problems') filtered = rows.filter(({o}) => !!o.hasProblem);
+    else if (currentTeacherPlacedOrdersTab === 'new') filtered = rows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed' && !o.hasProblem);
+    else if (currentTeacherPlacedOrdersTab === 'processing') filtered = rows.filter(({o}) => !!o.processingAt && o.status === 'processing' && !o.hasProblem);
+    else if (currentTeacherPlacedOrdersTab === 'delivering') filtered = rows.filter(({o}) => o.status === 'delivering' && !o.hasProblem);
+    else if (currentTeacherPlacedOrdersTab === 'completed') filtered = rows.filter(({o}) => o.status === 'completed' && !o.hasProblem);
+    else filtered = rows.filter(({o}) => o.status === 'cancelled' && !o.hasProblem);
+    filtered.sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
+    if (filtered.length === 0) { list.innerHTML = '<div class="card"><p>لا توجد طلبات بهذا التصنيف.</p></div>'; return; }
+    list.innerHTML = filtered.map(({id,o}) => renderTeacherPlacedOrderCard(id, o)).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p>تعذّر التحميل.</p>'; }
+}
+async function loadTeacherPlacedOrdersPeriodStats() {
+  try {
+    const snap = await db.collection('orders').where('placedByTeacherName','==', currentTeacher.name).where('fulfillment','==','library').get();
+    const rows = snap.docs.map(d => ({ createdAt: d.data().createdAt||0 }));
+    ['day','week','month','year'].forEach(period => {
+      const cutoff = getPeriodStart(period);
+      const count = rows.filter(r => r.createdAt >= cutoff).length;
+      const el = document.getElementById(`tchLibOrdersPeriod${period.charAt(0).toUpperCase()}${period.slice(1)}Count`);
+      if (el) el.textContent = count;
+    });
+  } catch(e) { console.error(e); }
+}
+async function loadTeacherPlacedOrdersByPeriod(period) {
+  ['tchLibOrdersPeriodDay','tchLibOrdersPeriodWeek','tchLibOrdersPeriodMonth','tchLibOrdersPeriodYear'].forEach(bid => {
+    document.getElementById(bid).style.outline = 'none';
+  });
+  document.getElementById({ day:'tchLibOrdersPeriodDay', week:'tchLibOrdersPeriodWeek', month:'tchLibOrdersPeriodMonth', year:'tchLibOrdersPeriodYear' }[period]).style.outline = '3px solid #10203f';
+  const list = document.getElementById('teacherPlacedOrdersPeriodList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const snap = await db.collection('orders').where('placedByTeacherName','==', currentTeacher.name).where('fulfillment','==','library').get();
+    const cutoff = getPeriodStart(period);
+    const rows = snap.docs
+      .map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
+      .filter(({o}) => (o.createdAt||0) >= cutoff);
+    rows.sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
+    if (rows.length === 0) { list.innerHTML = `<div class="card"><p>لا توجد طلبات خلال ${PERIOD_LABELS[period]}.</p></div>`; return; }
+    list.innerHTML = `<p style="font-weight:bold;color:#10203f;margin-bottom:8px;">📊 ${rows.length} طلب خلال ${PERIOD_LABELS[period]}</p>` +
+      rows.map(({id,o}) => renderTeacherPlacedOrderCard(id, o)).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
+}
+
+async function openTeacherRemainingStock() {
+  show('screen-teacher-stock');
+  const list = document.getElementById('teacherStockList');
+  list.innerHTML = '<p>جاري التحميل...</p>';
+  try {
+    const safeId = currentTeacher.name.replace(/[^\u0600-\u06FFa-zA-Z0-9]/g, '_');
+    const doc = await db.collection('teacherBookletStock').doc(safeId).get();
+    const items = doc.exists ? (doc.data().items || []) : [];
+    if (items.length === 0) { list.innerHTML = '<div class="card"><p>ما فيه أرقام مخزون مسجّلة لك بعد.</p></div>'; return; }
+    list.innerHTML = items.map(it => `<div class="lesson-row">
+      <div class="title">${it.name}</div>
+      <div style="font-weight:bold;color:${it.qty > 0 ? '#16a34a' : '#dc2626'};">${it.qty} نسخة</div>
+    </div>`).join('');
+  } catch(e) { console.error(e); list.innerHTML = '<p>تعذّر التحميل.</p>'; }
+}
+
 async function openTeacherStoreDetail(teacherName) {
   show('screen-teacher-store-detail');
   const teacherSnap = await db.collection('teachers').where('name','==', teacherName).limit(1).get();
@@ -8837,11 +9089,14 @@ async function openTeacherBooksLibrary() {
   const bookStats = {}; // bookId -> {week, month, year, buyers:[]}
   bookIds.forEach(id => bookStats[id] = { week:0, month:0, year:0, buyers:[] });
 
-  // بيانات المحفظة: نموذج المكتبة توصّل (teacherPayouts) ونموذج التوصيل الذاتي (platformOwedToLibrary)
-  let libGross = 0, libTeacherShare = 0, libCount = 0;
-  const libPendingOrders = [], libSettledOrders = [];
-  let selfGross = 0, selfLibraryShare = 0, selfCount = 0;
-  const selfPendingOrders = [], selfSettledOrders = [];
+  // المحفظة: ملخص مبسّط حسب حالة الطلب بس — 4 أسطر فقط (تم التسليم / قيد التنفيذ / قيد التوصيل / ملغاة)
+  // والمبلغ المستحق الفعلي = مجموع حصتك من الطلبات اللي "تم تسليمها" حصراً
+  const statusAgg = {
+    completed: { count: 0, amount: 0 },
+    processing: { count: 0, amount: 0 },
+    delivering: { count: 0, amount: 0 },
+    cancelled: { count: 0, amount: 0 },
+  };
 
   allOrders.docs.forEach(d => {
     const o = d.data();
@@ -8856,54 +9111,35 @@ async function openTeacherBooksLibrary() {
       }
     });
 
-    if (o.status === 'cancelled') return;
-
+    // حصتك من هذا الطلب تحديداً (إن كان له علاقة فيك أصلاً)، بغض النظر عن حالته
+    let share = null;
     if (o.fulfillment === 'teacher' && o.fulfillmentTeacherName === currentTeacher.name && o.platformOwedToLibrary != null) {
-      const gross = o.subtotal || 0;
-      const row = { id: d.id, o };
-      if (o.platformOwedSettled) { selfSettledOrders.push(row); }
-      else {
-        selfGross += gross; selfLibraryShare += (o.platformOwedToLibrary || 0); selfCount++;
-        selfPendingOrders.push(row);
-      }
-    } else if (o.status === 'completed' && o.teacherPayouts && o.teacherPayouts[currentTeacher.name] != null) {
-      const teacherCut = o.teacherPayouts[currentTeacher.name];
-      const myItemsGross = (o.items||[]).filter(it => it.bookId && bookStats[it.bookId]).reduce((s,it) => s + it.price*it.qty, 0);
-      const row = { id: d.id, o };
-      if (o.teacherPayoutsSettled && o.teacherPayoutsSettled[currentTeacher.name]) { libSettledOrders.push(row); }
-      else {
-        libGross += myItemsGross; libTeacherShare += teacherCut; libCount++;
-        libPendingOrders.push(row);
-      }
+      share = (o.subtotal || 0) - (o.platformOwedToLibrary || 0); // أنت قبضت المبلغ كامل من الزبون وتخصم منه حصة المكتبة
+    } else if (o.teacherPayouts && o.teacherPayouts[currentTeacher.name] != null) {
+      share = o.teacherPayouts[currentTeacher.name]; // المكتبة قبضت المبلغ وتدفعلك حصتك
     }
+    if (share == null) return;
+
+    const status = computeEffectiveStatus(o);
+    if (statusAgg[status]) { statusAgg[status].count++; statusAgg[status].amount += share; }
   });
 
-  const sections = [];
-  const weeklyNote = '<p style="margin:6px 0 0;font-size:12px;color:#8a90a3;">💡 التحاسب مع الإدارة يصير أسبوعياً.</p>';
-  if (libCount > 0 || libSettledOrders.length > 0) {
-    sections.push(`<div class="card" style="border-inline-start:4px solid #0e6fa8;">
-      <h3 style="margin:0 0 8px;">📚 ملازم توصّلها المكتبة</h3>
-      <p style="margin:0;">المبلغ الكلي (بدون توصيل): <b>${libGross}</b> د.ع</p>
-      <p style="margin:4px 0;">حصتك: <b style="color:#15803d;">${libTeacherShare}</b> د.ع — حصة المكتبة: <b style="color:#8a90a3;">${libGross - libTeacherShare}</b> د.ع</p>
-      <button class="small-btn" onclick="showTeacherWalletDrilldown('libPending')" style="margin-top:6px;">📋 ${libCount} طلب قبل التحاسب — عرض التفاصيل</button>
-      ${libSettledOrders.length ? `<button class="small-btn" onclick="showTeacherWalletDrilldown('libSettled')" style="margin-top:6px;background:#ecfdf3;">✅ تم التحاسب على ${libSettledOrders.length} طلب — عرض السجل</button>` : ''}
-      ${weeklyNote}
-    </div>`);
-  }
-  if (selfCount > 0 || selfSettledOrders.length > 0) {
-    sections.push(`<div class="card" style="border-inline-start:4px solid #cda44e;">
-      <h3 style="margin:0 0 8px;">🚚 ملازم توصّلها بنفسك</h3>
-      <p style="margin:0;">المبلغ الكلي (بدون توصيل): <b>${selfGross}</b> د.ع</p>
-      <p style="margin:4px 0;">حصتك: <b style="color:#15803d;">${selfGross - selfLibraryShare}</b> د.ع — حصة المكتبة: <b style="color:#b8903c;">${selfLibraryShare}</b> د.ع</p>
-      <button class="small-btn" onclick="showTeacherWalletDrilldown('selfPending')" style="margin-top:6px;">📋 ${selfCount} طلب قبل التحاسب — عرض التفاصيل</button>
-      ${selfSettledOrders.length ? `<button class="small-btn" onclick="showTeacherWalletDrilldown('selfSettled')" style="margin-top:6px;background:#ecfdf3;">✅ تم التحاسب على ${selfSettledOrders.length} طلب — عرض السجل</button>` : ''}
-      ${weeklyNote}
-    </div>`);
-  }
-  summaryEl.innerHTML = sections.join('') || '<div class="card"><p>ما فيه مبيعات بعد.</p></div>';
-  document.getElementById('teacherSettlementHistory').innerHTML = renderSettlementHistoryHtml(settlementsSnap.docs.map(d => d.data()));
+  // مجموع المبالغ اللي سبق وتحاسب عليها الأستاذ مع المكتبة + تاريخ آخر تحاسب
+  const settlements = settlementsSnap.docs.map(d => d.data());
+  const settledTotal = settlements.reduce((s, x) => s + (x.amount || 0), 0);
+  const lastSettlement = settlements.sort((a,b) => (b.settledAt||0) - (a.settledAt||0))[0];
+  const settledLineHtml = settlements.length > 0
+    ? `<p style="margin:6px 0;font-size:13px;color:#8a90a3;">💵 المبلغ اللي تم التحاسب عليه: <b style="color:#0e6fa8;">${settledTotal.toLocaleString()}</b> د.ع — بتاريخ: ${new Date(lastSettlement.settledAt).toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' })}</p>`
+    : `<p style="margin:6px 0;font-size:13px;color:#8a90a3;">💵 ما تم أي تحاسب بعد.</p>`;
 
-  window.__teacherWalletData = { libPendingOrders, libSettledOrders, selfPendingOrders, selfSettledOrders };
+  summaryEl.innerHTML = `<div class="card">
+    <h3 style="margin:0 0 10px;">💰 ملخص حسابك</h3>
+    <p style="margin:6px 0;">✅ تم التسليم: <b>${statusAgg.completed.count}</b> طلب — المستحق لك: <b style="color:#15803d;">${statusAgg.completed.amount.toLocaleString()}</b> د.ع</p>
+    ${settledLineHtml}
+    <p style="margin:6px 0;">⚙️ قيد التنفيذ: <b>${statusAgg.processing.count}</b> طلب — <b>${statusAgg.processing.amount.toLocaleString()}</b> د.ع</p>
+    <p style="margin:6px 0;">🚚 قيد التوصيل: <b>${statusAgg.delivering.count}</b> طلب — <b>${statusAgg.delivering.amount.toLocaleString()}</b> د.ع</p>
+    <p style="margin:6px 0;">🚫 ملغاة: <b>${statusAgg.cancelled.count}</b> طلب — <b>${statusAgg.cancelled.amount.toLocaleString()}</b> د.ع</p>
+  </div>`;
 
   booksList.innerHTML = booksSnap.docs.map(d => {
     const b = d.data();
