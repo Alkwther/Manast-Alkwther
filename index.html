@@ -7237,8 +7237,6 @@ async function loadAdminTeacherStores() {
         <button class="small-btn" style="margin-top:6px;" onclick="teacherOrdersContextName='${t.name.replace(/'/g,"\\'")}'; show('screen-teacher-orders'); switchTeacherOrdersTab('new'); loadTeacherOrdersByPeriod('month');">📊 سجل طلبات هذا المتجر (اليوم/الأسبوع/الشهر/السنة)</button>
         <button class="small-btn" style="margin-top:6px;" onclick="toggleSettlementHistory('${t.id}','${t.name.replace(/'/g,"\\'")}')">📜 سجل التحاسب السابق</button>
         <div id="settlementHistory-${t.id}" class="hidden" style="margin-top:8px;"></div>
-        <button class="small-btn" style="margin-top:6px;" onclick="toggleTeacherStockPanel('${t.name.replace(/'/g,"\\'")}','${t.id}')">📦 مخزون الملازم المتبقية بالمكتبة</button>
-        <div id="stockPanel-${t.id}" class="hidden" style="margin-top:8px;background:#f6f7fb;border-radius:10px;padding:10px;"></div>
       </div>`;
     }).join('');
   } catch(e) { console.error(e); list.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
@@ -7260,59 +7258,6 @@ async function toggleTeacherStoreSettlement(teacherName) {
   });
   alert('تم تسجيل التحاسب ✅');
   loadAdminTeacherStores();
-}
-
-// ---------- مخزون الملازم المتبقية بالمكتبة (لكل أستاذ) ----------
-// مستند وحد لكل أستاذ بقاعدة البيانات (مو مستند لكل ملزمة) — فيه قائمة {name, qty} بسيطة،
-// الموظف/المشرف يعدّلها من هنا، والأستاذ يشوفها بس (قراءة فقط) من لوحته
-async function toggleTeacherStockPanel(teacherName, teacherDocId) {
-  const safeId = teacherName.replace(/[^\u0600-\u06FFa-zA-Z0-9]/g, '_');
-  const panel = document.getElementById(`stockPanel-${teacherDocId}`);
-  if (!panel.classList.contains('hidden')) { panel.classList.add('hidden'); return; }
-  panel.classList.remove('hidden');
-  panel.innerHTML = '<p>جاري التحميل...</p>';
-  try {
-    const doc = await db.collection('teacherBookletStock').doc(safeId).get();
-    const items = doc.exists ? (doc.data().items || []) : [];
-    renderTeacherStockPanel(panel, teacherName, safeId, items);
-  } catch(e) { console.error(e); panel.innerHTML = '<p style="color:#b91c1c;">تعذّر التحميل.</p>'; }
-}
-function renderTeacherStockPanel(panel, teacherName, safeId, items) {
-  panel.innerHTML = `
-    <div id="stockRows-${safeId}">
-      ${items.map((it,i) => `<div style="display:flex;gap:6px;margin-bottom:6px;">
-        <input class="stockItemName" data-idx="${i}" value="${(it.name||'').replace(/"/g,'&quot;')}" placeholder="اسم الملزمة" style="flex:2;">
-        <input class="stockItemQty" data-idx="${i}" type="number" value="${it.qty||0}" placeholder="العدد" style="flex:1;">
-        <button class="small-btn" onclick="this.closest('div').remove()" style="background:#fef2f2;color:#dc2626;">🗑️</button>
-      </div>`).join('')}
-    </div>
-    <button type="button" class="small-btn" onclick="addTeacherStockRow('${safeId}')">➕ إضافة ملزمة</button>
-    <button type="button" class="btn" style="margin-top:8px;" onclick="saveTeacherStockPanel('${teacherName.replace(/'/g,"\\'")}','${safeId}')">💾 حفظ المخزون</button>
-  `;
-}
-function addTeacherStockRow(safeId) {
-  const rows = document.getElementById(`stockRows-${safeId}`);
-  const row = document.createElement('div');
-  row.style = 'display:flex;gap:6px;margin-bottom:6px;';
-  row.innerHTML = `<input class="stockItemName" value="" placeholder="اسم الملزمة" style="flex:2;">
-    <input class="stockItemQty" type="number" value="0" placeholder="العدد" style="flex:1;">
-    <button class="small-btn" onclick="this.closest('div').remove()" style="background:#fef2f2;color:#dc2626;">🗑️</button>`;
-  rows.appendChild(row);
-}
-async function saveTeacherStockPanel(teacherName, safeId) {
-  const rows = document.getElementById(`stockRows-${safeId}`);
-  const names = rows.querySelectorAll('.stockItemName');
-  const qtys = rows.querySelectorAll('.stockItemQty');
-  const items = [];
-  names.forEach((input, i) => {
-    const name = input.value.trim();
-    const qty = +qtys[i].value || 0;
-    if (name) items.push({ name, qty });
-  });
-  try {
-    await db.collection('teacherBookletStock').doc(safeId).set({ teacherName, items, updatedAt: Date.now() });
-    alert('تم حفظ المخزون ✅');
-  } catch(e) { console.error(e); alert('صار خطأ أثناء الحفظ'); }
 }
 
 // رسالة جماعية لكل الزبائن (نص و/أو صورة) — تُرسل كرسالة بمحادثة كل زبون على حدة
@@ -8930,13 +8875,17 @@ async function openTeacherRemainingStock() {
   const list = document.getElementById('teacherStockList');
   list.innerHTML = '<p>جاري التحميل...</p>';
   try {
-    const safeId = currentTeacher.name.replace(/[^\u0600-\u06FFa-zA-Z0-9]/g, '_');
-    const doc = await db.collection('teacherBookletStock').doc(safeId).get();
-    const items = doc.exists ? (doc.data().items || []) : [];
-    if (items.length === 0) { list.innerHTML = '<div class="card"><p>ما فيه أرقام مخزون مسجّلة لك بعد.</p></div>'; return; }
+    // نفس حقل "stock" اللي يحدّثه الموظف/المشرف من تطبيق الإدارة مباشرة على مستند الملزمة
+    // بقسم "📦 عدد الملازم المتوفرة" — ننقص/نزيد منه تلقائياً عند الشراء/الإلغاء بنفس قاعدة البيانات
+    const snap = await db.collection('books').where('teacherName','==', currentTeacher.name).get();
+    const items = snap.docs
+      .map(d => ({ title: d.data().title, stock: d.data().stock }))
+      .filter(b => b.stock != null); // الملازم بدون تتبّع مخزون (stock فاضي) ما تظهر هنا أصلاً
+    if (items.length === 0) { list.innerHTML = '<div class="card"><p>ما فيه أرقام مخزون مسجّلة لك بعد — الموظف أو المشرف لازم يحدّد عدد النسخ المتوفرة من كل ملزمة أول.</p></div>'; return; }
+    items.sort((a,b) => (a.title||'').localeCompare(b.title||'', 'ar'));
     list.innerHTML = items.map(it => `<div class="lesson-row">
-      <div class="title">${it.name}</div>
-      <div style="font-weight:bold;color:${it.qty > 0 ? '#16a34a' : '#dc2626'};">${it.qty} نسخة</div>
+      <div class="title">${it.title}</div>
+      <div style="font-weight:bold;color:${it.stock > 0 ? '#16a34a' : '#dc2626'};">${it.stock} نسخة</div>
     </div>`).join('');
   } catch(e) { console.error(e); list.innerHTML = '<p>تعذّر التحميل.</p>'; }
 }
