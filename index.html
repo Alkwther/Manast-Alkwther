@@ -2772,7 +2772,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     <button class="btn secondary" onclick="show('screen-teacher-dashboard')">← رجوع</button>
     <div class="card">
       <h3>📦 طلباتي (توصيل المكتبة)</h3>
-      <p>هذي الطلبات اللي سويتها بنفسك لزبائنك وتوصيلها على المكتبة — أي تحديث تسويه المكتبة على حالة الطلب يظهر لك هنا مباشرة. طلبات توصيلك الذاتي تلقاها بقائمة "طلبات ملازمي" العادية.</p>
+      <p>كل طلبات متجرك اللي توصيلها على المكتبة — سواء دخلها الزبون بنفسه من متجرك، أو سويتها أنت له عبر "إضافة طلب جديد". أي تحديث تسويه المكتبة على حالة الطلب يظهر لك هنا مباشرة حسب حالته. طلبات توصيلك الذاتي تلقاها بقائمة "طلبات ملازمي" العادية.</p>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
       <button class="small-btn" id="tchLibOrdersTabNew" style="flex:1;min-width:100px;">📦 قيد التحضير <span id="tchLibOrdersTabNewCount"></span></button>
@@ -3931,7 +3931,7 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
   btn.disabled = true;
   btn.style.opacity = '0.6';
   btn.textContent = '⏳ جاري الإرسال...';
-  const items = ids.map(id => ({ bookId: id, title: cart[id].title, price: cart[id].price, qty: cart[id].qty, stage: cart[id].stage || null, grade: cart[id].grade || null }));
+  const items = ids.map(id => ({ bookId: id, title: cart[id].title, price: cart[id].price, qty: cart[id].qty, stage: cart[id].stage || null, grade: cart[id].grade || null, teacherName: cart[id].teacherName || null }));
   const subtotal = items.reduce((s,it)=>s+it.price*it.qty,0);
   const deliveryFee = isAllTeacherSelf ? (firstMeta.teacherDeliveryFee || 0) : calcCartDeliveryFee();
   const totalPrice = subtotal + deliveryFee;
@@ -8857,12 +8857,22 @@ function renderTeacherPlacedOrderCard(id, o) {
     <button class="small-btn" style="margin-top:6px;" onclick="openChat('order_${id}','💬 طلب ${o.studentName}')">💬 مراسلة المكتبة بخصوص هذا الطلب</button>
   </div>`;
 }
+// يرجّع كل طلبات متجر الأستاذ اللي توصيلها على المكتبة — سواء دخلها الزبون بنفسه من متجر
+// الأستاذ، أو سواها الأستاذ بنفسه لزبونه عبر "إضافة طلب جديد". نفحص داخل عناصر كل طلب
+// (items) هل فيها مادة تخص هذا الأستاذ، بدل ما نعتمد بس على علامة "سواه الأستاذ بنفسه"
+async function fetchTeacherStoreLibraryOrders() {
+  // نجيب أحدث 500 طلب على مستوى المنصة كلها (بدون شرط where عشان نتجنب الحاجة لفهرس مركّب
+  // بفايرستور) ونصفّي محلياً — نفس الأسلوب المستخدم بشاشة المحفظة
+  const snap = await db.collection('orders').orderBy('createdAt','desc').limit(500).get();
+  return snap.docs
+    .map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
+    .filter(({o}) => o.fulfillment === 'library' && (o.items||[]).some(it => it.teacherName === currentTeacher.name));
+}
 async function loadTeacherPlacedOrders() {
   const list = document.getElementById('teacherPlacedOrdersList');
   list.innerHTML = '<p>جاري التحميل...</p>';
   try {
-    const snap = await db.collection('orders').where('placedByTeacherName','==', currentTeacher.name).where('fulfillment','==','library').get();
-    const rows = snap.docs.map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }));
+    const rows = await fetchTeacherStoreLibraryOrders();
     const counts = {
       new: rows.filter(({o}) => !o.processingAt && o.status !== 'cancelled' && o.status !== 'completed' && !o.hasProblem).length,
       processing: rows.filter(({o}) => !!o.processingAt && o.status === 'processing' && !o.hasProblem).length,
@@ -8889,8 +8899,7 @@ async function loadTeacherPlacedOrders() {
 }
 async function loadTeacherPlacedOrdersPeriodStats() {
   try {
-    const snap = await db.collection('orders').where('placedByTeacherName','==', currentTeacher.name).where('fulfillment','==','library').get();
-    const rows = snap.docs.map(d => ({ createdAt: d.data().createdAt||0 }));
+    const rows = (await fetchTeacherStoreLibraryOrders()).map(({o}) => ({ createdAt: o.createdAt||0 }));
     ['day','week','month','year'].forEach(period => {
       const cutoff = getPeriodStart(period);
       const count = rows.filter(r => r.createdAt >= cutoff).length;
@@ -8907,11 +8916,8 @@ async function loadTeacherPlacedOrdersByPeriod(period) {
   const list = document.getElementById('teacherPlacedOrdersPeriodList');
   list.innerHTML = '<p>جاري التحميل...</p>';
   try {
-    const snap = await db.collection('orders').where('placedByTeacherName','==', currentTeacher.name).where('fulfillment','==','library').get();
     const cutoff = getPeriodStart(period);
-    const rows = snap.docs
-      .map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
-      .filter(({o}) => (o.createdAt||0) >= cutoff);
+    const rows = (await fetchTeacherStoreLibraryOrders()).filter(({o}) => (o.createdAt||0) >= cutoff);
     rows.sort((a,b) => (b.o.createdAt||0) - (a.o.createdAt||0));
     if (rows.length === 0) { list.innerHTML = `<div class="card"><p>لا توجد طلبات خلال ${PERIOD_LABELS[period]}.</p></div>`; return; }
     list.innerHTML = `<p style="font-weight:bold;color:#10203f;margin-bottom:8px;">📊 ${rows.length} طلب خلال ${PERIOD_LABELS[period]}</p>` +
