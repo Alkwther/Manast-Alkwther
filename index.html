@@ -1743,12 +1743,6 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <button class="btn secondary" id="manualMsgCleanupBtn">🧹 نظّف الآن</button>
           <p id="manualMsgCleanupResult" style="color:#10203f;font-size:13px;margin-top:8px;"></p>
         </div>
-        <div class="card">
-          <h3 style="margin:0;">🔧 تصحيح طلبات متاجر الأساتذة القديمة</h3>
-          <p style="color:#8a90a3;font-size:13px;margin:8px 0;">طلبات قديمة (قبل آخر تحديث) من متاجر الأساتذة ناقصها بيانات داخلية، فما تظهر للأستاذ بقائمة "طلباتي (توصيل المكتبة)". اضغط هذا الزر مرة وحدة بس حتى يصحّحها.</p>
-          <button class="btn secondary" id="manualBackfillOrderTeacherBtn">🔧 تصحيح الآن</button>
-          <p id="manualBackfillOrderTeacherResult" style="color:#10203f;font-size:13px;margin-top:8px;"></p>
-        </div>
         <div id="notificationCenterList"></div>
       </div>
 
@@ -5149,51 +5143,6 @@ document.getElementById('manualMsgCleanupBtn').onclick = async () => {
   const count = await autoCleanupOldMessages(true);
   btn.disabled = false;
   resultEl.textContent = count === null ? '⚠️ صار خطأ أثناء التنظيف' : `✅ تم حذف ${count} رسالة قديمة`;
-};
-
-// تصحيح لمرة وحدة: طلبات قديمة من متاجر الأساتذة (قبل ما أضفنا حقل teacherName على كل قطعة
-// بداخل الطلب) ما تظهر للأستاذ بقائمة "طلباتي (توصيل المكتبة)" رغم إنها فعلاً من متجره.
-// نفحص كل طلب توصيله "مكتبة"، ولو فيه قطعة من كتاب معروف تابع لأستاذ (عنده storeItem) وناقصها
-// اسم الأستاذ، نكمّلها من مستند الكتاب نفسه.
-document.getElementById('manualBackfillOrderTeacherBtn').onclick = async () => {
-  const btn = document.getElementById('manualBackfillOrderTeacherBtn');
-  const resultEl = document.getElementById('manualBackfillOrderTeacherResult');
-  btn.disabled = true; resultEl.textContent = '⏳ جاري الفحص والتصحيح...';
-  try {
-    const [ordersSnap, booksSnap] = await Promise.all([
-      db.collection('orders').where('fulfillment','==','library').get(),
-      db.collection('books').get()
-    ]);
-    const teacherNameByBookId = {};
-    booksSnap.docs.forEach(d => { const b = d.data(); if (b.teacherName) teacherNameByBookId[d.id] = b.teacherName; });
-
-    let fixedCount = 0;
-    const writes = [];
-    ordersSnap.docs.forEach(d => {
-      const o = d.data();
-      let changed = false;
-      const newItems = (o.items||[]).map(it => {
-        if (!it.teacherName && it.bookId && teacherNameByBookId[it.bookId]) {
-          changed = true;
-          return { ...it, teacherName: teacherNameByBookId[it.bookId] };
-        }
-        return it;
-      });
-      if (changed) { writes.push({ ref: d.ref, items: newItems }); fixedCount++; }
-    });
-
-    for (let i = 0; i < writes.length; i += 450) {
-      const batch = db.batch();
-      writes.slice(i, i + 450).forEach(w => batch.update(w.ref, { items: w.items }));
-      await batch.commit();
-    }
-    btn.disabled = false;
-    resultEl.textContent = `✅ تم تصحيح ${fixedCount} طلب قديم`;
-  } catch(e) {
-    console.error(e);
-    btn.disabled = false;
-    resultEl.textContent = '⚠️ صار خطأ أثناء التصحيح';
-  }
 };
 
 // تنظيف التكرار الحالي (لو صار تكرار بسبب استدعاء الزرع أكثر من مرة بنفس اللحظة)
@@ -8860,8 +8809,33 @@ async function fetchTeacherStoreLibraryOrders() {
   // نجيب أحدث 500 طلب على مستوى المنصة كلها (بدون شرط where عشان نتجنب الحاجة لفهرس مركّب
   // بفايرستور) ونصفّي محلياً — نفس الأسلوب المستخدم بشاشة المحفظة
   const snap = await db.collection('orders').orderBy('createdAt','desc').limit(500).get();
-  return snap.docs
-    .map(d => ({ id: d.id, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }))
+  const rows = snap.docs.map(d => ({ id: d.id, ref: d.ref, o: { ...d.data(), status: computeEffectiveStatus(d.data()) } }));
+
+  // تصحيح صامت وتلقائي بالكامل: أي طلب قديم (من قبل هذا التحديث) ناقصه اسم الأستاذ بإحدى
+  // قطعه رغم إنها فعلاً من كتبه، نكمّل المعلومة الناقصة تلقائياً أول ما يفتح الأستاذ هالشاشة —
+  // بدون أي زر أو تدخل من أي أحد (مو الأستاذ ولا المشرف)
+  try {
+    const myBooksSnap = await db.collection('books').where('teacherName','==', currentTeacher.name).get();
+    const myBookIds = new Set(myBooksSnap.docs.map(d => d.id));
+    const fixes = [];
+    rows.forEach(row => {
+      if (row.o.fulfillment !== 'library') return;
+      let changed = false;
+      const newItems = (row.o.items||[]).map(it => {
+        if (!it.teacherName && it.bookId && myBookIds.has(it.bookId)) { changed = true; return { ...it, teacherName: currentTeacher.name }; }
+        return it;
+      });
+      if (changed) { row.o.items = newItems; fixes.push({ ref: row.ref, items: newItems }); }
+    });
+    for (let i = 0; i < fixes.length; i += 450) {
+      const batch = db.batch();
+      fixes.slice(i, i + 450).forEach(f => batch.update(f.ref, { items: f.items }));
+      await batch.commit();
+    }
+  } catch(e) { console.error('silent order backfill failed', e); }
+
+  return rows
+    .map(({id,o}) => ({id,o}))
     .filter(({o}) => o.fulfillment === 'library' && (o.items||[]).some(it => it.teacherName === currentTeacher.name));
 }
 async function loadTeacherPlacedOrders() {
