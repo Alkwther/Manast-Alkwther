@@ -12347,6 +12347,7 @@ async function tbLoadData() {
         } catch(e) { console.error('seed textbook defaults failed', e); }
       })();
     }
+    return true; // وصلت الأسعار الحقيقية فعلاً من الخادم
   } catch(e) {
     // ما فيه نت أبداً ولا حتى نسخة محفوظة بالجهاز (أول زيارة بدون اتصال): نعرض منهج افتراضي ثابت بالكود
     // نفسه بدون ما ننتظر أي سيرفر، والزبون يقدر يتصفح ويطلب عادي — وبمجرد رجوع النت يوصل طلبه تلقائياً
@@ -12354,8 +12355,9 @@ async function tbLoadData() {
     buildDefaultTbGrades();
     if (container && !container.dataset.retryWired) {
       container.dataset.retryWired = '1';
-      setInterval(() => { tbLoadData().then(tbRenderStageBlocks); }, 20000); // نحاول نجيب النسخة الحقيقية بالخلفية كل شوي بصمت لو رجع النت
+      setInterval(() => { tbLoadData().then(ok => { if (ok) tbRealPricesLoaded = true; tbRenderStageBlocks(); }); }, 20000); // نحاول نجيب النسخة الحقيقية بالخلفية كل شوي بصمت لو رجع النت
     }
+    return false; // هذي أسعار افتراضية احتياطية، مو مؤكدة من الخادم
   }
 }
 
@@ -12483,14 +12485,18 @@ function calcBookPrice(count) {
   return count * TB_PRICING.tier2Price;
 }
 
-function addPackageToCart() {
+async function addPackageToCart() {
+  // نتأكد وصل السعر الحقيقي من الخادم أول (نادراً ما يحس فيه الزبون)، حتى ما ينحجز بسعر قديم
+  await ensureTbRealPricesLoaded();
   const g = TB_GRADES[currentGrade];
   const key = 'pkg_' + currentGrade;
   addToCart(key, `📦 بكج كامل — ${g.name}`, g.pkg, pkgQty);
   alert('تمت إضافة البكج للسلة ✅');
 }
 
-function addIndividualBooksToCart() {
+async function addIndividualBooksToCart() {
+  // نتأكد وصل السعر الحقيقي من الخادم أول (نادراً ما يحس فيه الزبون)، حتى ما ينحجز بسعر قديم
+  await ensureTbRealPricesLoaded();
   const g = TB_GRADES[currentGrade];
   const selected = Object.entries(bookQuantities).filter(([,qty]) => qty > 0);
   if (selected.length === 0) { alert('اختر كتاباً واحداً على الأقل وحدد الكمية'); return; }
@@ -12754,15 +12760,25 @@ function sendWhatsApp() {
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank');
 }
 
+let tbRealPricesLoaded = false; // true بس بعد ما توصل الأسعار الحقيقية من الخادم فعلاً (مو الافتراضية)
+let tbLoadPromise = null; // الطلب الجاري حالياً لجلب الأسعار الحقيقية — نستخدمه لو احتجنا ننتظره قبل الحجز
 async function openTextbooksScreen() {
   show('screen-textbooks');
   // نعرض فوراً بدون أي انتظار شبكة: إذا عندنا بيانات محمّلة من قبل (حتى لو قديمة شوي) نعرضها مباشرة،
-  // وإلا نبني منهج افتراضي جاهز بالكود فوراً — الزبون يشوف الصفوف ويقدر يحجز من أول لحظة
+  // وإلا نبني منهج افتراضي جاهز بالكود فوراً — الزبون يشوف الصفوف ويقدر يتصفح من أول لحظة.
+  // بس قبل أي "إضافة للسلة" فعلية، نتأكد وصلت الأسعار الحقيقية أول (انظر addPackageToCart/addIndividualBooksToCart)
+  // حتى ما ينحجز بسعر قديم لو كان الزبون سريع جداً.
   if (Object.keys(TB_GRADES).length === 0) buildDefaultTbGrades();
   tbRenderStageBlocks();
   updateCartBar();
   // وبالخلفية، نجيب أحدث نسخة حقيقية من الخادم ونحدّث العرض بصمت إذا تغيّر شي (أسعار، صفوف جديدة...)
-  tbLoadData().then(() => { tbRenderStageBlocks(); updateCartBar(); });
+  tbLoadPromise = tbLoadData().then(ok => { if (ok) tbRealPricesLoaded = true; tbRenderStageBlocks(); updateCartBar(); });
+}
+// ينتظر وصول الأسعار الحقيقية من الخادم لو كانت لسا ما وصلت (نادراً ما يحس فيه الزبون — أقل من ثانية
+// بالعادة)، عشان نضمن أي حجز يصير بالسعر الصحيح دائماً، حتى لو الزبون كان سريع جداً بالضغط
+async function ensureTbRealPricesLoaded() {
+  if (tbRealPricesLoaded) return;
+  if (tbLoadPromise) { try { await tbLoadPromise; } catch(e) {} }
 }
 
 // تعريض الدوال اللي تُستدعى من onclick="" بالـHTML للنطاق العام (window)،
