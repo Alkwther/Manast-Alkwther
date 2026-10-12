@@ -3892,50 +3892,53 @@ function showOrderConfirmationScreen(order, placedByTeacherName) {
 
 document.getElementById('confirmOrderBtn').onclick = async () => {
   if (isSubmittingOrder) return; // منع تكرار الطلب لو ضغط الزبون على الزر أكثر من مرة بسرعة
-  const name = document.getElementById('ckName').value.trim();
-  const province = document.getElementById('ckProvince').value;
-  const district = document.getElementById('ckDistrict').value.trim();
-  const landmark = document.getElementById('ckLandmark').value.trim();
-  const phone = toEnglishDigits(document.getElementById('ckPhone').value.trim());
-  const altPhone = toEnglishDigits(document.getElementById('ckAltPhone').value.trim());
-  if (!name || !province || !district || !phone) { setMsg('checkoutMsg','الرجاء تعبئة الاسم والمحافظة والقضاء/الناحية ورقم الهاتف', false); return; }
-  if (!/^\d{11}$/.test(phone)) { setMsg('checkoutMsg','رقم الهاتف يجب أن يتكون من 11 رقم بالضبط — تأكد من الرقم وحاول مرة ثانية', false); return; }
-  if (altPhone && !/^\d{11}$/.test(altPhone)) { setMsg('checkoutMsg','الرقم البديل يجب أن يتكون من 11 رقم بالضبط، أو اتركه فاضي', false); return; }
-  const ids = Object.keys(cart);
-  if (ids.length === 0) { setMsg('checkoutMsg','سلتك فارغة', false); return; }
-
-  // تحديد نوع تنفيذ الطلب: هل كل عناصر السلة ملازم يوصّلها نفس الأستاذ بنفسه؟
-  const cartMetas = ids.map(id => cart[id]);
-  const firstMeta = cartMetas[0];
-  const isAllTeacherSelf = firstMeta && firstMeta.teacherName && firstMeta.deliveryMode === 'teacher'
-    && cartMetas.every(m => m && m.teacherName === firstMeta.teacherName && m.deliveryMode === 'teacher');
-  const fulfillment = isAllTeacherSelf ? 'teacher' : 'library';
-  const fulfillmentTeacherName = isAllTeacherSelf ? firstMeta.teacherName : null;
-
-  // تحقق: عندك طلب نشط عند أستاذ آخر يوصّل بنفسه؟ ما تقدر تسوي طلب جديد بمصدر مختلف لين يخلص
-  try {
-    const activeCheckSnap = await db.collection('orders').where('phone','==', phone).where('fulfillment','==','teacher').get();
-    const activeTeacherOrder = activeCheckSnap.docs.map(d => d.data()).find(o => {
-      const st = computeEffectiveStatus(o);
-      return st !== 'completed' && st !== 'cancelled';
-    });
-    if (activeTeacherOrder && (!isAllTeacherSelf || activeTeacherOrder.fulfillmentTeacherName !== fulfillmentTeacherName)) {
-      setMsg('checkoutMsg', `عندك طلب جارٍ مع الأستاذ ${activeTeacherOrder.fulfillmentTeacherName} — أكمل الشراء منه أولاً، وبعد وصول طلبك تقدر تسوي طلب جديد من المكتبة.`, false);
-      return;
-    }
-  } catch(e) { console.error(e); }
-
+  // نقفل الزر فوراً هنا (قبل أي عملية غير متزامنة زي استعلامات فايرستور) — هذا يسد ثغرة كانت
+  // موجودة: ضغطة مزدوجة سريعة جداً كانت تمرّ الاثنتين قبل ما يوصل الكود لتعطيل الزر، فينحجز
+  // طلبين متطابقين بدل وحد. القفل الحين يصير بأول سطر ممكن، قبل حتى قراءة الحقول.
   isSubmittingOrder = true;
   const btn = document.getElementById('confirmOrderBtn');
   const originalBtnText = btn.textContent;
   btn.disabled = true;
   btn.style.opacity = '0.6';
   btn.textContent = '⏳ جاري الإرسال...';
-  const items = ids.map(id => ({ bookId: id, title: cart[id].title, price: cart[id].price, qty: cart[id].qty, stage: cart[id].stage || null, grade: cart[id].grade || null, teacherName: cart[id].teacherName || null }));
-  const subtotal = items.reduce((s,it)=>s+it.price*it.qty,0);
-  const deliveryFee = isAllTeacherSelf ? (firstMeta.teacherDeliveryFee || 0) : calcCartDeliveryFee();
-  const totalPrice = subtotal + deliveryFee;
   try {
+    const name = document.getElementById('ckName').value.trim();
+    const province = document.getElementById('ckProvince').value;
+    const district = document.getElementById('ckDistrict').value.trim();
+    const landmark = document.getElementById('ckLandmark').value.trim();
+    const phone = toEnglishDigits(document.getElementById('ckPhone').value.trim());
+    const altPhone = toEnglishDigits(document.getElementById('ckAltPhone').value.trim());
+    if (!name || !province || !district || !phone) { setMsg('checkoutMsg','الرجاء تعبئة الاسم والمحافظة والقضاء/الناحية ورقم الهاتف', false); return; }
+    if (!/^\d{11}$/.test(phone)) { setMsg('checkoutMsg','رقم الهاتف يجب أن يتكون من 11 رقم بالضبط — تأكد من الرقم وحاول مرة ثانية', false); return; }
+    if (altPhone && !/^\d{11}$/.test(altPhone)) { setMsg('checkoutMsg','الرقم البديل يجب أن يتكون من 11 رقم بالضبط، أو اتركه فاضي', false); return; }
+    const ids = Object.keys(cart);
+    if (ids.length === 0) { setMsg('checkoutMsg','سلتك فارغة', false); return; }
+
+    // تحديد نوع تنفيذ الطلب: هل كل عناصر السلة ملازم يوصّلها نفس الأستاذ بنفسه؟
+    const cartMetas = ids.map(id => cart[id]);
+    const firstMeta = cartMetas[0];
+    const isAllTeacherSelf = firstMeta && firstMeta.teacherName && firstMeta.deliveryMode === 'teacher'
+      && cartMetas.every(m => m && m.teacherName === firstMeta.teacherName && m.deliveryMode === 'teacher');
+    const fulfillment = isAllTeacherSelf ? 'teacher' : 'library';
+    const fulfillmentTeacherName = isAllTeacherSelf ? firstMeta.teacherName : null;
+
+    // تحقق: عندك طلب نشط عند أستاذ آخر يوصّل بنفسه؟ ما تقدر تسوي طلب جديد بمصدر مختلف لين يخلص
+    try {
+      const activeCheckSnap = await db.collection('orders').where('phone','==', phone).where('fulfillment','==','teacher').get();
+      const activeTeacherOrder = activeCheckSnap.docs.map(d => d.data()).find(o => {
+        const st = computeEffectiveStatus(o);
+        return st !== 'completed' && st !== 'cancelled';
+      });
+      if (activeTeacherOrder && (!isAllTeacherSelf || activeTeacherOrder.fulfillmentTeacherName !== fulfillmentTeacherName)) {
+        setMsg('checkoutMsg', `عندك طلب جارٍ مع الأستاذ ${activeTeacherOrder.fulfillmentTeacherName} — أكمل الشراء منه أولاً، وبعد وصول طلبك تقدر تسوي طلب جديد من المكتبة.`, false);
+        return;
+      }
+    } catch(e) { console.error(e); }
+
+    const items = ids.map(id => ({ bookId: id, title: cart[id].title, price: cart[id].price, qty: cart[id].qty, stage: cart[id].stage || null, grade: cart[id].grade || null, teacherName: cart[id].teacherName || null }));
+    const subtotal = items.reduce((s,it)=>s+it.price*it.qty,0);
+    const deliveryFee = isAllTeacherSelf ? (firstMeta.teacherDeliveryFee || 0) : calcCartDeliveryFee();
+    const totalPrice = subtotal + deliveryFee;
     await ensureAuthed();
     if (editingOrderId) {
       // تعديل ذاتي من الزبون لطلبه خلال أول 15 دقيقة (بدل إنشاء طلب جديد)
@@ -6903,10 +6906,12 @@ async function openQuickOrderForm() {
   }
 
   // مهلة قصوى صارمة 6 ثواني — إذا ما خلص التحميل بهالوقت، نعرض القائمة الاحتياطية فوراً بدون أي انتظار إضافي
+  // (الأسعار الحقيقية تلحق بالخلفية وتصحّح نفسها تلقائياً قبل الإرسال عبر ensureTbRealPricesLoaded)
+  if (!tbLoadPromise) tbLoadPromise = tbLoadData().then(ok => { if (ok) tbRealPricesLoaded = true; return ok; });
   const hardTimeout = new Promise(resolve => setTimeout(() => resolve('timeout'), 6000));
   try {
     const result = await Promise.race([
-      tbLoadData().then(() => 'loaded').catch(() => 'failed'),
+      tbLoadPromise.then(ok => ok ? 'loaded' : 'failed').catch(() => 'failed'),
       hardTimeout
     ]);
     if (result !== 'loaded' || !TB_GRADES || Object.keys(TB_GRADES).length === 0) {
@@ -6971,17 +6976,29 @@ document.getElementById('qoAddItemBtn').onclick = () => {
   updateQoPricePreview();
 };
 
+let isSubmittingQuickOrder = false;
 document.getElementById('qoSubmitBtn').onclick = async () => {
-  const name = document.getElementById('qoName').value.trim();
-  const phone = toEnglishDigits(document.getElementById('qoPhone').value.trim());
-  const province = document.getElementById('qoProvince').value;
-  const district = document.getElementById('qoDistrict').value.trim();
-  const landmark = document.getElementById('qoLandmark').value.trim();
-  if (qoCart.length === 0) { setMsg('qoMsg','أضف صف واحد على الأقل للطلب قبل الإرسال', false); return; }
-  if (!name || !phone || !province || !district) { setMsg('qoMsg','الرجاء تعبئة كل الحقول (الاسم، الهاتف، المحافظة، القضاء)', false); return; }
-  if (!/^\d{11}$/.test(phone)) { setMsg('qoMsg','رقم الهاتف يجب أن يتكون من 11 رقم بالضبط — تأكد من الرقم وحاول مرة ثانية', false); return; }
+  if (isSubmittingQuickOrder) return; // منع تكرار الطلب لو ضغط الزبون على الزر أكثر من مرة بسرعة
+  isSubmittingQuickOrder = true; // نقفل فوراً قبل أي عملية غير متزامنة، حتى ضغطة مزدوجة سريعة ما تمرّ
+  const qoBtn = document.getElementById('qoSubmitBtn');
+  const qoBtnOriginalText = qoBtn.textContent;
+  qoBtn.disabled = true;
+  qoBtn.style.opacity = '0.6';
+  qoBtn.textContent = '⏳ جاري الإرسال...';
   try {
+    const name = document.getElementById('qoName').value.trim();
+    const phone = toEnglishDigits(document.getElementById('qoPhone').value.trim());
+    const province = document.getElementById('qoProvince').value;
+    const district = document.getElementById('qoDistrict').value.trim();
+    const landmark = document.getElementById('qoLandmark').value.trim();
+    if (qoCart.length === 0) { setMsg('qoMsg','أضف صف واحد على الأقل للطلب قبل الإرسال', false); return; }
+    if (!name || !phone || !province || !district) { setMsg('qoMsg','الرجاء تعبئة كل الحقول (الاسم، الهاتف، المحافظة، القضاء)', false); return; }
+    if (!/^\d{11}$/.test(phone)) { setMsg('qoMsg','رقم الهاتف يجب أن يتكون من 11 رقم بالضبط — تأكد من الرقم وحاول مرة ثانية', false); return; }
     await ensureAuthed();
+    // نتأكد وصلت الأسعار الحقيقية من الخادم، ونحدّث سعر كل عنصر بالسلة من أحدث بيانات متوفرة
+    // الآن (لو تغيّرت عن وقت الإضافة للسلة)، حتى ما ينحجز الطلب بسعر قديم
+    await ensureTbRealPricesLoaded();
+    qoCart.forEach(it => { if (TB_GRADES[it.gradeId]) it.pkg = TB_GRADES[it.gradeId].pkg; });
     const customerId = await getOrAssignCustomerId(phone);
     const items = qoCart.map(it => ({ bookId: null, title: `بكج ${it.name} كامل`, price: it.pkg, qty: it.qty, stage: it.stage, grade: it.name }));
     const subtotal = items.reduce((s,it) => s + it.price*it.qty, 0);
@@ -7004,6 +7021,12 @@ document.getElementById('qoSubmitBtn').onclick = async () => {
       <button class="btn secondary" style="margin-top:14px;" onclick="showMyOrders('${phone}')">📦 عرض طلباتي</button>
     `;
   } catch(e) { console.error(e); setMsg('qoMsg','صار خطأ أثناء إرسال الطلب: ' + (e.message||''), false); }
+  finally {
+    isSubmittingQuickOrder = false;
+    qoBtn.disabled = false;
+    qoBtn.style.opacity = '1';
+    qoBtn.textContent = qoBtnOriginalText;
+  }
 };
 
 // ---------- تتبع كل طلبات مكتب شريك (يشمل كل المحافظات) ----------
