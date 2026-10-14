@@ -9092,8 +9092,24 @@ async function openTeacherBooksLibrary() {
   const bookStats = {}; // bookId -> {week, month, year, buyers:[]}
   bookIds.forEach(id => bookStats[id] = { week:0, month:0, year:0, buyers:[] });
 
+  // حصة الأستاذ من كل ملزمة من ملازمه (نستخدمها لحساب حصته بالطلبات اللي لسا ما وصلت —
+  // قيد التنفيذ/قيد التوصيل — واللي ما عندها بعد "teacherPayouts" محسوبة، لأنها تنحسب فقط
+  // لحظة وصول الطلب "تم التسليم")
+  const bookShareById = {};
+  booksSnap.docs.forEach(d => { const b = d.data(); if (b.teacherShare) bookShareById[d.id] = b.teacherShare; });
+  function computeLiveShareForOrder(o) {
+    if (o.fulfillment === 'teacher' && o.fulfillmentTeacherName === currentTeacher.name) {
+      if (o.platformOwedToLibrary != null) return (o.subtotal||0) - (o.platformOwedToLibrary||0);
+      return null;
+    }
+    let sum = 0, matched = false;
+    (o.items||[]).forEach(it => { if (it.bookId && bookShareById[it.bookId] != null) { sum += bookShareById[it.bookId] * it.qty; matched = true; } });
+    return matched ? sum : null;
+  }
+
   // المحفظة: ملخص مبسّط حسب حالة الطلب بس — 4 أسطر فقط (تم التسليم / قيد التنفيذ / قيد التوصيل / ملغاة)
-  // والمبلغ المستحق الفعلي = مجموع حصتك من الطلبات اللي "تم تسليمها" حصراً
+  // والمبلغ المستحق الفعلي = مجموع حصتك من الطلبات اللي "تم تسليمها" ولسا ما تحاسبت عليها —
+  // أي طلب سبق وتحاسبت عليه ما يظهر بهذا المجموع مرة ثانية، حتى ما يتكرر حسابه
   const statusAgg = {
     completed: { count: 0, amount: 0 },
     processing: { count: 0, amount: 0 },
@@ -9114,17 +9130,25 @@ async function openTeacherBooksLibrary() {
       }
     });
 
-    // حصتك من هذا الطلب تحديداً (إن كان له علاقة فيك أصلاً)، بغض النظر عن حالته
-    let share = null;
-    if (o.fulfillment === 'teacher' && o.fulfillmentTeacherName === currentTeacher.name && o.platformOwedToLibrary != null) {
-      share = (o.subtotal || 0) - (o.platformOwedToLibrary || 0); // أنت قبضت المبلغ كامل من الزبون وتخصم منه حصة المكتبة
-    } else if (o.teacherPayouts && o.teacherPayouts[currentTeacher.name] != null) {
-      share = o.teacherPayouts[currentTeacher.name]; // المكتبة قبضت المبلغ وتدفعلك حصتك
-    }
+    const status = computeEffectiveStatus(o);
+    if (!statusAgg[status]) return; // بس الحالات الأربعة المعروضة
+
+    const isSelf = o.fulfillment === 'teacher' && o.fulfillmentTeacherName === currentTeacher.name;
+    // حصتك من هذا الطلب: للطلبات المكتملة نفضّل الرقم المحفوظ وقت التسليم (الدقيق)، ولو ما
+    // كان محسوب لأي سبب أو كان الطلب لسا بالطريق (قيد التنفيذ/التوصيل)، نحسبها تقديرياً الآن مباشرة
+    let share = (status === 'completed' && !isSelf && o.teacherPayouts && o.teacherPayouts[currentTeacher.name] != null)
+      ? o.teacherPayouts[currentTeacher.name]
+      : computeLiveShareForOrder(o);
     if (share == null) return;
 
-    const status = computeEffectiveStatus(o);
-    if (statusAgg[status]) { statusAgg[status].count++; statusAgg[status].amount += share; }
+    // طلب "تم تسليمه" وسبق وتحاسبت عليه مع المكتبة؟ ما نعده بالمستحق مرة ثانية
+    if (status === 'completed') {
+      const alreadySettled = isSelf ? !!o.platformOwedSettled : !!(o.teacherPayoutsSettled && o.teacherPayoutsSettled[currentTeacher.name]);
+      if (alreadySettled) return;
+    }
+
+    statusAgg[status].count++;
+    statusAgg[status].amount += share;
   });
 
   // مجموع المبالغ اللي سبق وتحاسب عليها الأستاذ مع المكتبة + تاريخ آخر تحاسب
