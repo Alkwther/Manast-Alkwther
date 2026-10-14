@@ -1118,16 +1118,6 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       </div>
     </div>
 
-    <!-- الأكثر مبيعاً -->
-    <div id="khBestWrap" class="hidden">
-      <h2 class="kh-section-title"><span class="kh-fire" aria-hidden="true">🔥</span> الأكثر مبيعاً</h2>
-      <div class="kh-best-box">
-        <div class="kh-best-row" id="khBestRow"></div>
-        <button type="button" class="kh-circle kh-best-arrow kh-best-prev" id="khBestPrev" aria-label="السابق"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#10203f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
-        <button type="button" class="kh-circle kh-best-arrow kh-best-next" id="khBestNext" aria-label="التالي"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#10203f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
-      </div>
-    </div>
-
     <!-- مشاركة البرنامج -->
     <div class="kh-share-card">
       <div class="kh-share-ic" aria-hidden="true">
@@ -14114,7 +14104,7 @@ window.sendWhatsApp = sendWhatsApp;
 
   function loadHomeData() {
     loadTeachers().then(renderTeachers).catch(e => console.error(e));
-    loadBest();
+    // قسم «الأكثر مبيعاً» انحذف من الرئيسية بطلب صاحب المكتبة
   }
 
   // ---------- البحث ----------
