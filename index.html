@@ -3025,6 +3025,25 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     <div id="classmatesList"></div>
   </div>
 
+  <!-- تسجيل معلومات الزائر قبل المراسلة -->
+  <div class="screen hidden" id="screen-chat-register">
+    <button class="btn secondary" onclick="cancelChatRegistration()">← رجوع</button>
+    <div class="card">
+      <h3>💬 سجّل معلوماتك حتى تراسل المكتبة</h3>
+      <p style="font-size:13px;color:#8a90a3;margin:0 0 12px;">مرة وحدة بس — بعدها تگدر تراسلنا بأي وقت، ونگدر نوصلك طلباتك بسهولة.</p>
+      <label>الاسم</label>
+      <input id="crName" placeholder="اسمك الكامل" autocomplete="name">
+      <label>رقم الهاتف</label>
+      <input id="crPhone" placeholder="07xxxxxxxxx" inputmode="tel" maxlength="11" autocomplete="tel">
+      <label>المحافظة</label>
+      <select id="crProvince"><option value="">اختار المحافظة</option></select>
+      <label>أقرب نقطة دالة</label>
+      <input id="crLandmark" placeholder="مثال: قرب جامع ... / مقابل مدرسة ...">
+      <button class="btn" id="crSubmitBtn" onclick="submitChatRegistration()">تسجيل وفتح المحادثة</button>
+      <div id="crMsg"></div>
+    </div>
+  </div>
+
   <div class="screen hidden" id="screen-chat">
     <button class="btn secondary" id="chatBackBtn">← رجوع</button>
     <div class="card">
@@ -4561,13 +4580,16 @@ function submitMyOrdersPhone() {
   showMyOrders(val);
 }
 function switchMyOrdersPhone() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null') || {};
-    delete saved.phone;
-    localStorage.setItem('kawthar_delivery_info', JSON.stringify(saved));
-  } catch(e) { console.error(e); }
+  // للطالب ما نمسح شي من حسابه — بس نطلب الرقم الثاني ونعرض طلباته
+  if (!currentStudent) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null') || {};
+      delete saved.phone;
+      localStorage.setItem('kawthar_delivery_info', JSON.stringify(saved));
+    } catch(e) { console.error(e); }
+  }
   show('screen-my-orders');
-  document.getElementById('myOrdersList').innerHTML = myOrdersPhoneFormHtml('اكتب رقمك لمتابعة طلباتك');
+  document.getElementById('myOrdersList').innerHTML = myOrdersPhoneFormHtml('اكتب الرقم الثاني لعرض طلباته');
 }
 async function showMyOrders(phoneOverride) {
   let phone = phoneOverride || (currentStudent ? currentStudent.phone : null);
@@ -4594,12 +4616,24 @@ async function showMyOrders(phoneOverride) {
   updateChatIconVisibility(); // صار عنده هوية حقيقية الحين — تظهر أيقونة المراسلة
   show('screen-my-orders'); // نفتح الشاشة فوراً حتى لو صار تأخير أو خطأ بتحميل الطلبات
   const list = document.getElementById('myOrdersList');
-  const notYouLink = currentStudent ? '' : `<p style="text-align:center;margin:0 0 12px;"><a href="#" onclick="switchMyOrdersPhone();return false;" style="color:#0e6fa8;font-size:13px;font-weight:bold;">ليس رقمك؟ سجّل برقم آخر</a></p>`;
+  // الطالب يشوف طلباته المسجلة برقم حسابه وبرقم التوصيل اللي استخدمه، والكل يگدر يشوف طلبات رقم ثاني
+  const notYouLink = `<div style="text-align:center;margin:0 0 12px;"><button type="button" class="small-btn" onclick="switchMyOrdersPhone()" style="font-weight:bold;">📱 عرض الطلبات برقم ثاني</button>${phoneOverride && currentStudent && phoneOverride !== currentStudent.phone ? ` <button type="button" class="small-btn" onclick="showMyOrders()" style="font-weight:bold;">↩️ طلبات حسابي</button>` : ''}</div>`;
   list.innerHTML = notYouLink + '<p style="text-align:center;">جاري التحميل...</p>';
   try {
     await ensureAuthed();
-    // نتحقق أول من طلبات الزبون العادية بهالرقم
-    const snap = await db.collection('orders').where('studentPhone','==', phone).get();
+    // نتحقق أول من طلبات الزبون العادية بهالرقم (وللطالب: برقم حسابه + رقم التوصيل اللي حجز بيه)
+    const phonesToCheck = [phone];
+    if (!phoneOverride && currentStudent) {
+      try {
+        const savedInfo = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
+        if (savedInfo && savedInfo.phone && !phonesToCheck.includes(savedInfo.phone)) phonesToCheck.push(savedInfo.phone);
+      } catch (e) { console.error(e); }
+    }
+    const snaps = await Promise.all(phonesToCheck.map(ph => db.collection('orders').where('studentPhone','==', ph).get()));
+    const seenIds = new Set();
+    const mergedDocs = [];
+    snaps.forEach(sn => sn.docs.forEach(d => { if (!seenIds.has(d.id)) { seenIds.add(d.id); mergedDocs.push(d); } }));
+    const snap = { empty: mergedDocs.length === 0, docs: mergedDocs };
     // نتحقق بنفس الوقت إذا نفس الرقم مسجّل كمروّج بأي طلب
     let hasPromoterOrders = false;
     try {
@@ -10063,9 +10097,10 @@ function hasRealIdentity() {
   } catch(e) { return false; }
 }
 function updateChatIconVisibility() {
+  // أيقونة المراسلة تظهر للجميع؛ اللي مو مسجّل يطلع له نموذج تسجيل قبل المحادثة
   const btn = document.getElementById('libChatIconBtn');
   if (!btn) return;
-  btn.classList.toggle('hidden', !hasRealIdentity());
+  btn.classList.remove('hidden');
 }
 function currentIdentity() {
   if (currentStudent) return { role: 'student', id: currentStudent.phone, name: currentStudent.name };
@@ -10104,6 +10139,8 @@ async function openChat(threadId, title) {
   } else {
     soundBtn.classList.add('hidden');
   }
+  const fromScreen = document.querySelector('.screen:not(.hidden)');
+  if (fromScreen && fromScreen.id !== 'screen-chat') chatReturnScreenId = fromScreen.id;
   show('screen-chat'); // نعرض الشاشة فوراً حتى لو صار خطأ بتحميل الرسائل القديمة
   try { await purgeOldChatMessages(threadId); } catch(e) { console.error(e); }
   startChatMessagesListener(threadId);
@@ -10143,11 +10180,17 @@ async function openChat(threadId, title) {
     } catch(e) { console.error(e); }
   }
 }
+// الرجوع من المحادثة يرجّع لنفس الصفحة اللي فتح منها (والزبون ما يطلع له أبداً شاشة دخول المشرف)
+let chatReturnScreenId = null;
 document.getElementById('chatBackBtn').onclick = () => {
   if (currentChatUnsubscribe) { currentChatUnsubscribe(); currentChatUnsubscribe = null; }
-  if (currentStudent) show('screen-home');
+  const back = chatReturnScreenId && document.getElementById(chatReturnScreenId) ? chatReturnScreenId : null;
+  chatReturnScreenId = null;
+  if (back) show(back);
+  else if (currentStudent) show('screen-home');
   else if (currentTeacher) show('screen-teacher-dashboard');
-  else show('screen-admin');
+  else if (currentStaffRole) show('screen-admin');
+  else show('screen-welcome');
 };
 
 async function purgeOldChatMessages(threadId) {
@@ -10268,8 +10311,71 @@ document.getElementById('chatSendBtn').onclick = async () => {
 };
 
 // مراسلة الزبون لمكتبة الكوثر (أيقونة 💬 بجانب اسم البرنامج) — متاحة لأي زائر حتى لو ما طلب من قبل
+
+// ===== تسجيل معلومات الزائر قبل المراسلة =====
+function openChatRegistration() {
+  const from = document.querySelector('.screen:not(.hidden)');
+  if (from && from.id !== 'screen-chat-register') chatRegisterReturnId = from.id;
+  const prov = document.getElementById('crProvince');
+  const src = document.getElementById('ckProvince');
+  if (prov && src && prov.options.length <= 1) prov.innerHTML = src.innerHTML;
+  try {
+    const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null') || {};
+    if (saved.name) document.getElementById('crName').value = saved.name;
+    if (saved.province && prov) prov.value = saved.province;
+    if (saved.landmark) document.getElementById('crLandmark').value = saved.landmark;
+  } catch (e) { console.error(e); }
+  document.getElementById('crMsg').innerHTML = '';
+  show('screen-chat-register');
+}
+let chatRegisterReturnId = null;
+async function submitChatRegistration() {
+  const name = document.getElementById('crName').value.trim();
+  const phone = document.getElementById('crPhone').value.trim().replace(/\s+/g, '');
+  const province = document.getElementById('crProvince').value;
+  const landmark = document.getElementById('crLandmark').value.trim();
+  if (!name) { setMsg('crMsg', 'اكتب اسمك', false); return; }
+  if (!/^07\d{9}$/.test(phone)) { setMsg('crMsg', 'رقم الهاتف لازم يكون 11 رقم ويبدأ بـ 07', false); return; }
+  if (!province) { setMsg('crMsg', 'اختار المحافظة', false); return; }
+  if (!landmark) { setMsg('crMsg', 'اكتب أقرب نقطة دالة', false); return; }
+  const btn = document.getElementById('crSubmitBtn');
+  btn.disabled = true;
+  try {
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null') || {}; } catch (e) {}
+    Object.assign(saved, { name, phone, province, landmark });
+    localStorage.setItem('kawthar_delivery_info', JSON.stringify(saved));
+    // رقم زبون ثابت حتى يظهر بقائمة «زبائني» عند المكتبة — ما يوقف التسجيل إذا صار خطأ
+    try { if (typeof getOrAssignCustomerId === 'function') await getOrAssignCustomerId(phone); } catch (e) { console.error(e); }
+    updatePresenceHeartbeat();
+    updateChatIconVisibility();
+    const me = currentIdentity();
+    // أول رسالة تعريفية حتى المكتبة تعرف معلومات الزبون
+    try {
+      await db.collection('messages').add({
+        threadId: `libcustomer_${me.id}`, text: `👋 زبون جديد سجّل للمراسلة\nالاسم: ${name}\nالهاتف: ${phone}\nالمحافظة: ${province}\nأقرب نقطة دالة: ${landmark}`,
+        fromRole: 'customer', fromId: me.id, fromName: name, createdAt: Date.now(), readByStaff: false, readByCustomer: true
+      });
+    } catch (e) { console.error(e); }
+    const back = chatRegisterReturnId;
+    chatRegisterReturnId = null;
+    if (back && document.getElementById(back)) chatReturnScreenId = back;
+    openChat(`libcustomer_${me.id}`, '💬 مراسلة مكتبة الكوثر');
+    if (back) chatReturnScreenId = back;
+    setupLibraryCustomerChatBadge(me.id);
+  } catch (e) {
+    console.error(e);
+    setMsg('crMsg', 'صار خطأ: ' + (e.message || 'حاول مرة ثانية'), false);
+  } finally { btn.disabled = false; }
+}
+function cancelChatRegistration() {
+  const back = chatRegisterReturnId && document.getElementById(chatRegisterReturnId) ? chatRegisterReturnId : 'screen-welcome';
+  chatRegisterReturnId = null;
+  show(back);
+}
 function openLibraryCustomerChat() {
   if (currentStaffRole) { openStaffMessagesInbox(); return; } // المشرف/الموظف يشوف كل المحادثات، مو محادثة نفسه
+  if (!hasRealIdentity()) { openChatRegistration(); return; } // زائر جديد: يسجّل معلوماته أول
   const me = currentIdentity(); // ما ترجع null أبداً الحين — أي زائر يحصل على هوية خاصة فيه تلقائياً
   openChat(`libcustomer_${me.id}`, '💬 مراسلة مكتبة الكوثر');
   setupLibraryCustomerChatBadge(me.id);
@@ -11362,7 +11468,10 @@ function routeFromHash() {
   return false;
 }
 window.addEventListener('load', routeFromHash);
-window.addEventListener('hashchange', routeFromHash);
+window.addEventListener('hashchange', () => {
+  // بعد فتح القسم من الرابط نشيل الرابط، حتى التحديث يرجّع للرئيسية
+  if (routeFromHash()) { try { history.replaceState(history.state, '', location.pathname + location.search); } catch (e) { console.error(e); } }
+});
 
 if ('serviceWorker' in navigator) {
   let swRegistration = null;
@@ -11673,19 +11782,13 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
   loadAnnouncements();
   initialAuthCheckPromise.then(() => { updatePresenceHeartbeat(); updateChatIconVisibility(); }); // نسجّل "متصل الآن" ونحدّث ظهور أيقونة المراسلة أول ما تتضح هوية المستخدم (لو معروفة)
   if (!routeFromHash()) {
+    // كل فتح أو تحديث (سحب الشاشة للأسفل) يبدأ دائماً من الرئيسية.
+    // «طلباتي» تنفتح بس لما الزبون يضغط عليها بنفسه.
     show('screen-welcome');
-    // إذا كان عندنا رقم هاتف زبون محفوظ محلياً (سبق فتح "طلباتي" من رابط أو بالكتابة اليدوية)،
-    // نوديه مباشرة لطلباته بدل الصفحة الرئيسية — بس لو ما صار أي تسجيل دخول رسمي (موظف/طالب/أستاذ) بالأثناء
-    initialAuthCheckPromise.then(() => {
-      if (currentStudent || currentStaffRole || currentTeacher) return; // فيه جلسة رسمية أهم، ما نتدخل
-      if (!document.getElementById('screen-welcome').classList.contains('hidden')) {
-        // لسا واقفين بالصفحة الرئيسية (ما تحرك المستخدم لمكان ثاني بالأثناء)
-        try {
-          const saved = JSON.parse(localStorage.getItem('kawthar_delivery_info') || 'null');
-          if (saved && saved.phone) showMyOrders(saved.phone);
-        } catch(e) { console.error(e); }
-      }
-    });
+  } else {
+    // فتحنا قسم معيّن من رابط (طلب، ملزمة، متجر...) — نشيل الرابط بعد الفتح
+    // حتى لو سوى تحديث للصفحة يرجع للرئيسية بدل ما يفتح نفس القسم مرة ثانية
+    try { history.replaceState(history.state, '', location.pathname + location.search); } catch (e) { console.error(e); }
   }
 })();
 
