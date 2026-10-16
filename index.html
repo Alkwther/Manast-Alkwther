@@ -1065,7 +1065,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 
     <!-- البطاقات الرئيسية -->
     <div class="kh-grid">
-      <div class="kh-card kh-card-print" onclick="show('screen-print-shop')">
+      <div class="kh-card kh-card-print" onclick="khNavFromHome(); show('screen-print-shop')">
         <div class="kh-ico-row">
           <div class="kh-gtile"><svg viewBox="0 0 80 80" aria-hidden="true"><defs><linearGradient id="cpB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a7fd6"/><stop offset="1" stop-color="#1f4a9c"/></linearGradient><linearGradient id="cpT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5f8fe0"/><stop offset="1" stop-color="#2f5fb3"/></linearGradient><linearGradient id="cpP" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e5ecf7"/></linearGradient></defs><rect x="22" y="6" width="34" height="22" rx="2" fill="url(#cpP)"/><rect x="22" y="6" width="34" height="3" fill="#cfd9ea"/>
 <path d="M10 26h58a6 6 0 016 6v20a4 4 0 01-4 4H8a4 4 0 01-4-4V32a6 6 0 016-6z" fill="url(#cpB)"/>
@@ -1075,7 +1075,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 <rect x="22" y="54" width="18" height="10" rx="1.5" fill="#3b82f6"/><rect x="43" y="55" width="16" height="2.5" rx="1" fill="#f59e0b"/><rect x="43" y="60" width="13" height="2.5" rx="1" fill="#94a3b8"/><rect x="22" y="66" width="36" height="2.5" rx="1" fill="#94a3b8"/></svg></div>
           <span class="kh-sub">خدمات<br>الطباعة</span>
         </div>
-        <button type="button" class="kh-pill" onclick="event.stopPropagation(); show('screen-print-shop');"><span>احسب السعر</span><i class="kh-pill-arrow"></i></button>
+        <button type="button" class="kh-pill" onclick="event.stopPropagation(); khNavFromHome(); show('screen-print-shop');"><span>احسب السعر</span><i class="kh-pill-arrow"></i></button>
       </div>
 
       <div class="kh-card kh-card-lib" onclick="khOpenLibrary()">
@@ -1104,7 +1104,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
         </div>
       </div>
 
-      <div class="kh-card kh-card-edu" onclick="show('screen-edu-platform')">
+      <div class="kh-card kh-card-edu" onclick="khNavFromHome(); show('screen-edu-platform')">
         <div class="kh-ico-row">
           <div class="kh-gtile"><svg viewBox="0 0 80 80" aria-hidden="true"><defs><linearGradient id="cc1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6c95a"/><stop offset="1" stop-color="#c9952c"/></linearGradient><linearGradient id="cc2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a7fd6"/><stop offset="1" stop-color="#1f4a9c"/></linearGradient><linearGradient id="ccK" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6f86e0"/><stop offset="1" stop-color="#3047a8"/></linearGradient><linearGradient id="ccT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd76a"/><stop offset="1" stop-color="#d4a024"/></linearGradient></defs><rect x="12" y="58" width="58" height="12" rx="3" fill="url(#cc2)"/><path d="M62 61h7v6h-7z" fill="#fff8e6"/><rect x="12" y="58" width="58" height="2.5" fill="#fff" opacity=".25"/>
 <rect x="14" y="46" width="54" height="12" rx="3" fill="url(#cc1)"/><path d="M60 49h7v6h-7z" fill="#fff8e6"/><rect x="14" y="46" width="54" height="2.5" fill="#fff" opacity=".3"/>
@@ -1116,7 +1116,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <span class="kh-edu-label">التعليمية</span>
           <div class="kh-card-title">منصة الكوثر</div>
         </div>
-        <button type="button" class="kh-pill kh-pill-sm" onclick="event.stopPropagation(); show('screen-edu-platform');"><span>دخول الأستاذ<br>والطالب</span><i class="kh-pill-arrow"></i></button>
+        <button type="button" class="kh-pill kh-pill-sm" onclick="event.stopPropagation(); khNavFromHome(); show('screen-edu-platform');"><span>دخول الأستاذ<br>والطالب</span><i class="kh-pill-arrow"></i></button>
       </div>
     </div>
 
@@ -3462,23 +3462,69 @@ function show(id) {
     if (id === 'screen-checkout') { const b = document.getElementById('cartBar'); if (b) b.remove(); }
     else renderCartBar();
   }
-  // دعم زر الرجوع بالهاتف: نسجّل كل تنقّل بسجل المتصفح حتى يقدر المستخدم يرجع بزر جهازه
-  if (!isNavigatingViaBackButton && id !== 'screen-welcome') {
-    history.pushState({ screen: id }, '', '');
-  }
+  // زر الرجوع بالهاتف: نسجّل "من وين دخل" مو كل الصفحات اللي مرّ بيها
+  if (!isNavigatingViaBackButton) khNavRecord(id);
   isNavigatingViaBackButton = false;
 }
-window.addEventListener('popstate', (e) => {
-  isNavigatingViaBackButton = true;
-  if (e.state && e.state.screen) {
-    show(e.state.screen);
-  } else if (e.state && 'adminSection' in e.state) {
-    if (e.state.adminSection) openAdminSection(e.state.adminSection);
-    else showAdminMenu();
-  } else {
-    show('screen-welcome');
+
+/* ===== زر الرجوع بالهاتف — يرجّع للمكان اللي دخل منه الزبون =====
+   - الرئيسية هي الأساس: من الرئيسية الرجوع يطلّع من البرنامج.
+   - القسم اللي ينفتح من الرئيسية أو الشريط السفلي أو بطاقات الرئيسية يرجع للرئيسية مباشرة،
+     حتى لو الزبون مرّ قبله بأقسام ثانية وما كمّل بيها.
+   - الصفحة اللي تنفتح من داخل قسم (مثل متجر أستاذ من قائمة المتاجر) ترجع لذلك القسم. */
+const KH_ROOT = 'screen-welcome';
+const KH_REPLACE_SCREENS = ['screen-order-confirmation']; // بعد تأكيد الطلب ما نرجع لصفحة الدفع
+// أقسام رئيسية: إذا انفتحت وهي مو بالمسار، تصير مباشرة تحت الرئيسية (مثل زر «رجوع للمكتبة»)
+const KH_HUBS = ['screen-library','screen-edu-platform','screen-print-shop','screen-home','screen-teacher-dashboard','screen-admin','screen-my-orders','screen-teacher-stores','screen-textbooks'];
+let khNavStack = [KH_ROOT];
+let khNavResetNext = false;   // يتفعّل لما التنقّل من الرئيسية/الشريط السفلي
+let khTrapActive = false;     // عندنا خطوة رجوع وهمية بسجل المتصفح
+let khIgnorePop = 0;
+function khNavFromHome() { khNavResetNext = true; }
+function khSyncTrap() {
+  const needTrap = khNavStack.length > 1;
+  if (needTrap && !khTrapActive) {
+    try { history.pushState({ khTrap: true }, '', location.pathname + location.search); khTrapActive = true; } catch (e) { console.error(e); }
+  } else if (!needTrap && khTrapActive) {
+    // رجعنا للرئيسية بزر داخل البرنامج: نشيل الخطوة الوهمية حتى أول رجوع يطلّع من البرنامج
+    khTrapActive = false; khIgnorePop++;
+    try { history.back(); } catch (e) { khIgnorePop--; }
   }
+}
+function khNavRecord(id) {
+  const reset = khNavResetNext; khNavResetNext = false;
+  if (!id) return;
+  if (id === KH_ROOT) khNavStack = [KH_ROOT];
+  else {
+    const at = khNavStack.indexOf(id);
+    if (at >= 0) khNavStack = khNavStack.slice(0, at + 1);            // رجوع لقسم موجود بالمسار
+    else if (reset || KH_HUBS.includes(id)) khNavStack = [KH_ROOT, id]; // دخل من الرئيسية/الشريط السفلي أو قسم رئيسي
+    else if (KH_REPLACE_SCREENS.includes(id) && khNavStack.length > 1) khNavStack[khNavStack.length - 1] = id;
+    else khNavStack.push(id);                                           // دخل من داخل القسم الحالي
+  }
+  khSyncTrap();
+}
+function khNavGo(entry) {
+  isNavigatingViaBackButton = true;
+  if (entry.startsWith('admin:')) {
+    const sec = entry.slice(6);
+    if (document.getElementById('screen-admin').classList.contains('hidden')) { show('screen-admin'); isNavigatingViaBackButton = true; }
+    if (sec) openAdminSection(sec); else showAdminMenu();
+  } else show(entry);
+  isNavigatingViaBackButton = false;
+}
+window.addEventListener('popstate', () => {
+  if (khIgnorePop > 0) { khIgnorePop--; return; }
+  khTrapActive = false;
+  if (khNavStack.length > 1) {
+    khNavStack.pop();
+    const target = khNavStack[khNavStack.length - 1];
+    khNavGo(target);
+    khSyncTrap(); // إذا بعدنا مو بالرئيسية نجهّز رجوع ثاني
+  }
+  // إذا كنا بالرئيسية: ما نسوي شي، والرجوع الجاي يطلّع من البرنامج
 });
+try { history.replaceState({ khRoot: true }, '', location.pathname + location.search + location.hash); } catch (e) {}
 function setMsg(el, text, ok) {
   document.getElementById(el).innerHTML = `<div class="msg ${ok?'ok':'err'}">${text}</div>`;
 }
@@ -4899,16 +4945,16 @@ function showAdminMenu() {
   document.getElementById('adminMenu').classList.remove('hidden');
   document.querySelectorAll('.admin-section').forEach(s => s.classList.add('hidden'));
   if (!isNavigatingViaBackButton) {
-    history.pushState({ adminSection: null }, '', '');
+    // قائمة الإدارة = نفس صفحة الإدارة بالمسار
+    const at = khNavStack.indexOf('screen-admin');
+    if (at >= 0) { khNavStack = khNavStack.slice(0, at + 1); khSyncTrap(); }
   }
   isNavigatingViaBackButton = false;
 }
 function openAdminSection(section) {
   document.getElementById('adminMenu').classList.add('hidden');
   document.querySelectorAll('.admin-section').forEach(s => s.classList.toggle('hidden', s.dataset.section !== section));
-  if (!isNavigatingViaBackButton) {
-    history.pushState({ adminSection: section }, '', '');
-  }
+  if (!isNavigatingViaBackButton) khNavRecord('admin:' + section);
   isNavigatingViaBackButton = false;
 }
 
@@ -13968,10 +14014,12 @@ window.sendWhatsApp = sendWhatsApp;
 
   // ---------- التنقل ----------
   window.khOpenLibrary = function () {
+    if (currentScreenId() === 'screen-welcome' || khFromGlobalNav) khNavFromHome();
     show('screen-library');
     if (typeof checkReturningCustomer === 'function') { try { checkReturningCustomer(); } catch (e) { console.error(e); } }
   };
   window.khOpenTeacherStores = function () {
+    if (currentScreenId() === 'screen-welcome' || khFromGlobalNav) khNavFromHome();
     show('screen-teacher-stores');
     if (typeof loadTeacherStoresList === 'function') loadTeacherStoresList();
   };
@@ -14005,7 +14053,14 @@ window.sendWhatsApp = sendWhatsApp;
     updateCartBadge();
   }
 
+  let khFromGlobalNav = false;
   function onNavClick(key) {
+    // الشريط السفلي: القسم ينفتح مباشرة من الرئيسية بالمسار
+    khFromGlobalNav = true;
+    try { onNavClickInner(key); } finally { khFromGlobalNav = false; }
+  }
+  function onNavClickInner(key) {
+    if (key !== 'home' && key !== 'store') khNavFromHome();
     if (key === 'home') show('screen-welcome');
     else if (key === 'edu') show('screen-edu-platform');
     else if (key === 'print') show('screen-print-shop');
