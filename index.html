@@ -1023,6 +1023,16 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
   .kh-eta b { display:block; color:#0b1733; font-size:15px; }
   .kh-eta span { display:block; color:#5b6478; font-size:12.5px; }
 </style>
+<style id="kh-yt-css">
+  .kh-yt-modal { position:fixed; inset:0; z-index:500; background:rgba(5,12,32,.92); display:flex; align-items:center; justify-content:center; padding:16px; }
+  .kh-yt-modal.hidden { display:none; }
+  .kh-yt-box { position:relative; width:100%; max-width:720px; display:flex; flex-direction:column; align-items:center; gap:12px; }
+  .kh-yt-frame { position:relative; width:100%; aspect-ratio:16 / 9; background:#000; border-radius:18px; overflow:hidden; border:2px solid #e2b955; box-shadow:0 20px 50px rgba(0,0,0,.6); }
+  .kh-yt-frame.kh-yt-short { aspect-ratio:9 / 16; width:min(100%, 56vh); }
+  .kh-yt-frame iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+  .kh-yt-close { align-self:flex-start; width:46px; height:46px; border-radius:50%; border:2px solid #e2b955; background:#0b1733; color:#f4c542; font-size:22px; font-weight:800; cursor:pointer; }
+  .kh-yt-ext { border:none; background:none; color:#c8d3ea; font-size:13px; text-decoration:underline; cursor:pointer; font-family:inherit; }
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs><linearGradient id="khgGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".5" stop-color="#e8b84e"/><stop offset="1" stop-color="#b8862a"/></linearGradient><linearGradient id="khgGoldDark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c99a3a"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs></svg>
@@ -3196,6 +3206,8 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <span class="kh-si-hint">إذا ما اخترت صورة، تظهر صورتك الشخصية، وإذا ما عندك صورة يظهر رسم احترافي جاهز.</span>
         </div>
       </div>
+      <label>🎬 فيديو تعريفي لمتجرك (رابط يوتيوب — اختياري)</label>
+      <input id="tchStoreVideoUrl" type="url" placeholder="https://youtube.com/... — يشتغل للزبون داخل البرنامج">
       <label>أجور التوصيل الثابتة لمتجرك (دينار) — تُحسب مرة وحدة فقط مهما زاد عدد القطع بالطلب</label>
       <input id="tchStoreDeliveryFee" type="number" placeholder="مثال: 3000">
       <div id="tchStoreSettingsMsg"></div>
@@ -3524,6 +3536,38 @@ function show(id) {
    - القسم اللي ينفتح من الرئيسية أو الشريط السفلي أو بطاقات الرئيسية يرجع للرئيسية مباشرة،
      حتى لو الزبون مرّ قبله بأقسام ثانية وما كمّل بيها.
    - الصفحة اللي تنفتح من داخل قسم (مثل متجر أستاذ من قائمة المتاجر) ترجع لذلك القسم. */
+// ===== مشغّل يوتيوب داخل البرنامج: شاشة الفيديو فقط، والفيديو يبقى على يوتيوب =====
+function khYouTubeId(url) {
+  const m = String(url || '').match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/|\/v\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+window.khYtOpen = false;
+function khPlayYouTube(url) {
+  const id = khYouTubeId(url);
+  if (!id) { window.open(url, '_blank'); return; }
+  const isShort = /\/shorts\//.test(url);
+  const modal = document.getElementById('khYtModal');
+  const frameBox = document.getElementById('khYtFrame');
+  frameBox.className = 'kh-yt-frame' + (isShort ? ' kh-yt-short' : '');
+  frameBox.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&fs=1" title="فيديو" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+  document.getElementById('khYtExternal').onclick = () => window.open(`https://www.youtube.com/watch?v=${id}`, '_blank');
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  window.khYtOpen = true;
+  // زر الرجوع بالتلفون يسكّر الفيديو أول
+  if (typeof khTrapActive !== 'undefined' && !khTrapActive) {
+    try { history.pushState({ khTrap: true }, '', location.pathname + location.search); khTrapActive = true; } catch (e) {}
+  }
+}
+function khCloseYouTube(fromBack) {
+  const modal = document.getElementById('khYtModal');
+  if (!modal || modal.classList.contains('hidden')) return;
+  document.getElementById('khYtFrame').innerHTML = ''; // يوقف الفيديو
+  modal.classList.add('hidden');
+  document.body.style.overflow = '';
+  window.khYtOpen = false;
+  if (!fromBack && typeof khSyncTrap === 'function') khSyncTrap();
+}
 const KH_ROOT = 'screen-welcome';
 const KH_REPLACE_SCREENS = ['screen-order-confirmation']; // بعد تأكيد الطلب ما نرجع لصفحة الدفع
 // أقسام رئيسية: إذا انفتحت وهي مو بالمسار، تصير مباشرة تحت الرئيسية (مثل زر «رجوع للمكتبة»)
@@ -3568,6 +3612,7 @@ function khNavGo(entry) {
 window.addEventListener('popstate', () => {
   if (khIgnorePop > 0) { khIgnorePop--; return; }
   khTrapActive = false;
+  if (window.khYtOpen) { khCloseYouTube(true); khSyncTrap(); return; } // الرجوع يسكّر الفيديو بس
   if (khNavStack.length > 1) {
     khNavStack.pop();
     const target = khNavStack[khNavStack.length - 1];
@@ -4023,7 +4068,7 @@ document.getElementById('showFreeLessonsBtn').onclick = async () => {
       <p style="color:#8a90a3;font-size:12px;margin:2px 0 8px;">${t.subject ? t.subject + ' — ' : ''}الأستاذ ${t.teacherName}</p>
       ${t.imageUrl ? `<img src="${t.imageUrl}" style="max-width:100%;border-radius:10px;margin-bottom:8px;">` : ''}
       <p style="white-space:pre-wrap;">${t.text}</p>
-      ${t.youtubeUrl ? `<button class="small-btn" style="margin-top:8px;" onclick="window.open('${t.youtubeUrl.replace(/'/g,"\\'")}','_blank')">▶️ رابط يوتيوب</button>` : ''}
+      ${t.youtubeUrl ? `<button class="small-btn" style="margin-top:8px;" onclick="khPlayYouTube('${t.youtubeUrl.replace(/'/g,"\\'")}')">▶️ شاهد الفيديو</button>` : ''}
     </div>`;
   }).join('');
   if (snap.empty && topicsSnap.empty) {
@@ -4166,7 +4211,7 @@ function renderLibraryNav() {
       <div style="display:flex;align-items:flex-start;">${thumb}<div class="title" style="flex:1;">${b.title}${b.teacherName ? `<br><span style="font-size:12px;color:#8a90a3;">أ. ${b.teacherName}</span>` : ''}<br><span style="color:#b8903c;font-weight:bold;">${b.price} د.ع</span>${(b.stock != null && b.stock > 0 && b.stock <= 5) ? `<br><span style="font-size:12px;color:#b45309;font-weight:bold;">باقي ${b.stock} فقط</span>` : ''}</div></div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
         ${images.length ? `<button class="small-btn" onclick='openImageGallery(${JSON.stringify(images)})'>📷 مشاهدة الصور${images.length>1?' ('+images.length+')':''}</button>` : ''}
-        ${b.youtubeUrl ? `<button class="small-btn" onclick="window.open('${b.youtubeUrl.replace(/'/g,"\\'")}','_blank')">▶️ يوتيوب</button>` : ''}
+        ${b.youtubeUrl ? `<button class="small-btn" onclick="khPlayYouTube('${b.youtubeUrl.replace(/'/g,"\\'")}')">▶️ شاهد الشرح</button>` : ''}
         <button class="small-btn" onclick="navigator.clipboard.writeText(buildSharePreviewLink('#book=${b.id}','${safeTitle}','${safeDesc}')).then(()=>alert('تم نسخ رابط الملزمة ✅'))">🔗 نسخ الرابط</button>
         ${(b.stock != null && b.stock <= 0)
           ? `<button class="play" style="margin:0;flex:1;background:#9ca3af;cursor:not-allowed;" disabled>نفذت الكمية</button>`
@@ -7920,6 +7965,7 @@ async function openBookView(bookId) {
           ${galleryBtn}
           ${storeBtn}
         </div>
+        ${b.youtubeUrl ? `<button class="btn secondary" style="margin-top:14px;" onclick="khPlayYouTube('${String(b.youtubeUrl).replace(/'/g,"\\'")}')">▶️ شاهد شرح الملزمة</button>` : ''}
         ${(b.stock != null && b.stock <= 0) ? `<button class="btn" style="margin-top:14px;background:#9ca3af;cursor:not-allowed;" disabled>نفذت الكمية</button>` : `<button class="btn" style="margin-top:14px;" onclick='if (addToCart("${b.id}", ${JSON.stringify((b.title||"").replace(/"/g,""))}, ${b.price}, 1, {teacherName: ${JSON.stringify(b.teacherName||null)}, deliveryMode: ${JSON.stringify(b.deliveryMode||null)}, teacherDeliveryFee: ${JSON.stringify(b.teacherDeliveryFee||null)}, stage: ${JSON.stringify(b.stage||null)}, grade: ${JSON.stringify(b.grade||null)}, stock: ${b.stock != null ? Number(b.stock) : 'null'}}) !== false) alert("تمت إضافتها للسلة ✅")'>🛒 أضف للسلة</button>`}
       </div>
     `;
@@ -8970,7 +9016,7 @@ async function loadTeacherFreeLessonsList() {
         <p style="color:#8a90a3;font-size:12px;margin:2px 0 8px;">${t.grade}${t.subject ? ' — ' + t.subject : ''}</p>
         ${t.imageUrl ? `<img src="${t.imageUrl}" style="max-width:100%;border-radius:10px;margin-bottom:8px;">` : ''}
         <p style="white-space:pre-wrap;">${t.text}</p>
-        ${t.youtubeUrl ? `<button class="small-btn" style="margin-top:8px;" onclick="window.open('${t.youtubeUrl.replace(/'/g,"\\'")}','_blank')">▶️ رابط يوتيوب</button>` : ''}
+        ${t.youtubeUrl ? `<button class="small-btn" style="margin-top:8px;" onclick="khPlayYouTube('${t.youtubeUrl.replace(/'/g,"\\'")}')">▶️ شاهد الفيديو</button>` : ''}
         <button class="small-btn" style="margin-top:8px;color:#b91c1c;" onclick="deleteTeacherFreeLesson('${d.id}')">🗑️ حذف الموضوع</button>
       </div>`;
     }).join('');
@@ -9471,6 +9517,7 @@ function openTeacherStoreSettings() {
   document.getElementById('tchStoreEnabled').value = currentTeacher.storeEnabled ? 'yes' : 'no';
   document.getElementById('tchStoreDescription').value = currentTeacher.storeDescription || '';
   document.getElementById('tchStoreDeliveryFee').value = currentTeacher.storeDeliveryFee || '';
+  document.getElementById('tchStoreVideoUrl').value = currentTeacher.storeVideoUrl || '';
   document.getElementById('tchStoreSettingsMsg').innerHTML = '';
   tchStoreImageDraft = undefined; // undefined = بدون تغيير
   tchRenderStoreImagePreview(currentTeacher.storeImage || '');
@@ -9548,10 +9595,13 @@ document.getElementById('saveTeacherStoreBtn').onclick = async () => {
   const storeDeliveryFee = +document.getElementById('tchStoreDeliveryFee').value || 0;
   if (storeEnabled && !storeDescription) { setMsg('tchStoreSettingsMsg','اكتب وصف قصير لمتجرك', false); return; }
   try {
-    const storeUpdate = { storeEnabled, storeDescription, storeDeliveryFee };
+    const storeVideoUrl = document.getElementById('tchStoreVideoUrl').value.trim();
+    if (storeVideoUrl && !khYouTubeId(storeVideoUrl)) { setMsg('tchStoreSettingsMsg', 'رابط الفيديو لازم يكون رابط يوتيوب صحيح', false); return; }
+    const storeUpdate = { storeEnabled, storeDescription, storeDeliveryFee, storeVideoUrl: storeVideoUrl || '' };
     if (tchStoreImageDraft !== undefined) storeUpdate.storeImage = tchStoreImageDraft; // '' = حذف الصورة
     await db.collection('teachers').doc(currentTeacher.id).update(storeUpdate);
     if (tchStoreImageDraft !== undefined) { currentTeacher.storeImage = tchStoreImageDraft; tchStoreImageDraft = undefined; }
+    currentTeacher.storeVideoUrl = storeVideoUrl || '';
     try { localStorage.removeItem(TS_CACHE_KEY); } catch (e) {} // حتى تظهر الصورة الجديدة للزبائن فوراً
     currentTeacher.storeEnabled = storeEnabled;
     currentTeacher.storeDescription = storeDescription;
@@ -9587,7 +9637,8 @@ function tsMapDocs(snap) {
     gender: t.gender || '',
     // الصور الكبيرة ما نخزنها بالجهاز حتى ما تمتلي مساحة التخزين
     photo: (t.photo && String(t.photo).length < 90000) ? t.photo : '',
-    storeImage: (t.storeImage && String(t.storeImage).length < 160000) ? t.storeImage : ''
+    storeImage: (t.storeImage && String(t.storeImage).length < 160000) ? t.storeImage : '',
+    storeVideoUrl: t.storeVideoUrl || ''
   }));
 }
 function tsCacheGet() {
@@ -9701,7 +9752,17 @@ function tsRenderStoreHeader(teacherName, t) {
     if (navigator.clipboard) navigator.clipboard.writeText(storeLink).then(() => alert('تم نسخ رابط المتجر ✅')).catch(() => prompt('انسخ الرابط:', storeLink));
     else prompt('انسخ الرابط:', storeLink);
   });
-  header.append(top, p, btn);
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+  const vurl = t.storeVideoUrl || '';
+  if (vurl && khYouTubeId(vurl)) {
+    const vb = document.createElement('button'); vb.className = 'small-btn'; vb.style.cssText = 'background:linear-gradient(180deg,#1b3478,#0c1c4a);color:#f4c542;border:1.5px solid #e2b955;';
+    vb.textContent = '▶️ شاهد الفيديو التعريفي';
+    vb.addEventListener('click', () => khPlayYouTube(vurl));
+    actions.appendChild(vb);
+  }
+  actions.appendChild(btn);
+  header.append(top, p, actions);
 }
 function tsRenderStoreItems(list, items) {
   currentStoreItems = items;
@@ -9718,7 +9779,7 @@ function tsRenderStoreItems(list, items) {
       <div style="display:flex;align-items:flex-start;">${thumb}<div class="title" style="flex:1;">${b.title}<br><span style="font-size:12px;color:#8a90a3;">${typeLabel} — ${b.grade||''}</span><br><span style="color:#b8903c;font-weight:bold;">${b.price} د.ع</span></div></div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
         ${images.length ? `<button class="small-btn" onclick="openImageGalleryEnc('${encodeURIComponent(JSON.stringify(images))}')">📷 مشاهدة الصور${images.length>1?' ('+images.length+')':''}</button>` : ''}
-        ${b.youtubeUrl ? `<button class="small-btn" onclick="window.open('${b.youtubeUrl.replace(/'/g,"\\'")}','_blank')">▶️ يوتيوب</button>` : ''}
+        ${b.youtubeUrl ? `<button class="small-btn" onclick="khPlayYouTube('${b.youtubeUrl.replace(/'/g,"\\'")}')">▶️ شاهد الشرح</button>` : ''}
         <button class="small-btn" onclick="navigator.clipboard.writeText(buildSharePreviewLink('#book=${b.id}','${safeTitle}','${safeDesc}')).then(()=>alert('تم نسخ رابط الملزمة ✅'))">🔗 نسخ الرابط</button>
         <button class="play" style="margin:0;flex:1;" onclick="addStoreItemToCart('${b.id}')">أضف للسلة</button>
       </div>
@@ -14841,5 +14902,12 @@ window.sendWhatsApp = sendWhatsApp;
 })();
 </script>
 
+<div id="khYtModal" class="kh-yt-modal hidden" onclick="if (event.target === this) khCloseYouTube()">
+  <div class="kh-yt-box">
+    <button type="button" class="kh-yt-close" onclick="khCloseYouTube()" aria-label="إغلاق الفيديو">✕</button>
+    <div id="khYtFrame" class="kh-yt-frame"></div>
+    <button type="button" class="kh-yt-ext" id="khYtExternal">ما يشتغل؟ افتحه على يوتيوب ↗</button>
+  </div>
+</div>
 </body>
 </html>
