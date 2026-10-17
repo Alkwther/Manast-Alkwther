@@ -1005,6 +1005,24 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
   .kh-nav-btn.active::after { background:linear-gradient(90deg,#e8b84e,#b8862a); }
   .kh-nav-btn[data-kh="home"].active .kh-fill { fill:url(#khgGold); }
 </style>
+<style id="kh-sched-css">
+  .kh-sched-help { font-size:13px; color:#5b6478; line-height:1.8; margin:0 0 12px; }
+  .kh-sched-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:6px 0 12px; }
+  .kh-sched-box { background:#fbfaf6; border:1.5px solid #e6dcc3; border-radius:16px; padding:12px 8px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .kh-sched-t { font-size:13px; color:#3d4660; }
+  .kh-sched-t b { color:#0b1733; }
+  .kh-stepper { display:flex; align-items:center; gap:10px; }
+  .kh-stepper button { width:40px; height:40px; border-radius:50%; border:2px solid #e2b955; background:linear-gradient(180deg,#1b3478,#0c1c4a); color:#f4c542; font-size:24px; font-weight:800; line-height:1; cursor:pointer; padding:0; }
+  .kh-stepper button:active { transform:scale(.92); }
+  .kh-stepper b { min-width:34px; font-size:30px; font-weight:900; color:#0b1733; }
+  .kh-sched-u { font-size:13px; font-weight:700; color:#b8862a; }
+  .kh-sched-preview { background:linear-gradient(180deg,#f5f8ff,#eef3fb); border:1px solid #d6e3f5; border-radius:14px; padding:12px 14px; margin-bottom:12px; font-size:13.5px; line-height:1.9; color:#0b1733; }
+  .kh-sched-preview div + div { border-top:1px dashed #cdd9ee; margin-top:6px; padding-top:6px; }
+  .kh-sched-preview b { color:#1d4ed8; }
+  .kh-eta { background:linear-gradient(180deg,#f5f8ff,#eef3fb); border:1.5px solid #e2b955; border-radius:16px; padding:12px 14px; margin:6px 0 12px; text-align:center; line-height:1.8; }
+  .kh-eta b { display:block; color:#0b1733; font-size:15px; }
+  .kh-eta span { display:block; color:#5b6478; font-size:12.5px; }
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs><linearGradient id="khgGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".5" stop-color="#e8b84e"/><stop offset="1" stop-color="#b8862a"/></linearGradient><linearGradient id="khgGoldDark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c99a3a"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs></svg>
@@ -2459,6 +2477,28 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
 
       <div class="admin-section hidden" data-section="library-orders">
         <button class="btn secondary admin-back-btn" data-back-to="library-hub">← رجوع للمكتبة</button>
+
+        <div class="card kh-sched-card" id="deliveryScheduleCard">
+          <h3>⏱️ مواعيد التوصيل</h3>
+          <p class="kh-sched-help">حدد آخر ساعة للحجز، وكم يوم يحتاج الطلب حتى يوصل إذا حجز الزبون قبلها أو بعدها. الموعد يطلع للزبون حسب تاريخ ويوم حجزه، وينطبق على الطلبات الجديدة فقط.</p>
+          <label>🕕 آخر ساعة للحجز</label>
+          <select id="schedCutoff"></select>
+          <div class="kh-sched-row">
+            <div class="kh-sched-box">
+              <span class="kh-sched-t">إذا حجز <b>قبل</b> الساعة</span>
+              <div class="kh-stepper"><button type="button" onclick="khSchedStep('Before',-1)">−</button><b id="schedBeforeVal">1</b><button type="button" onclick="khSchedStep('Before',1)">+</button></div>
+              <span class="kh-sched-u" id="schedBeforeUnit">يوم</span>
+            </div>
+            <div class="kh-sched-box">
+              <span class="kh-sched-t">إذا حجز <b>بعد</b> الساعة</span>
+              <div class="kh-stepper"><button type="button" onclick="khSchedStep('After',-1)">−</button><b id="schedAfterVal">2</b><button type="button" onclick="khSchedStep('After',1)">+</button></div>
+              <span class="kh-sched-u" id="schedAfterUnit">يوم</span>
+            </div>
+          </div>
+          <div class="kh-sched-preview" id="schedPreview"></div>
+          <button class="btn" id="schedSaveBtn" onclick="khSaveDeliverySchedule()">💾 حفظ مواعيد التوصيل</button>
+          <div id="schedMsg"></div>
+        </div>
 
         <div class="card">
           <h3>📊 إحصائية الطلبات</h3>
@@ -4271,6 +4311,7 @@ function renderCartBar() {
 
 function openCheckout() {
   renderCartItems();
+  loadDeliverySchedule(); // نجهّز آخر مواعيد حددها المشرف بالخلفية (بدون أي تغيير بالواجهة)
   // نجيب آخر أجور توصيل حددها المشرف ونحدّث المجموع بصمت
   if (typeof loadDeliveryFeesSettings === 'function') loadDeliveryFeesSettings().then(() => { try { renderCartItems(); } catch (e) {} });
   document.getElementById('ckName').value = currentStudent ? currentStudent.name : '';
@@ -4434,6 +4475,7 @@ function showOrderConfirmationScreen(order, placedByTeacherName) {
     <div class="card">
       <h3 style="margin:0 0 10px;">🧾 تفاصيل طلبك</h3>
       ${order.customerId ? `<p style="font-weight:bold;">🪪 رقم الزبون: ${order.customerId}</p>` : ''}
+      ${order.createdAt ? `<p style="color:#5b6478;">🕒 وقت الحجز: ${khFormatBookedAt(order.createdAt)}</p>` : ''}
       <p>${itemsText}</p>
       <p style="color:#8a90a3;">مواد: ${order.subtotal||order.totalPrice} د.ع + توصيل: ${order.deliveryFee||0} د.ع</p>
       <p><b>💵 المجموع الكلي: ${order.totalPrice} د.ع</b></p>
@@ -4535,7 +4577,8 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
     };
     if (placedByTeacherName) newOrderData.placedByTeacherName = placedByTeacherName; // الأستاذ سوى هذا الطلب بنفسه لزبونه
     if (fulfillment !== 'teacher') {
-      newOrderData.deliveringThresholdAt = computeDeliveringThresholdAt(newOrderData.createdAt);
+      await Promise.race([loadDeliverySchedule(), new Promise(r => setTimeout(r, 3000))]); // آخر مواعيد حددها المشرف
+    newOrderData.deliveringThresholdAt = computeDeliveringThresholdAt(newOrderData.createdAt);
     }
     if (fulfillment === 'teacher') {
       // مبلغ حصة المكتبة يُحسب فوراً عند إنشاء الطلب، مو عند وصوله
@@ -4753,6 +4796,8 @@ async function showMyOrders(phoneOverride) {
         <p style="color:${o.status==='cancelled'?'#d1d5db':'#8a90a3'};">مواد: ${o.subtotal||o.totalPrice} د.ع + توصيل: ${o.deliveryFee||0} د.ع</p>
         <p ${textColor}><b>المجموع: ${o.totalPrice} د.ع</b></p>
         <p style="color:${o.status==='cancelled'?'#d1d5db':'#888'};">${o.province} - ${o.district}</p>
+        ${o.createdAt ? `<p style="font-size:12.5px;color:${o.status==='cancelled'?'#d1d5db':'#8a90a3'};">🕒 وقت الحجز: ${khFormatBookedAt(o.createdAt)}</p>` : ''}
+        <button class="small-btn" style="margin:0 0 6px;" onclick="openOrderView('${id}')">📄 كل تفاصيل الطلب</button>
         ${o.status !== 'completed' && o.status !== 'cancelled' ? `<button class="small-btn" onclick="openChat('order_${id}','💬 طلبك — تعديل أو استفسار')">💬 ${o.fulfillment === 'teacher' ? `مراسلة الأستاذ ${o.fulfillmentTeacherName||''}` : 'مراسلة المكتبة بخصوص هذا الطلب'}${unreadCount > 0 ? ` (${unreadCount})` : ''}</button>` : ''}
       </div>`;
     }).join('');
@@ -4964,6 +5009,7 @@ function showAdminMenu() {
   isNavigatingViaBackButton = false;
 }
 function openAdminSection(section) {
+  if (section === 'library-orders') { try { khInitScheduleCard(); } catch (e) { console.error(e); } }
   document.getElementById('adminMenu').classList.add('hidden');
   document.querySelectorAll('.admin-section').forEach(s => s.classList.toggle('hidden', s.dataset.section !== section));
   if (!isNavigatingViaBackButton) khNavRecord('admin:' + section);
@@ -6529,10 +6575,114 @@ function formatOrderTime(ts) {
 //     * حجز قبل الساعة 6 عصراً: يتحول صباح اليوم التالي (الساعة 7 صباحاً).
 //     * حجز بعد الساعة 6 عصراً: يبقى قيد التنفيذ خلال اليوم التالي أيضاً، ويتحول صباح اليوم الذي يليه (الساعة 7 صباحاً).
 // ملاحظة: لو الموظف/المشرف غيّر الحالة يدوياً (تم التسليم/ملغى) تبقى كما حددها ولا يتم تجاوزها تلقائياً
+// ===== مواعيد التوصيل (يتحكم بيها المشرف من «طلبات المكتبة») =====
+const DEFAULT_DELIVERY_SCHEDULE = { cutoffHour: 18, cutoffMinute: 0, daysBefore: 1, daysAfter: 2 };
+function khSanitizeSchedule(v) {
+  v = v || {};
+  const int = (x, lo, hi, def) => { const n = Math.round(Number(x)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; };
+  return {
+    cutoffHour: int(v.cutoffHour, 0, 23, DEFAULT_DELIVERY_SCHEDULE.cutoffHour),
+    cutoffMinute: int(v.cutoffMinute, 0, 59, 0),
+    daysBefore: int(v.daysBefore, 0, 30, DEFAULT_DELIVERY_SCHEDULE.daysBefore),
+    daysAfter: int(v.daysAfter, 0, 30, DEFAULT_DELIVERY_SCHEDULE.daysAfter)
+  };
+}
+let DELIVERY_SCHEDULE = (() => {
+  try { const c = JSON.parse(localStorage.getItem('kawthar_delivery_schedule') || 'null'); if (c) return khSanitizeSchedule(c); } catch (e) {}
+  return { ...DEFAULT_DELIVERY_SCHEDULE };
+})();
+async function loadDeliverySchedule() {
+  try {
+    const d = await db.collection('settings').doc('deliverySchedule').get();
+    if (d.exists) {
+      DELIVERY_SCHEDULE = khSanitizeSchedule(d.data());
+      try { localStorage.setItem('kawthar_delivery_schedule', JSON.stringify(DELIVERY_SCHEDULE)); } catch (e) {}
+    }
+  } catch (e) { console.error('deliverySchedule', e); }
+  return DELIVERY_SCHEDULE;
+}
+function khFormatCutoff(h, m) {
+  const period = h < 12 ? 'صباحاً' : (h < 16 ? 'ظهراً' : (h < 18 ? 'عصراً' : 'مساءً'));
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  return `${hh}:${String(m).padStart(2, '0')} ${h === 12 && m === 0 ? 'ظهراً' : period}`;
+}
 const AR_WEEKDAYS = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+// ----- بطاقة «مواعيد التوصيل» بلوحة طلبات المكتبة -----
+let khSchedDraft = null;
+function khSchedDaysLabel(n) { return n === 0 ? 'نفس اليوم' : (n === 1 ? 'يوم' : (n === 2 ? 'يومين' : (n <= 10 ? 'أيام' : 'يوم'))); }
+function khSchedFillCutoffOptions() {
+  const sel = document.getElementById('schedCutoff');
+  if (!sel || sel.options.length) return;
+  for (let h = 6; h <= 23; h++) for (const m of [0, 30]) {
+    const o = document.createElement('option');
+    o.value = `${h}:${m}`; o.textContent = khFormatCutoff(h, m);
+    sel.appendChild(o);
+  }
+  sel.addEventListener('change', () => {
+    const [h, m] = sel.value.split(':').map(Number);
+    khSchedDraft.cutoffHour = h; khSchedDraft.cutoffMinute = m; khRenderSchedUI();
+  });
+}
+function khSchedStep(which, d) {
+  const key = which === 'Before' ? 'daysBefore' : 'daysAfter';
+  khSchedDraft[key] = Math.min(30, Math.max(0, khSchedDraft[key] + d));
+  khRenderSchedUI();
+}
+function khRenderSchedUI() {
+  const s = khSchedDraft;
+  const sel = document.getElementById('schedCutoff');
+  const val = `${s.cutoffHour}:${s.cutoffMinute}`;
+  if (![...sel.options].some(o => o.value === val)) { const o = document.createElement('option'); o.value = val; o.textContent = khFormatCutoff(s.cutoffHour, s.cutoffMinute); sel.appendChild(o); }
+  sel.value = val;
+  document.getElementById('schedBeforeVal').textContent = s.daysBefore;
+  document.getElementById('schedAfterVal').textContent = s.daysAfter;
+  document.getElementById('schedBeforeUnit').textContent = khSchedDaysLabel(s.daysBefore);
+  document.getElementById('schedAfterUnit').textContent = khSchedDaysLabel(s.daysAfter);
+  // معاينة على تاريخ اليوم: حجز قبل الساعة بساعة، وبعدها بساعة
+  const today = new Date();
+  const cut = new Date(today.getFullYear(), today.getMonth(), today.getDate(), s.cutoffHour, s.cutoffMinute);
+  const beforeT = new Date(cut.getTime() - 60 * 60 * 1000), afterT = new Date(cut.getTime() + 30 * 60 * 1000);
+  const d1 = new Date(computeDeliveringThresholdAt(beforeT.getTime(), s));
+  const d2 = new Date(computeDeliveringThresholdAt(afterT.getTime(), s));
+  const dayName = d => AR_WEEKDAYS[d.getDay()];
+  const dmy = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  const same = d => d.toDateString() === today.toDateString() ? ' (نفس اليوم)' : '';
+  document.getElementById('schedPreview').innerHTML =
+    `<div>👀 <b>مثال:</b> زبون حجز اليوم ${dayName(today)} الساعة ${khFormatCutoff(beforeT.getHours(), beforeT.getMinutes())}<br>← يطلع له: <b>يوصلك يوم ${dayName(d1)} ${dmy(d1)}${same(d1)}</b></div>` +
+    `<div>زبون حجز اليوم ${dayName(today)} الساعة ${khFormatCutoff(afterT.getHours(), afterT.getMinutes())}<br>← يطلع له: <b>يوصلك يوم ${dayName(d2)} ${dmy(d2)}${same(d2)}</b></div>`;
+}
+async function khInitScheduleCard() {
+  if (!document.getElementById('deliveryScheduleCard')) return;
+  khSchedFillCutoffOptions();
+  khSchedDraft = { ...DELIVERY_SCHEDULE };
+  khRenderSchedUI();
+  await loadDeliverySchedule();
+  khSchedDraft = { ...DELIVERY_SCHEDULE };
+  khRenderSchedUI();
+}
+async function khSaveDeliverySchedule() {
+  const btn = document.getElementById('schedSaveBtn');
+  btn.disabled = true;
+  try {
+    const v = khSanitizeSchedule(khSchedDraft);
+    await db.collection('settings').doc('deliverySchedule').set({ ...v, updatedAt: Date.now(), updatedBy: (typeof currentStaffName !== 'undefined' && currentStaffName) || 'المشرف' });
+    DELIVERY_SCHEDULE = v;
+    try { localStorage.setItem('kawthar_delivery_schedule', JSON.stringify(v)); } catch (e) {}
+    setMsg('schedMsg', `✅ تم الحفظ — آخر حجز ${khFormatCutoff(v.cutoffHour, v.cutoffMinute)}: قبلها ${v.daysBefore === 0 ? 'نفس اليوم' : v.daysBefore + ' ' + khSchedDaysLabel(v.daysBefore)}، وبعدها ${v.daysAfter === 0 ? 'نفس اليوم' : v.daysAfter + ' ' + khSchedDaysLabel(v.daysAfter)}. ينطبق على الطلبات الجديدة.`, true);
+  } catch (e) {
+    console.error(e);
+    setMsg('schedMsg', 'تعذّر الحفظ: ' + (e.message || 'تأكد من الإنترنت'), false);
+  } finally { btn.disabled = false; }
+}
+
 const AR_MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 function getEstimatedDeliveryDate(order) {
   return new Date(order.deliveringThresholdAt || computeDeliveringThresholdAt(order.createdAt));
+}
+function khFormatBookedAt(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return `${formatArabicDayDate(d)} — الساعة ${khFormatCutoff(d.getHours(), d.getMinutes())}`;
 }
 function formatArabicDayDate(date) {
   const dd = String(date.getDate()).padStart(2,'0');
@@ -6540,12 +6690,17 @@ function formatArabicDayDate(date) {
   const yyyy = date.getFullYear();
   return `يوم ${AR_WEEKDAYS[date.getDay()]}، ${dd},${mm},${yyyy}`;
 }
-function computeDeliveringThresholdAt(createdAt) {
+function computeDeliveringThresholdAt(createdAt, scheduleOverride) {
+  // موعد التوصيل حسب إعدادات المشرف: آخر ساعة للحجز + عدد الأيام قبلها وبعدها
+  const sch = scheduleOverride || DELIVERY_SCHEDULE || DEFAULT_DELIVERY_SCHEDULE;
   const orderDate = new Date(createdAt);
   const orderDayStart = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
-  const bookedBefore6PM = orderDate.getHours() < 18;
+  const minutes = orderDate.getHours() * 60 + orderDate.getMinutes();
+  const bookedBeforeCutoff = minutes < (sch.cutoffHour * 60 + sch.cutoffMinute);
+  const days = bookedBeforeCutoff ? sch.daysBefore : sch.daysAfter;
+  if (days <= 0) return Math.max(orderDate.getTime(), new Date(orderDayStart).setHours(8, 0, 0, 0)); // نفس اليوم
   const threshold = new Date(orderDayStart);
-  threshold.setDate(threshold.getDate() + (bookedBefore6PM ? 1 : 2));
+  threshold.setDate(threshold.getDate() + days);
   threshold.setHours(8,0,0,0);
   return threshold.getTime();
 }
@@ -7792,11 +7947,16 @@ async function openOrderView(orderId) {
       '<div class="card">' +
         '<h3 style="margin:0 0 10px;">👋 مرحباً ' + o.studentName + '</h3>' +
         '<p style="margin:0 0 6px;">📦 ' + itemsText + '</p>' +
-        '<p style="margin:0 0 6px;color:#8a90a3;">📍 ' + (o.province||'') + ' ' + (o.district?'- '+o.district:'') + '</p>' +
+        (o.customerId ? '<p style="margin:0 0 6px;font-weight:bold;">🪪 رقم الزبون: ' + o.customerId + '</p>' : '') +
+        (o.createdAt ? '<p style="margin:0 0 6px;color:#5b6478;">🕒 وقت الحجز: ' + khFormatBookedAt(o.createdAt) + '</p>' : '') +
+        (o.studentPhone ? '<p style="margin:0 0 6px;">📞 ' + o.studentPhone + (o.altPhone ? ' — ' + o.altPhone : '') + '</p>' : '') +
+        '<p style="margin:0 0 6px;color:#8a90a3;">📍 ' + (o.province||'') + ' ' + (o.district?'- '+o.district:'') + (o.landmark ? ' — ' + o.landmark : '') + '</p>' +
+        '<p style="margin:0 0 6px;color:#5b6478;">' + (o.fulfillment === 'teacher' ? '🚚 التوصيل: الأستاذ ' + (o.fulfillmentTeacherName||'') : '🚚 التوصيل: المكتبة') + '</p>' +
         '<p style="margin:0 0 6px;">مواد: ' + (o.subtotal||0) + ' د.ع + توصيل: ' + (o.deliveryFee||0) + ' د.ع</p>' +
         '<p style="margin:0 0 10px;font-weight:bold;color:#b8903c;font-size:18px;">الإجمالي: ' + (o.totalPrice||0) + ' د.ع</p>' +
         '<p style="font-weight:bold;color:#10203f;">الحالة الحالية: ' + (ORDER_STATUS_LABELS[status]||status) + '</p>' +
-        (o.fulfillment !== 'teacher' && (status === 'pending' || status === 'processing' || status === 'delivering') ? '<p style="font-weight:bold;color:#0e6fa8;margin-top:6px;">📅 موعد التوصيل ' + 'المتوقع' + ': ' + formatArabicDayDate(getEstimatedDeliveryDate(o)) + '</p>' : '') +
+        (o.fulfillment !== 'teacher' && (status === 'pending' || status === 'processing' || status === 'delivering') ? '<p style="font-weight:bold;color:#0e6fa8;margin-top:6px;font-size:16px;">📅 موعد التوصيل المحدد: ' + formatArabicDayDate(getEstimatedDeliveryDate(o)) + '</p>' : '') +
+        (status === 'completed' ? '<p style="font-weight:bold;color:#15803d;margin-top:6px;">✅ وصل الطلب</p>' : '') +
       '</div>' +
       '<button class="btn secondary" onclick="openChat(\'order_' + orderId + '\',\'💬 طلبك — تعديل أو استفسار\')">💬 مراسلة المكتبة بخصوص هذا الطلب</button>';
   } catch(e) { console.error(e); box.innerHTML = '<div class="card"><p>تعذّر تحميل الطلب. تأكد من اتصالك بالإنترنت.</p></div>'; }
@@ -11740,6 +11900,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 (async function init() {
   loadFreeModeStatus(); // بالخلفية بدون انتظار — ما توقف فتح البرنامج
   loadDeliveryFeesSettings(); // نفس الشي: القيم الافتراضية جاهزة أصلاً، وتتحدث بالخلفية لو تغيّرت
+  loadDeliverySchedule(); // مواعيد التوصيل اللي يحددها المشرف
   loadLibraryStructure(); // نفس الشي: القيم الافتراضية جاهزة أصلاً، وتتحدث بالخلفية لو تغيّرت
   // تحميل فولدرات الكراسات التعليمية بالخلفية بمجرد فتح البرنامج، حتى تكون النسخة المحفوظة جاهزة
   // قبل ما يضغط الزبون عليها أصلاً (يفيد بالذات لما يفتح رابط مشاركة لفولدر معيّن)
