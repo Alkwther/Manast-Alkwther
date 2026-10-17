@@ -750,6 +750,15 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
   .kh-search input::placeholder { color:#9aa3b5; }
   .kh-search input::-webkit-search-cancel-button { -webkit-appearance:none; }
   .kh-search button { border:none; background:none; padding:4px; cursor:pointer; display:flex; align-items:center; }
+  .kh-search .kh-search-close { display:none; }
+  /* البحث يكبر ويغطي الشريط حتى تبين الكلمات اللي تكتبها */
+  .kh-topbar.kh-search-open .kh-search { position:absolute; left:14px; right:14px; top:50%; transform:translateY(-50%); max-width:none; height:56px;
+    z-index:30; border-radius:999px; padding:0 8px; box-shadow:0 0 0 3px #e2b955, 0 8px 22px rgba(0,0,0,.35); animation:khSearchGrow .22s ease; }
+  .kh-topbar.kh-search-open .kh-search input { font-size:18px; font-weight:600; padding:0 10px; }
+  .kh-topbar.kh-search-open .kh-search .kh-search-close { display:flex; }
+  .kh-topbar.kh-search-open #khSearchBtn { background:linear-gradient(180deg,#1b3478,#0c1c4a); border-radius:50%; width:42px; height:42px; justify-content:center; }
+  .kh-topbar.kh-search-open #khSearchBtn svg { stroke:#f4c542; width:24px; height:24px; }
+  @keyframes khSearchGrow { from { opacity:.6; transform:translateY(-50%) scaleX(.6); } to { opacity:1; transform:translateY(-50%) scaleX(1); } }
   .kh-menu { position:absolute; top: calc(100% + 8px); right: 12px; background:#fff; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.25); padding:6px; min-width:190px; z-index:80; }
   .kh-menu-item { display:flex; align-items:center; gap:10px; width:100%; border:none; background:none; padding:11px 12px; border-radius:10px; font-family:inherit; font-size:14px; font-weight:700; color:#10203f; cursor:pointer; text-align:right; }
   .kh-menu-item:active { background:#f1f4fa; }
@@ -1025,8 +1034,11 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
         <span id="libCustomerChatBadge" class="hidden" style="position:absolute;top:-4px;left:-6px;background:#dc2626;color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:bold;">0</span>
       </button>
     </div>
-    <div class="kh-search" role="search">
-      <input id="khSearchInput" type="search" placeholder="ابحث" autocomplete="off" enterkeyhint="search" aria-label="بحث">
+    <div class="kh-search" role="search" id="khSearchBox">
+      <button type="button" class="kh-search-close" id="khSearchClose" aria-label="إغلاق البحث">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#10203f" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <input id="khSearchInput" type="search" placeholder="ابحث عن ملزمة، كتاب، أستاذ..." autocomplete="off" enterkeyhint="search" aria-label="بحث">
       <button type="button" id="khSearchBtn" aria-label="ابحث">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#10203f" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
       </button>
@@ -14084,7 +14096,7 @@ window.sendWhatsApp = sendWhatsApp;
     const originalShow = show;
     show = function (id) {
       const r = originalShow.apply(this, arguments);
-      try { updateNav(id); if (id === 'screen-welcome') loadHomeData(); } catch (e) { console.error(e); }
+      try { updateNav(id); if (id === 'screen-welcome') loadHomeData(); if (id !== 'screen-kh-search' && window.khCloseSearchBar && document.activeElement !== $('khSearchInput')) window.khCloseSearchBar(); } catch (e) { console.error(e); }
       return r;
     };
   }
@@ -14282,6 +14294,50 @@ window.sendWhatsApp = sendWhatsApp;
       .replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
       .replace(/\s+/g, ' ').trim();
   }
+  // ===== بحث ذكي: يتحمّل الأخطاء الإملائية وجزء الكلمة و«ال» =====
+  function khTokens(str) {
+    return norm(str).replace(/ؤ/g, 'و').replace(/ئ/g, 'ي').replace(/ء/g, '')
+      .split(/[^\u0600-\u06FFa-z0-9]+/).filter(Boolean)
+      .map(w => w.replace(/^(وال|بال|كال|فال|لل|ال)(?=[\u0600-\u06FF]{2,})/, ''))
+      .filter(Boolean);
+  }
+  function khLev(a, b) {
+    if (a === b) return 0;
+    const m = a.length, n = b.length;
+    if (!m) return n; if (!n) return m;
+    let prev = Array.from({ length: n + 1 }, (_, j) => j);
+    for (let i = 1; i <= m; i++) {
+      const cur = [i];
+      for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+    return prev[n];
+  }
+  function khTokSim(q, t) {
+    if (t === q) return 1;
+    if (t.includes(q)) return q.length >= 2 ? 0.95 : 0.5;
+    if (q.length >= 3 && q.includes(t) && t.length >= 3) return 0.8;
+    if (q.length < 3) return 0;
+    const full = 1 - khLev(q, t) / Math.max(q.length, t.length);
+    const pre = t.length > q.length ? 1 - khLev(q, t.slice(0, q.length)) / q.length : 0; // بداية الكلمة
+    return Math.max(full, pre * 0.92);
+  }
+  const khTokCache = new Map();
+  function khScore(qTokens, parts) {
+    if (!qTokens.length) return 0;
+    const key = parts.join('|');
+    let toks = khTokCache.get(key);
+    if (!toks) { toks = khTokens(parts.join(' ')); if (khTokCache.size > 5000) khTokCache.clear(); khTokCache.set(key, toks); }
+    if (!toks.length) return 0;
+    let sum = 0, minBest = 1;
+    for (const q of qTokens) {
+      let best = 0;
+      for (const t of toks) { const v = khTokSim(q, t); if (v > best) best = v; if (best === 1) break; }
+      sum += best; if (best < minBest) minBest = best;
+    }
+    const avg = sum / qTokens.length;
+    return minBest < 0.5 ? Math.min(avg, minBest) : avg; // كل كلمة لازم تشبه شي على الأقل
+  }
   async function getSearchBooks() {
     if (typeof libraryAllBooks !== 'undefined' && Array.isArray(libraryAllBooks) && libraryAllBooks.length) return libraryAllBooks;
     if (searchBooks) return searchBooks;
@@ -14389,8 +14445,11 @@ window.sendWhatsApp = sendWhatsApp;
     title.textContent = 'نتائج البحث عن: ' + String(raw).trim();
     results.innerHTML = '<p class="loader">جاري البحث...</p>';
     const seq = ++searchSeq;
-    const words = q.split(' ');
-    const match = (...parts) => { const h = norm(parts.join(' ')); return words.every(w => h.includes(w)); };
+    const qTokens = khTokens(raw);
+    const exact = (...parts) => khScore(qTokens, parts) >= 0.85 ? 1 : 0;
+    const fuzzyScore = (...parts) => khScore(qTokens, parts);
+    let fuzzyMode = false;
+    let match = (...parts) => exact(...parts) === 1;
     const LIMIT = 30;
     try {
       const [booksR, teachersR, extraR] = await Promise.allSettled([getSearchBooks(), loadTeachers(), getExtraSources()]);
@@ -14400,19 +14459,36 @@ window.sendWhatsApp = sendWhatsApp;
       const ex = extraR.status === 'fulfilled' ? extraR.value : { notebooks: [], workbooks: [], folders: [], grades: [], subjects: [] };
       const anyFailed = [booksR, teachersR, extraR].some(r => r.status === 'rejected');
 
-      const fSections = SECTIONS.filter(s => match(s.title, s.sub, s.words));
-      const fTeachers = tlist.filter(t => match('الاستاذ', t.name, 'متجر'));
-      const fBooks = books.filter(b => match(b.title, b.teacherName ? 'الاستاذ ' + b.teacherName : '', b.grade, b.subject, b.stage, b.description, b.itemType === 'notebook' ? 'دفتر دفاتر' : 'ملزمه ملازم'));
-      const fNotebooks = ex.notebooks.filter(n => match(n.title, 'دفتر دفاتر', n.pages ? n.pages + ' صفحه' : ''));
-      const folderById = {};
-      ex.folders.forEach(f => { folderById[f.id] = f; });
-      const fFolders = ex.folders.filter(f => match(f.name, 'كراسه كراسات فولدر'));
-      const fWorkbooks = ex.workbooks.filter(w => { const f = folderById[w.folderId]; return match(w.title, 'كراسه كراسات', f ? f.name : (w.folderName || '')); });
-      const gradeById = {};
-      ex.grades.forEach(g => { gradeById[g.id] = g; });
-      const fGrades = ex.grades.filter(g => match(g.name, 'كتب منهجيه صف'));
-      const fSubjects = ex.subjects.filter(s => { const g = gradeById[s.gradeId]; return g && match(s.name, g.name, 'كتاب كتب منهجيه'); });
+      const runFilters = () => {
+        const fSections = SECTIONS.filter(s => match(s.title, s.sub, s.words));
+        const fTeachers = tlist.filter(t => match('الاستاذ', t.name, 'متجر'));
+        const fBooks = books.filter(b => match(b.title, b.teacherName ? 'الاستاذ ' + b.teacherName : '', b.grade, b.subject, b.stage, b.description, b.itemType === 'notebook' ? 'دفتر دفاتر' : 'ملزمه ملازم'));
+        const fNotebooks = ex.notebooks.filter(n => match(n.title, 'دفتر دفاتر', n.pages ? n.pages + ' صفحه' : ''));
+        const folderById = {};
+        ex.folders.forEach(f => { folderById[f.id] = f; });
+        const fFolders = ex.folders.filter(f => match(f.name, 'كراسه كراسات فولدر'));
+        const fWorkbooks = ex.workbooks.filter(w => { const f = folderById[w.folderId]; return match(w.title, 'كراسه كراسات', f ? f.name : (w.folderName || '')); });
+        const gradeById = {};
+        ex.grades.forEach(g => { gradeById[g.id] = g; });
+        const fGrades = ex.grades.filter(g => match(g.name, 'كتب منهجيه صف'));
+        const fSubjects = ex.subjects.filter(s => { const g = gradeById[s.gradeId]; return g && match(s.name, g.name, 'كتاب كتب منهجيه'); });
 
+        return { fSections, fTeachers, fBooks, fNotebooks, fFolders, fWorkbooks, fGrades, fSubjects, folderById, gradeById };
+      };
+      let R = runFilters();
+      const countAll = r => r.fSections.length + r.fTeachers.length + r.fBooks.length + r.fNotebooks.length + r.fFolders.length + r.fWorkbooks.length + r.fGrades.length + r.fSubjects.length;
+      if (!countAll(R)) {
+        // ما فيه تطابق بنفس الكلمة: نعرض الأشياء المشابهة (أخطاء إملائية، جزء من الكلمة، بدون «ال»...)
+        fuzzyMode = true;
+        match = (...parts) => fuzzyScore(...parts) >= 0.6;
+        R = runFilters();
+      }
+      // ترتيب كل مجموعة: الأقرب للكلمة أولاً
+      const rank = (arr, partsOf) => arr.map(x => [x, fuzzyScore(...partsOf(x))]).sort((p1, p2) => p2[1] - p1[1]).map(p => p[0]);
+      const { fSections, fTeachers, fNotebooks, fFolders, fGrades, folderById, gradeById } = R;
+      const fBooks = rank(R.fBooks, b => [b.title, b.teacherName ? 'الاستاذ ' + b.teacherName : '', b.grade, b.subject]);
+      const fWorkbooks = rank(R.fWorkbooks, w => [w.title, (folderById[w.folderId] || {}).name || w.folderName || '']);
+      const fSubjects = rank(R.fSubjects, x => [x.name, (gradeById[x.gradeId] || {}).name || '']);
       results.innerHTML = '';
       const total = fSections.length + fTeachers.length + fBooks.length + fNotebooks.length + fFolders.length + fWorkbooks.length + fGrades.length + fSubjects.length;
       if (!total) {
@@ -14425,7 +14501,7 @@ window.sendWhatsApp = sendWhatsApp;
         results.appendChild(c);
         return;
       }
-      title.textContent = `نتائج البحث عن: ${String(raw).trim()} (${total})`;
+      title.textContent = fuzzyMode ? `ما لگينا «${String(raw).trim()}» بالضبط — هذي نتائج مشابهة (${total})` : `نتائج البحث عن: ${String(raw).trim()} (${total})`;
 
       if (fSections.length) {
         results.appendChild(groupTitle('أقسام البرنامج'));
@@ -14546,7 +14622,21 @@ window.sendWhatsApp = sendWhatsApp;
         if (norm(v).length >= 2) searchTimer = setTimeout(() => runSearch(v), 450);
       });
     }
-    if (btn) btn.addEventListener('click', () => { clearTimeout(searchTimer); runSearch(input ? input.value : ''); });
+    const topbar = document.querySelector('.kh-topbar');
+    const openSearch = () => { if (topbar && !topbar.classList.contains('kh-search-open')) { topbar.classList.add('kh-search-open'); } };
+    const closeSearch = () => { if (topbar) topbar.classList.remove('kh-search-open'); if (input) input.blur(); };
+    window.khCloseSearchBar = closeSearch;
+    if (input) input.addEventListener('focus', openSearch);
+    if (btn) btn.addEventListener('click', () => {
+      clearTimeout(searchTimer);
+      if (topbar && !topbar.classList.contains('kh-search-open')) { openSearch(); if (input) input.focus(); return; }
+      if (input && !input.value.trim()) { input.focus(); return; }
+      runSearch(input ? input.value : '');
+      if (input) input.blur();
+    });
+    const closeBtn = $('khSearchClose');
+    if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); if (input) input.value = ''; closeSearch(); });
+    if (input) input.addEventListener('blur', () => { setTimeout(() => { if (!input.value.trim() && document.activeElement !== input) closeSearch(); }, 150); });
 
     const prev = $('khAvPrev'), next = $('khAvNext'), row = $('khAvatars');
     if (prev && row) prev.addEventListener('click', (e) => { e.stopPropagation(); row.scrollBy({ left: 120, behavior: 'smooth' }); });
