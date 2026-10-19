@@ -1074,6 +1074,11 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
   .kh-tv-acts .small-btn { padding:4px 7px; margin:0; }
   #screen-maramir .play, #screen-teacher-store-detail .play { border:1.5px solid #e2b955; border-radius:14px; background:linear-gradient(180deg,#1b3478,#0c1c4a); color:#fff; font-weight:800; padding:10px 12px; font-family:inherit; cursor:pointer; }
 </style>
+<style id="kh-store-only-upload">#tchUploadLibraryBtn{display:none !important;}</style>
+<style id="kh-teacher-limits">
+  /* الأستاذ يضيف ملازمه وأسعارها فقط — الفيديوهات وصورة المتجر والفيديو التعريفي من الموظفين/المشرف */
+  #tchVideosBtn, #tchStoreVideoUrl { display:none !important; }
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs><linearGradient id="khgGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".5" stop-color="#e8b84e"/><stop offset="1" stop-color="#b8862a"/></linearGradient><linearGradient id="khgGoldDark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c99a3a"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs></svg>
@@ -3056,7 +3061,6 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
     </div>
     <button class="btn secondary" id="tchBooksLibraryBtn" onclick="openTeacherBooksLibrary()">💰 المحفظة</button>
     <button class="btn secondary hidden" id="tchStoreSettingsBtn" onclick="openTeacherStoreSettings()">🏪 متجري الخاص</button>
-    <button class="btn secondary" id="tchVideosBtn" onclick="khOpenTeacherVideos()">🎬 فيديوهاتي (يوتيوب)</button>
     <button class="btn secondary" id="tchUploadBookletBtn" onclick="openTeacherUploadBooklet('store')">📤 رفع ملزمة/دفتر داخل متجري الخاص</button>
     <button class="btn secondary" id="tchUploadLibraryBtn" onclick="openTeacherUploadBooklet('library')">📚 رفع ملزمة/دفتر داخل صفوف المكتبة</button>
     <button class="btn secondary hidden" id="tchMyOrdersBtn" onclick="teacherOrdersContextName=null; show('screen-teacher-orders'); switchTeacherOrdersTab('new');">📦 طلبات ملازمي (توصيلي الخاص)</button>
@@ -3308,8 +3312,8 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       </select>
       <label>وصف قصير لمتجرك (يظهر للزبون تحت اسمك)</label>
       <textarea id="tchStoreDescription" rows="3" placeholder="مثال: ملازم ودفاتر الأستاذ أحمد لمادة الرياضيات — توصيل سريع لكل بغداد"></textarea>
-      <label>صورة المتجر (تظهر للزبائن بقائمة متاجر الأساتذة) — يفضّل صورة مربعة</label>
-      <div class="kh-si-pick">
+      <label style="display:none">صورة المتجر (تظهر للزبائن بقائمة متاجر الأساتذة) — يفضّل صورة مربعة</label>
+      <div class="kh-si-pick" style="display:none">
         <div class="kh-si-preview" id="tchStoreImagePreview"></div>
         <div class="kh-si-actions">
           <label class="small-btn kh-si-upload">📷 اختيار صورة<input type="file" id="tchStoreImageInput" accept="image/*" hidden></label>
@@ -3317,7 +3321,7 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
           <span class="kh-si-hint">إذا ما اخترت صورة، تظهر صورتك الشخصية، وإذا ما عندك صورة يظهر رسم احترافي جاهز.</span>
         </div>
       </div>
-      <label>🎬 فيديو تعريفي لمتجرك (رابط يوتيوب — اختياري)</label>
+      <label style="display:none">🎬 فيديو تعريفي لمتجرك (رابط يوتيوب — اختياري)</label>
       <input id="tchStoreVideoUrl" type="url" placeholder="https://youtube.com/... — يشتغل للزبون داخل البرنامج">
       <label>أجور التوصيل الثابتة لمتجرك (دينار) — تُحسب مرة وحدة فقط مهما زاد عدد القطع بالطلب</label>
       <input id="tchStoreDeliveryFee" type="number" placeholder="مثال: 3000">
@@ -9453,7 +9457,8 @@ async function loadTeacherClasses() {
 // ---------- مكتبة ملازم الأستاذ ----------
 let tchUploadDestination = 'library'; // 'library' | 'store'
 async function openTeacherUploadBooklet(destination) {
-  tchUploadDestination = destination || 'library';
+  // الأستاذ يرفع لمتجره الخاص فقط — الرفع داخل صفوف المكتبة صار للمكتبة وحدها
+  tchUploadDestination = 'store';
   document.getElementById('tchBookletImageInput').value = '';
   document.getElementById('tchBookletImagePreview').innerHTML = '';
   document.getElementById('tchBookletTitle').value = '';
@@ -9934,16 +9939,32 @@ document.getElementById('saveTeacherStoreBtn').onclick = async () => {
   try {
     const storeVideoUrl = document.getElementById('tchStoreVideoUrl').value.trim();
     if (storeVideoUrl && !khYouTubeId(storeVideoUrl)) { setMsg('tchStoreSettingsMsg', 'رابط الفيديو لازم يكون رابط يوتيوب صحيح', false); return; }
-    const storeUpdate = { storeEnabled, storeDescription, storeDeliveryFee, storeVideoUrl: storeVideoUrl || '' };
-    if (tchStoreImageDraft !== undefined) storeUpdate.storeImage = tchStoreImageDraft; // '' = حذف الصورة
-    await db.collection('teachers').doc(currentTeacher.id).update(storeUpdate);
-    if (tchStoreImageDraft !== undefined) { currentTeacher.storeImage = tchStoreImageDraft; tchStoreImageDraft = undefined; }
-    currentTeacher.storeVideoUrl = storeVideoUrl || '';
+    // الحقول الأساسية للمتجر (نفس اللي چانت تنحفظ قبل). الحقول الجديدة (الصورة/الفيديو) نضيفها بس إذا تغيّرت
+    const storeUpdate = { storeEnabled, storeDescription, storeDeliveryFee };
+    const extraUpdate = {};
+    // الأستاذ ما يعدّل صورة المتجر ولا الفيديو التعريفي — هذي من الموظفين/المشرف
+    let extraFailed = false;
+    if (Object.keys(extraUpdate).length) {
+      try { await db.collection('teachers').doc(currentTeacher.id).update({ ...storeUpdate, ...extraUpdate }); }
+      catch (e2) {
+        if (e2 && (e2.code === 'permission-denied' || String(e2.message || '').includes('permission'))) {
+          // قواعد الحماية ما تسمح بعد بالصورة/الفيديو: نحفظ إعدادات المتجر الأساسية على الأقل
+          await db.collection('teachers').doc(currentTeacher.id).update(storeUpdate);
+          extraFailed = true;
+        } else throw e2;
+      }
+    } else {
+      await db.collection('teachers').doc(currentTeacher.id).update(storeUpdate);
+    }
+    if (extraFailed) { tchStoreImageDraft = undefined; }
+    if (!extraFailed && tchStoreImageDraft !== undefined) { currentTeacher.storeImage = tchStoreImageDraft; tchStoreImageDraft = undefined; }
+    if (!extraFailed && 'storeVideoUrl' in extraUpdate) currentTeacher.storeVideoUrl = storeVideoUrl || '';
     try { localStorage.removeItem(TS_CACHE_KEY); } catch (e) {} // حتى تظهر الصورة الجديدة للزبائن فوراً
     currentTeacher.storeEnabled = storeEnabled;
     currentTeacher.storeDescription = storeDescription;
     currentTeacher.storeDeliveryFee = storeDeliveryFee;
-    setMsg('tchStoreSettingsMsg','تم حفظ إعدادات متجرك ✅', true);
+    if (extraFailed) setMsg('tchStoreSettingsMsg','تم حفظ إعدادات متجرك ✅ — بس صورة المتجر/الفيديو التعريفي ما انحفظت لأن صلاحيات قاعدة البيانات ما تسمح بيها بعد. تگدر المكتبة تضيفها لك من برنامج الإدارة.', true);
+    else setMsg('tchStoreSettingsMsg','تم حفظ إعدادات متجرك ✅', true);
   } catch(e) {
     console.error(e);
     setMsg('tchStoreSettingsMsg', `تعذّر الحفظ: ${e.code || ''} ${e.message || 'خطأ غير معروف'}`, false);
