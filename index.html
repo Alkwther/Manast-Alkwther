@@ -1079,6 +1079,31 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
   /* الأستاذ يضيف ملازمه وأسعارها فقط — الفيديوهات وصورة المتجر والفيديو التعريفي من الموظفين/المشرف */
   #tchVideosBtn, #tchStoreVideoUrl { display:none !important; }
 </style>
+<style id="kh-wa-css">
+  .kh-pc-modal { position:fixed; inset:0; z-index:600; background:rgba(5,12,32,.6); display:flex; align-items:center; justify-content:center; padding:18px; }
+  .kh-pc-modal.hidden { display:none; }
+  .kh-pc-box { width:100%; max-width:420px; background:#fff; border-radius:24px; padding:22px 18px 18px; text-align:center; border:2px solid #e2b955; box-shadow:0 20px 50px rgba(0,0,0,.35); }
+  .kh-pc-ic { width:64px; height:64px; margin:0 auto 8px; border-radius:50%; background:linear-gradient(160deg,#22396b,#0b1733); border:3px solid #e2b955; display:flex; align-items:center; justify-content:center; font-size:30px; }
+  .kh-pc-box h3 { margin:0 0 4px; color:#0b1733; border:none; padding:0; }
+  .kh-pc-hint { font-size:13px; color:#64748b; margin:0 0 12px; }
+  .kh-pc-num { direction:ltr; font-size:32px; font-weight:900; letter-spacing:2px; color:#0b1733; background:#f5f8ff; border:2px dashed #93c5fd; border-radius:16px; padding:10px; }
+  .kh-pc-alt { direction:rtl; font-size:14px; color:#475569; margin-top:6px; min-height:4px; }
+  .kh-pc-q { font-weight:800; color:#0b1733; margin:12px 0 10px; }
+  .kh-pc-btns { display:grid; gap:8px; }
+  .kh-pc-btns .btn { margin:0; }
+  .kh-wa-card { border:2px solid #25d366; background:linear-gradient(180deg,#f0fdf4,#ffffff); }
+  .kh-wa-head { display:flex; align-items:center; gap:12px; text-align:right; }
+  .kh-wa-ic { width:52px; height:52px; border-radius:50%; background:#25d366; display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0; }
+  .kh-wa-head b { display:block; font-size:17px; color:#14532d; }
+  .kh-wa-head span { display:block; font-size:13px; color:#3f6212; line-height:1.6; }
+  .kh-wa-code { margin:10px 0; font-size:14px; color:#14532d; text-align:center; }
+  .kh-wa-code b { font-size:20px; letter-spacing:1px; direction:ltr; display:inline-block; }
+  .kh-wa-btn { display:flex; align-items:center; justify-content:center; gap:10px; background:#25d366; color:#fff !important; text-decoration:none; font-weight:800; font-size:17px; border-radius:16px; padding:14px; box-shadow:0 6px 16px rgba(37,211,102,.35); }
+</style>
+<style id="kh-wa-admin-css">
+  .kh-wa-badge { background:#16a34a; color:#fff; border-radius:8px; padding:2px 8px; font-size:11px; font-weight:bold; display:inline-block; }
+  .kh-wa-pending { background:#f1f5f9; color:#334155; border:1px dashed #94a3b8; border-radius:8px; padding:1px 8px; font-size:11px; font-weight:bold; direction:ltr; display:inline-block; }
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs><linearGradient id="khgGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".5" stop-color="#e8b84e"/><stop offset="1" stop-color="#b8862a"/></linearGradient><linearGradient id="khgGoldDark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c99a3a"/><stop offset="1" stop-color="#8a6420"/></linearGradient></defs></svg>
@@ -2551,6 +2576,12 @@ main{max-width:560px;margin:0 auto;padding:20px 14px 100px;}#screen-textbooks /*
       <div class="admin-section hidden" data-section="library-orders">
         <button class="btn secondary admin-back-btn" data-back-to="library-hub">← رجوع للمكتبة</button>
 
+        <div class="card">
+          <h3>🔎 بحث بكود الطلب (تأكيد واتساب)</h3>
+          <p style="font-size:12.5px;color:#64748b;margin:0 0 8px;">الزبون يرسل على واتساب «تأكيد طلب رقم K12345». اكتب الكود هنا ويطلع طلبه، وأكّده بضغطة.</p>
+          <div style="display:flex;gap:8px;"><input id="waSearchCode" placeholder="K12345" style="margin:0;direction:ltr;text-transform:uppercase;"><button class="btn" style="margin:0;width:auto;padding:0 18px;" onclick="khWaSearch()">بحث</button></div>
+          <div id="waSearchResult" style="margin-top:10px;"></div>
+        </div>
         <div class="card kh-sched-card" id="deliveryScheduleCard">
           <h3>⏱️ مواعيد التوصيل</h3>
           <p class="kh-sched-help">حدد آخر ساعة للحجز، وكم يوم يحتاج الطلب حتى يوصل إذا حجز الزبون قبلها أو بعدها. الموعد يطلع للزبون حسب تاريخ ويوم حجزه، وينطبق على الطلبات الجديدة فقط.</p>
@@ -4647,12 +4678,73 @@ function showOrderConfirmationScreen(order, placedByTeacherName) {
     <button class="btn secondary" style="margin-top:8px;" onclick="${order.fulfillment === 'teacher' ? `teacherOrdersContextName=null; show('screen-teacher-orders'); switchTeacherOrdersTab('new');` : `openTeacherPlacedOrdersList()`}">📋 عرض طلبات زبائني</button>
     <button class="btn secondary" style="margin-top:8px;" onclick="show('screen-teacher-dashboard')">🔙 رجوع للوحتي</button>
     ` : `
+    ${khWaConfirmHtml(order)}
     <button class="btn" onclick="showMyOrders('${(order.phone||'').replace(/'/g,"\\'")}')">📦 عرض كل طلباتي</button>
     <button class="btn secondary" style="margin-top:8px;" onclick="show('screen-library')">🛍️ متابعة التسوق</button>
     `}
   `;
 }
 
+
+// ===== تأكيد رقم الزبون قبل الحجز + تأكيد الطلب على واتساب =====
+function khMakeWaCode() { return 'K' + String(Math.floor(10000 + Math.random() * 90000)); }
+function khFormatIraqiPhone(p) { p = String(p || ''); return p.length === 11 ? `${p.slice(0,4)} ${p.slice(4,7)} ${p.slice(7)}` : p; }
+function khPhoneProblem(p) {
+  if (!/^\d{11}$/.test(p)) return 'رقم الهاتف لازم يكون 11 رقم بالضبط';
+  if (!/^07[5789]\d{8}$/.test(p)) return 'رقم الهاتف لازم يبدأ بـ 075 أو 077 أو 078 أو 079';
+  if (/^07[5789](\d)\1{7}$/.test(p) || /(\d)\1{6,}/.test(p.slice(3))) return 'رقم الهاتف يبين غير حقيقي — تأكد منه';
+  return '';
+}
+let khPhoneConfirmed = false;
+function khOpenPhoneConfirm(phone, alt, onYes) {
+  let m = document.getElementById('khPhoneConfirm');
+  if (!m) {
+    m = document.createElement('div'); m.id = 'khPhoneConfirm'; m.className = 'kh-pc-modal';
+    m.innerHTML = `<div class="kh-pc-box"><div class="kh-pc-ic">📞</div><h3>تأكد من رقمك قبل الحجز</h3>
+      <p class="kh-pc-hint">نتواصل وياك على هذا الرقم بخصوص طلبك</p>
+      <div class="kh-pc-num" id="khPcNum"></div><div class="kh-pc-alt" id="khPcAlt"></div>
+      <p class="kh-pc-q">هل الرقم صحيح؟</p>
+      <div class="kh-pc-btns"><button type="button" class="btn" id="khPcYes">✅ نعم، الرقم صحيح</button><button type="button" class="btn secondary" id="khPcEdit">✏️ تعديل الرقم</button></div></div>`;
+    document.body.appendChild(m);
+  }
+  document.getElementById('khPcNum').textContent = khFormatIraqiPhone(phone);
+  document.getElementById('khPcAlt').textContent = alt ? 'رقم آخر: ' + khFormatIraqiPhone(alt) : '';
+  m.classList.remove('hidden');
+  document.getElementById('khPcYes').onclick = () => { m.classList.add('hidden'); onYes(); };
+  document.getElementById('khPcEdit').onclick = () => { m.classList.add('hidden'); const f = document.getElementById('ckPhone'); if (f) { f.focus(); f.select && f.select(); } };
+}
+function khInstallPhoneConfirm() {
+  const btn = document.getElementById('confirmOrderBtn');
+  if (!btn || btn.dataset.khPc) return;
+  btn.dataset.khPc = '1';
+  const original = btn.onclick;
+  btn.onclick = async (ev) => {
+    if (khPhoneConfirmed) { khPhoneConfirmed = false; return original.call(btn, ev); }
+    if (typeof isSubmittingOrder !== 'undefined' && isSubmittingOrder) return;
+    const name = document.getElementById('ckName').value.trim();
+    const province = document.getElementById('ckProvince').value;
+    const district = document.getElementById('ckDistrict').value.trim();
+    const phone = toEnglishDigits(document.getElementById('ckPhone').value.trim());
+    const alt = toEnglishDigits(document.getElementById('ckAltPhone').value.trim());
+    if (!name || !province || !district || !phone) return original.call(btn, ev); // رسائل النقص الأصلية
+    const prob = khPhoneProblem(phone);
+    if (prob) { setMsg('checkoutMsg', '⚠️ ' + prob, false); document.getElementById('ckPhone').focus(); return; }
+    if (alt) { const p2 = khPhoneProblem(alt); if (p2) { setMsg('checkoutMsg', '⚠️ الرقم الآخر: ' + p2, false); return; } }
+    khOpenPhoneConfirm(phone, alt, () => { khPhoneConfirmed = true; btn.onclick(ev); });
+  };
+}
+function khWaConfirmHtml(order) {
+  if (!order || !order.waCode) return '';
+  const msg = `✅ تأكيد طلب رقم ${order.waCode}\nالاسم: ${order.studentName || ''}\nالمحافظة: ${order.province || ''}\nالمجموع: ${order.totalPrice || ''} د.ع`;
+  const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+  return `<div class="card kh-wa-card">
+      <div class="kh-wa-head"><span class="kh-wa-ic">📲</span><div><b>أكّد طلبك على واتساب</b><span>حتى نجهّز طلبك أسرع ونتواصل وياك على رقمك الصحيح</span></div></div>
+      <div class="kh-wa-code">رقم الطلب: <b>${order.waCode}</b></div>
+      <a class="kh-wa-btn" href="${href}" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="#fff" aria-hidden="true"><path d="M12 2a10 10 0 00-8.6 15.1L2 22l5-1.3A10 10 0 1012 2zm4.5 12.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 01-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 00-.7.3 3 3 0 00-.9 2.2 5.2 5.2 0 001.1 2.7 11.8 11.8 0 004.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>
+        تأكيد الطلب على واتساب</a>
+    </div>`;
+}
 document.getElementById('confirmOrderBtn').onclick = async () => {
   if (isSubmittingOrder) return; // منع تكرار الطلب لو ضغط الزبون على الزر أكثر من مرة بسرعة
   // نقفل الزر فوراً هنا (قبل أي عملية غير متزامنة زي استعلامات فايرستور) — هذا يسد ثغرة كانت
@@ -4733,7 +4825,8 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
       studentName: name,
       items, subtotal, deliveryFee, totalPrice, province, district, landmark, phone, altPhone,
       customerId, fulfillment, fulfillmentTeacherName,
-      status: 'pending', seenByStaff: false, createdAt: Date.now()
+      status: 'pending', seenByStaff: false, createdAt: Date.now(),
+      waCode: khMakeWaCode() // رقم الطلب اللي يأكده الزبون على واتساب
     };
     if (placedByTeacherName) newOrderData.placedByTeacherName = placedByTeacherName; // الأستاذ سوى هذا الطلب بنفسه لزبونه
     if (fulfillment !== 'teacher') {
@@ -4782,6 +4875,7 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
     btn.textContent = originalBtnText;
   }
 };
+khInstallPhoneConfirm();
 
 async function checkReturningCustomer() {
   const notice = document.getElementById('returningCustomerNotice');
@@ -8118,7 +8212,9 @@ async function openOrderView(orderId) {
         '<p style="font-weight:bold;color:#10203f;">الحالة الحالية: ' + (ORDER_STATUS_LABELS[status]||status) + '</p>' +
         (o.fulfillment !== 'teacher' && (status === 'pending' || status === 'processing' || status === 'delivering') ? '<p style="font-weight:bold;color:#0e6fa8;margin-top:6px;font-size:16px;">📅 موعد التوصيل المحدد: ' + formatArabicDayDate(getEstimatedDeliveryDate(o)) + '</p>' : '') +
         (status === 'completed' ? '<p style="font-weight:bold;color:#15803d;margin-top:6px;">✅ وصل الطلب</p>' : '') +
+        (o.waVerified ? '<p style="font-weight:bold;color:#15803d;margin-top:6px;">✅ طلبك مؤكَّد على واتساب</p>' : '') +
       '</div>' +
+      ((o.waCode && !o.waVerified && status !== 'completed' && status !== 'cancelled') ? khWaConfirmHtml(o) : '') +
       '<button class="btn secondary" onclick="openChat(\'order_' + orderId + '\',\'💬 طلبك — تعديل أو استفسار\')">💬 مراسلة المكتبة بخصوص هذا الطلب</button>';
   } catch(e) { console.error(e); box.innerHTML = '<div class="card"><p>تعذّر تحميل الطلب. تأكد من اتصالك بالإنترنت.</p></div>'; }
 }
@@ -8330,6 +8426,38 @@ function copyOrderLink(id) {
   const link = window.location.origin + window.location.pathname + '#o=' + id;
   navigator.clipboard.writeText(link).then(() => alert('تم نسخ رابط الطلب ✅ — أرسله للزبون وبيشوف طلبه مباشرة')).catch(() => alert('تعذّر النسخ'));
 }
+
+// ===== تأكيد الطلب على واتساب (من الإدارة) =====
+async function khWaVerify(id, phone) {
+  const real = prompt('✅ تأكيد الطلب على واتساب\n\nإذا رقم الواتساب اللي راسلكم يختلف عن رقم الطلب، اكتبه هنا (11 رقم).\nإذا نفس الرقم اتركه فارغ واضغط موافق:', '');
+  if (real === null) return;
+  const clean = toEnglishDigits(String(real).trim()).replace(/[^\d]/g, '').replace(/^964/, '0');
+  if (clean && !/^07\d{9}$/.test(clean)) { alert('الرقم لازم يكون 11 رقم ويبدأ بـ 07'); return; }
+  const update = { waVerified: true, waVerifiedAt: Date.now(), waVerifiedBy: currentStaffName || 'المشرف' };
+  if (clean && clean !== phone) update.waPhone = clean;
+  try { await db.collection('orders').doc(id).update(update); alert('تم ✅ — الطلب صار مؤكَّد واتساب'); }
+  catch (e) { console.error(e); alert('تعذّر الحفظ: ' + (e.message || '')); }
+  try { if (typeof loadOrdersAdmin === 'function') loadOrdersAdmin(); } catch (e) {}
+  if (document.getElementById('waSearchCode') && document.getElementById('waSearchCode').value.trim()) khWaSearch();
+}
+async function khWaUnverify(id) {
+  if (!confirm('إلغاء علامة «مؤكَّد واتساب» من هذا الطلب؟')) return;
+  try { await db.collection('orders').doc(id).update({ waVerified: false }); } catch (e) { console.error(e); alert('تعذّر: ' + (e.message || '')); }
+  try { if (typeof loadOrdersAdmin === 'function') loadOrdersAdmin(); } catch (e) {}
+  if (document.getElementById('waSearchCode') && document.getElementById('waSearchCode').value.trim()) khWaSearch();
+}
+async function khWaSearch() {
+  const box = document.getElementById('waSearchResult');
+  let code = toEnglishDigits(document.getElementById('waSearchCode').value.trim()).toUpperCase().replace(/\s+/g, '');
+  if (!code) { box.innerHTML = ''; return; }
+  if (/^\d{5}$/.test(code)) code = 'K' + code;
+  box.innerHTML = '<p class="loader">جاري البحث...</p>';
+  try {
+    const snap = await db.collection('orders').where('waCode', '==', code).limit(5).get();
+    if (snap.empty) { box.innerHTML = '<p style="color:#b91c1c;">ما لگينا طلب بهذا الكود.</p>'; return; }
+    box.innerHTML = snap.docs.map(d => renderOrderCard(d.id, d.data(), 0)).join('');
+  } catch (e) { console.error(e); box.innerHTML = '<p style="color:#b91c1c;">تعذّر البحث: ' + (e.message || '') + '</p>'; }
+}
 function renderOrderCard(id, o, unreadCount, mode) {
   // mode: undefined = وضع كامل (جديدة/قيد التنفيذ)، 'delivering' = مراسلة + رفض، 'arrived' = مراسلة فقط
   const itemsText = o.items.map(it => {
@@ -8382,14 +8510,19 @@ function renderOrderCard(id, o, unreadCount, mode) {
        <button class="small-btn" onclick="deleteOrder('${id}')">🗑️ حذف الطلب</button>`;
   }
   actionsHtml += `<button class="small-btn" onclick="copyOrderLink('${id}')">🔗 نسخ رابط الطلب</button>`;
+  actionsHtml += o.waVerified
+    ? `<button class="small-btn" onclick="khWaUnverify('${id}')">↩️ إلغاء تأكيد الواتساب</button>`
+    : `<button class="small-btn" style="background:#25d366;color:#fff;" onclick="khWaVerify('${id}','${o.phone||''}')">✅ تأكيد واتساب</button>`;
   return `<div class="admin-list-item" style="flex-direction:column;align-items:stretch;${cardStyle}">
       <div style="margin-bottom:6px;${textColor}">
         ${isNew ? '<span style="background:#dc2626;color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">🆕 جديد</span> ' : ''}
         ${o.customerId ? `<span style="background:#0e6fa8;color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">🪪 رقم الزبون: ${o.customerId}</span> ` : ''}
+        ${o.waVerified ? `<span class="kh-wa-badge">✅ مؤكَّد واتساب</span> ` : (o.waCode ? `<span class="kh-wa-pending">🔑 ${o.waCode}</span> ` : '')}
         ${o.status === 'cancelled' ? '<span style="background:#000;color:#fff;border:1px solid #fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">❌ ملغى</span> ' : ''}
         ${unreadCount > 0 ? `<span style="background:#ec4899;color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:bold;">💬 طلب تعديل (${unreadCount})</span> ` : ''}
         <span style="color:${o.status==='cancelled'?'#d1d5db':'#8a90a3'};font-size:12px;">🕒 ${formatOrderTime(o.createdAt)}</span><br>
         <b style="text-decoration:underline;cursor:pointer;color:#0e6fa8;" onclick="openCustomerProfile('${o.phone}')">${o.studentName}</b> — ${o.phone}${o.altPhone ? ' / '+o.altPhone : ''}<br>
+        ${o.waPhone && o.waPhone !== o.phone ? `<span style="color:#15803d;font-weight:bold;">📲 رقم الواتساب الحقيقي: ${o.waPhone}</span><br>` : ''}
         <span style="color:${o.status==='cancelled'?'#d1d5db':'#888'};">${o.province} - ${o.district}</span><br>
         ${itemsText}<br>
         <span style="color:#8a90a3;font-size:12px;">${fulfillmentLabel}</span><br>
