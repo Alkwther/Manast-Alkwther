@@ -3638,6 +3638,9 @@ function studentEmailFromPhone(phone) { return `${phone}@${STUDENT_AUTH_DOMAIN}`
 try {
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
+  // بعض شبكات الإنترنت (وبعض المتصفحات داخل التطبيقات) تقطع اتصال فايرستور المستمر،
+  // فالقراءة تشتغل من النسخة المحفوظة بس الحفظ يعلگ. هذا الإعداد يكتشفها ويحوّل لطريقة اتصال تشتغل بكل الشبكات
+  try { db.settings({ experimentalAutoDetectLongPolling: true, merge: true }); } catch (e) { console.warn('firestore settings', e); }
   auth = firebase.auth();
   auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => console.error('persistence error', e));
   // تخزين محلي دائم لقاعدة البيانات: أي بيانات وصلت مرة (صفوف، مواد، ملازم...) تضل محفوظة بالجهاز
@@ -4687,6 +4690,8 @@ function showOrderConfirmationScreen(order, placedByTeacherName) {
 
 
 // ===== تأكيد رقم الزبون قبل الحجز + تأكيد الطلب على واتساب =====
+// رقم واتساب المطبعة اللي يستلم رسائل تأكيد الطلبات من الزبائن (07708170195)
+const ORDER_CONFIRM_WHATSAPP = '9647708170195';
 function khMakeWaCode() { return 'K' + String(Math.floor(10000 + Math.random() * 90000)); }
 function khFormatIraqiPhone(p) { p = String(p || ''); return p.length === 11 ? `${p.slice(0,4)} ${p.slice(4,7)} ${p.slice(7)}` : p; }
 function khPhoneProblem(p) {
@@ -4719,8 +4724,19 @@ function khInstallPhoneConfirm() {
   btn.dataset.khPc = '1';
   const original = btn.onclick;
   btn.onclick = async (ev) => {
-    if (khPhoneConfirmed) { khPhoneConfirmed = false; return original.call(btn, ev); }
+    if (khPhoneConfirmed) {
+      khPhoneConfirmed = false;
+      // إذا النت ضعيف والإرسال طوّل، نطمّن الزبون بدل ما يبقى «جاري الإرسال» بدون أي توضيح
+      const slowTimer = setTimeout(() => {
+        if (typeof isSubmittingOrder !== 'undefined' && isSubmittingOrder) setMsg('checkoutMsg', '⏳ الإنترنت ضعيف — طلبك قيد الإرسال، لا تسكّر الصفحة ولا تضغط مرة ثانية. أول ما يتحسن النت يكمل لحاله.', true);
+      }, 12000);
+      try { return await original.call(btn, ev); } finally { clearTimeout(slowTimer); }
+    }
     if (typeof isSubmittingOrder !== 'undefined' && isSubmittingOrder) return;
+    if (navigator.onLine === false) {
+      setMsg('checkoutMsg', '📴 ما في اتصال بالإنترنت — تأكد إن وضع الطيران مطفي والنت شغال، وبعدها اضغط تأكيد الشراء.', false);
+      return;
+    }
     const name = document.getElementById('ckName').value.trim();
     const province = document.getElementById('ckProvince').value;
     const district = document.getElementById('ckDistrict').value.trim();
@@ -4736,7 +4752,7 @@ function khInstallPhoneConfirm() {
 function khWaConfirmHtml(order) {
   if (!order || !order.waCode) return '';
   const msg = `✅ تأكيد طلب رقم ${order.waCode}\nالاسم: ${order.studentName || ''}\nالمحافظة: ${order.province || ''}\nالمجموع: ${order.totalPrice || ''} د.ع`;
-  const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+  const href = `https://wa.me/${ORDER_CONFIRM_WHATSAPP}?text=${encodeURIComponent(msg)}`;
   return `<div class="card kh-wa-card">
       <div class="kh-wa-head"><span class="kh-wa-ic">📲</span><div><b>أكّد طلبك على واتساب</b><span>حتى نجهّز طلبك أسرع ونتواصل وياك على رقمك الصحيح</span></div></div>
       <div class="kh-wa-code">رقم الطلب: <b>${order.waCode}</b></div>
@@ -4838,7 +4854,14 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
       newOrderData.platformOwedToLibrary = await computePlatformOwedForOrder({ items, fulfillment });
       newOrderData.platformOwedSettled = false;
     }
-    const newOrderRef = await db.collection('orders').add(newOrderData);
+    // نحجز رقم الطلب أول، وننتظر الحفظ لحد 20 ثانية. إذا النت بطيء، الطلب يبقى محفوظ بالجهاز
+    // ويوصل للمكتبة تلقائياً (بنفس الرقم، فما يتكرر أبداً) بدل ما يعلگ الزر على «جاري الإرسال»
+    const newOrderRef = db.collection('orders').doc();
+    let savedLate = false;
+    await Promise.race([
+      newOrderRef.set(newOrderData),
+      new Promise(r => setTimeout(() => { savedLate = true; r(); }, 20000))
+    ]);
     // ننقّص العدد المتوفر لأي ملزمة متابَع عليها مخزون (نفس منطق برنامج الإدارة) — ما يأثر على الطلب حتى لو صار خطأ هنا
     (async () => {
       try {
@@ -4860,7 +4883,7 @@ document.getElementById('confirmOrderBtn').onclick = async () => {
     cart = {}; saveCartToStorage();
     placingOrderForTeacher = null;
     setupCustomerNotifications(phone);
-    if (navigator.onLine === false) {
+    if (navigator.onLine === false || savedLate) {
       // بدون إنترنت ما نقدر نضمن وصلت البيانات فعلاً ولا موعد التوصيل دقيق، فنكتفي برسالة الحفظ المحلي
       setMsg('checkoutMsg', '📦 تم حفظ طلبك، وسيصل تلقائياً بمجرد رجوع الإنترنت ✅', true);
       setTimeout(() => showMyOrders(phone), 700);
