@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kawthar-platform-v220';
+const CACHE_NAME = 'kawthar-admin-v63';
 const APP_SHELL = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 // ==== إشعارات حقيقية (Firebase Cloud Messaging) — تستلم وتعرض إشعار حتى لو التطبيق مقفول تماماً ====
@@ -68,47 +68,21 @@ function isShellAsset(url) {
          url.pathname.endsWith('/') || url.pathname === '';
 }
 
-// طلبات Firebase/Google API الحيّة (قاعدة البيانات، تسجيل الدخول، الإشعارات) ما نتدخل بيها أبداً:
-// هذي اتصالات مستمرة أو طلبات خاصة بالمستخدم، وتخزينها بالكاش يسبب بطء وبيانات قديمة وأخطاء
-function isLiveApiRequest(url) {
-  const h = url.hostname;
-  return h.includes('firestore.googleapis.com') || h.includes('firebaseio.com') ||
-         h.includes('identitytoolkit.googleapis.com') || h.includes('securetoken.googleapis.com') ||
-         h.includes('fcmregistrations.googleapis.com') || h.includes('firebaseinstallations.googleapis.com') ||
-         h.includes('firebasestorage.googleapis.com') || h.includes('api.alwaseet') ||
-         h.includes('cloudfunctions.net') || h.includes('run.app') || h.includes('wa.me');
-}
-function canCache(response) {
-  return response && (response.ok || response.type === 'opaque');
-}
-function putInCache(request, response) {
-  if (!canCache(response)) return;
-  const copy = response.clone();
-  caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
-}
-
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
-  if (isLiveApiRequest(url)) return; // نخلي المتصفح يتعامل معها مباشرة
   const isSameOrigin = url.origin === self.location.origin;
-  const isNavigation = event.request.mode === 'navigate';
 
-  if (isSameOrigin && (isShellAsset(url) || isNavigation)) {
+  if (isSameOrigin && isShellAsset(url)) {
     // Cache-first + تحديث بالخلفية (stale-while-revalidate): ما تختفي أبداً بسبب بطء النت
     event.respondWith(
-      caches.match(event.request, { ignoreSearch: true }).then((cached) => {
+      caches.match(event.request).then((cached) => {
         const networkUpdate = fetch(event.request).then((response) => {
-          putInCache(event.request, response);
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           return response;
-        }).catch(() => cached || (isNavigation ? caches.match('./index.html') : undefined))
-          .then((res) => res || new Response('غير متصل بالإنترنت', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }));
-        if (cached) {
-          event.waitUntil(networkUpdate.catch(() => {}));
-          return cached;
-        }
-        return networkUpdate;
+        }).catch(() => cached);
+        return cached || networkUpdate;
       })
     );
     return;
@@ -119,9 +93,10 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        putInCache(event.request, response);
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || Response.error()))
+      .catch(() => caches.match(event.request))
   );
 });
