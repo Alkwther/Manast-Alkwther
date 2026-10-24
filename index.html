@@ -8691,7 +8691,7 @@ async function computePlatformOwedForOrder(order) {
     const bookDoc = await db.collection('books').doc(item.bookId).get();
     if (!bookDoc.exists) continue;
     const book = bookDoc.data();
-    if (book.teacherShare != null) owed += (item.price - book.teacherShare) * item.qty;
+    if (book.teacherShare != null) owed += Math.max(0, item.price - book.teacherShare) * item.qty; // ما يصير سالب أبداً
   }
   return owed;
 }
@@ -10690,7 +10690,10 @@ async function openTeacherBooksLibrary() {
   booksSnap.docs.forEach(d => { const b = d.data(); if (b.teacherShare) bookShareById[d.id] = b.teacherShare; });
   function computeLiveShareForOrder(o) {
     if (o.fulfillment === 'teacher' && o.fulfillmentTeacherName === currentTeacher.name) {
-      if (o.platformOwedToLibrary != null) return (o.subtotal||0) - (o.platformOwedToLibrary||0);
+      // سعر المواد فقط (المبلغ الكلي ناقص أجرة التوصيل) — أجرة التوصيل ما تنحسب للأستاذ
+      const itemsSub = (o.items||[]).reduce((t, it) => t + (Number(it.price)||0) * (Number(it.qty)||1), 0) || Math.max(0, (o.totalPrice||0) - (o.deliveryFee||0));
+      if (o.deliveredBy === 'library') return itemsSub; // المكتبة وصّلته: حقك سعر المواد كامل
+      if (o.platformOwedToLibrary != null) return itemsSub - Math.max(0, o.platformOwedToLibrary||0);
       return null;
     }
     let sum = 0, matched = false;
@@ -10724,10 +10727,11 @@ async function openTeacherBooksLibrary() {
     const status = computeEffectiveStatus(o);
     if (!statusAgg[status]) return; // بس الحالات الأربعة المعروضة
 
-    const isSelf = o.fulfillment === 'teacher' && o.fulfillmentTeacherName === currentTeacher.name;
+    const isSelf = o.fulfillment === 'teacher' && o.fulfillmentTeacherName === currentTeacher.name && o.deliveredBy !== 'library';
+    const isStoreViaLibrary = o.fulfillment === 'teacher' && o.fulfillmentTeacherName === currentTeacher.name && o.deliveredBy === 'library';
     // حصتك من هذا الطلب: للطلبات المكتملة نفضّل الرقم المحفوظ وقت التسليم (الدقيق)، ولو ما
     // كان محسوب لأي سبب أو كان الطلب لسا بالطريق (قيد التنفيذ/التوصيل)، نحسبها تقديرياً الآن مباشرة
-    let share = (status === 'completed' && !isSelf && o.teacherPayouts && o.teacherPayouts[currentTeacher.name] != null)
+    let share = (status === 'completed' && !isSelf && !isStoreViaLibrary && o.teacherPayouts && o.teacherPayouts[currentTeacher.name] != null)
       ? o.teacherPayouts[currentTeacher.name]
       : computeLiveShareForOrder(o);
     if (share == null) return;
