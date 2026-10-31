@@ -4435,11 +4435,19 @@ function addToCart(id, title, price, qty, meta) {
   return true;
 }
 
+window.khMainCart = () => cart;
+window.khSaveMainCart = () => saveCartToStorage();
 // ===== مزامنة السلة مع آخر بيانات برنامج الإدارة قبل إرسال الطلب =====
 // أي تغيير يسويه المشرف (سعر، اسم، حذف ملزمة، عدد متوفر) ينطبق على سلة الزبون قبل ما ينحفظ الطلب
 async function khSyncCartWithServer() {
   const notes = [];
   // أجور التوصيل اللي يغيّرها المشرف من برنامج الإدارة
+  if (navigator.onLine !== false && typeof window.tbRefreshCartPrices === 'function') {
+    try {
+      const tn = await Promise.race([window.tbRefreshCartPrices(), new Promise(r => setTimeout(() => r([]), 9000))]);
+      if (tn && tn.length) { notes.push(...tn); try { renderCartItems(); } catch (e) {} }
+    } catch (e) { console.error(e); }
+  }
   if (navigator.onLine !== false && typeof loadDeliveryFeesSettings === 'function') {
     const beforeFees = JSON.stringify(DELIVERY_FEES);
     await Promise.race([loadDeliveryFeesSettings(), new Promise(r => setTimeout(r, 4000))]);
@@ -4515,6 +4523,10 @@ function renderCartBar() {
 function openCheckout() {
   renderCartItems();
   loadDeliverySchedule(); // نجهّز آخر مواعيد حددها المشرف بالخلفية (بدون أي تغيير بالواجهة)
+  // نطابق أسعار السلة ويا آخر أسعار الإدارة أول ما تنفتح الصفحة، حتى الزبون يشوف السعر الصحيح قبل لا يأكد
+  khSyncCartWithServer().then(r => {
+    if (r && r.changed) { try { renderCartItems(); } catch (e) {} setMsg('checkoutMsg', '🔄 تحدّثت أسعار سلتك حسب آخر تحديث: ' + r.notes.join(' • '), true); }
+  }).catch(e => console.error(e));
   // نجيب آخر أجور توصيل حددها المشرف ونحدّث المجموع بصمت
   if (typeof loadDeliveryFeesSettings === 'function') loadDeliveryFeesSettings().then(() => { try { renderCartItems(); } catch (e) {} });
   document.getElementById('ckName').value = currentStudent ? currentStudent.name : '';
@@ -14749,6 +14761,41 @@ window.removeGrade = removeGrade;
 window.goToDelivery = goToDelivery;
 window.goToConfirm = goToConfirm;
 window.sendWhatsApp = sendWhatsApp;
+
+// تحديث أسعار الكتب المنهجية الموجودة بالسلة حسب آخر أسعار حددتها الإدارة
+window.tbRefreshCartPrices = async function () {
+  const notes = [];
+  const mainCart = typeof window.khMainCart === 'function' ? window.khMainCart() : {}; // سلة الشراء الرئيسية (مو سلة الكتب القديمة بهذا القسم)
+  const keys = Object.keys(mainCart || {}).filter(k => k.startsWith('pkg_') || k.startsWith('subj_'));
+  if (!keys.length) return notes;
+  let ok = false;
+  try { ok = await tbLoadData(); } catch (e) { console.error(e); }
+  if (!ok) return notes;
+  tbRealPricesLoaded = true;
+  const setPrice = (k, np) => {
+    const it = mainCart[k];
+    if (!it || !(np > 0) || Number(it.price) === np) return;
+    notes.push(`تغيّر سعر «${String(it.title || '').replace(/^📦 |^📗 /, '')}» من ${it.price} إلى ${np} د.ع`);
+    it.price = np;
+  };
+  const subjByGrade = {};
+  keys.forEach(k => {
+    if (k.startsWith('pkg_')) { const g = TB_GRADES[k.slice(4)]; if (g && g.pkg > 0) setPrice(k, g.pkg); return; }
+    const rest = k.slice(5);
+    const gid = Object.keys(TB_GRADES).find(id => rest.startsWith(id + '_'));
+    if (gid) (subjByGrade[gid] = subjByGrade[gid] || []).push({ k, name: rest.slice(gid.length + 1) });
+  });
+  Object.entries(subjByGrade).forEach(([gid, list]) => {
+    const g = TB_GRADES[gid]; if (!g) return;
+    const n = list.length;
+    list.forEach(({ k, name }) => {
+      const b = (g.books || []).find(x => x.name === name);
+      setPrice(k, (b && b.price > 0) ? b.price : Math.round(calcBookPrice(n) / n));
+    });
+  });
+  if (notes.length && typeof window.khSaveMainCart === 'function') window.khSaveMainCart();
+  return notes;
+};
 
 })();
 </script>
